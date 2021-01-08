@@ -1,0 +1,48 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.30621.155
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SqlTransactionalOutboxHelpers.SampleApp.AzureFunctions", "SqlTransactionalOutboxHelpers.SampleApp.AzureFunctions\SqlTransactionalOutboxHelpers.SampleApp.AzureFunctions.csproj", "{A0C001F9-7A6A-46B1-A14E-377C87D78E08}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SqlTransactionalOutboxHelpers.Common", "SqlTransactionalOutboxHelpers.Common\SqlTransactionalOutboxHelpers.Common.csproj", "{2A13CF08-0572-4032-BA56-9361C1CCB257}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SqlTransactionalOutboxHelpers.AzureEventBus", "SqlTransactionalOutboxHelpers.AzureEventBus\SqlTransactionalOutboxHelpers.AzureEventBus.csproj", "{0CA4837D-FE64-48F4-BCC7-B71CB3171004}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SqlTransactionalOutboxHelpers.SqlServer.SystemDataNS", "SqlTransactionalOutboxHelpers.SqlServer.SystemDataNS\SqlTransactionalOutboxHelpers.SqlServer.SystemDataNS.csproj", "{64DAEA6E-E6F9-46F6-85CE-310D399DE0DE}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "SamplesAndTests", "SamplesAndTests", "{D849B37A-EB7F-4202-8D02-A6A113DA21D5}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{A0C001F9-7A6A-46B1-A14E-377C87D78E08}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A0C001F9-7A6A-46B1-A14E-377C87D78E08}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A0C001F9-7A6A-46B1-A14E-377C87D78E08}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A0C001F9-7A6A-46B1-A14E-377C87D78E08}.Release|Any CPU.Build.0 = Release|Any CPU
+		{2A13CF08-0572-4032-BA56-9361C1CCB257}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{2A13CF08-0572-4032-BA56-9361C1CCB257}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{2A13CF08-0572-4032-BA56-9361C1CCB257}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{2A13CF08-0572-4032-BA56-9361C1CCB257}.Release|Any CPU.Build.0 = Release|Any CPU
+		{0CA4837D-FE64-48F4-BCC7-B71CB3171004}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0CA4837D-FE64-48F4-BCC7-B71CB3171004}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0CA4837D-FE64-48F4-BCC7-B71CB3171004}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0CA4837D-FE64-48F4-BCC7-B71CB3171004}.Release|Any CPU.Build.0 = Release|Any CPU
+		{64DAEA6E-E6F9-46F6-85CE-310D399DE0DE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{64DAEA6E-E6F9-46F6-85CE-310D399DE0DE}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{64DAEA6E-E6F9-46F6-85CE-310D399DE0DE}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{64DAEA6E-E6F9-46F6-85CE-310D399DE0DE}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{A0C001F9-7A6A-46B1-A14E-377C87D78E08} = {D849B37A-EB7F-4202-8D02-A6A113DA21D5}
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {E8B58B0F-A54F-46A4-9DA0-ABEA3B106C76}
+	EndGlobalSection
+EndGlobal
