@@ -6,7 +6,7 @@ namespace SqlTransactionalOutboxHelpers.AzureEventBus
 {
     public class AzureEventBusPublisher : ISqlTransactionalOutboxPublisher
     {
-        public Task<OutboxPublishingResults> ExecutePublishingProcess(ISqlTransactionalOutboxProcessor outboxProcessor)
+        public Task PublishOutboxItemAsync(OutboxItem outboxItem)
         {
             throw new NotImplementedException();
         }

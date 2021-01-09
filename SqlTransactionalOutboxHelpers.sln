@@ -13,6 +13,12 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SqlTransactionalOutboxHelpe
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "SamplesAndTests", "SamplesAndTests", "{D849B37A-EB7F-4202-8D02-A6A113DA21D5}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Common", "Common", "{AD13C055-B61F-45B1-95CB-F672F1EBAC00}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Implementations.Publishing", "Implementations.Publishing", "{1E89533A-10A9-4B7C-9416-2B84C3522FAC}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Implementation.Processing", "Implementation.Processing", "{D75A40EA-4ECE-46FF-93E7-64193AD078F7}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -41,6 +47,9 @@ Global
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{A0C001F9-7A6A-46B1-A14E-377C87D78E08} = {D849B37A-EB7F-4202-8D02-A6A113DA21D5}
+		{2A13CF08-0572-4032-BA56-9361C1CCB257} = {AD13C055-B61F-45B1-95CB-F672F1EBAC00}
+		{0CA4837D-FE64-48F4-BCC7-B71CB3171004} = {1E89533A-10A9-4B7C-9416-2B84C3522FAC}
+		{64DAEA6E-E6F9-46F6-85CE-310D399DE0DE} = {D75A40EA-4ECE-46FF-93E7-64193AD078F7}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {E8B58B0F-A54F-46A4-9DA0-ABEA3B106C76}

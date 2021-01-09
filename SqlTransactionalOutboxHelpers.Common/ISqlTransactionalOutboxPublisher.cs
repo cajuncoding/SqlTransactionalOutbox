@@ -7,6 +7,6 @@ namespace SqlTransactionalOutboxHelpers
 {
     public interface ISqlTransactionalOutboxPublisher
     {
-        Task<OutboxPublishingResults> ExecutePublishingProcess(ISqlTransactionalOutboxProcessor outboxProcessor);
+        Task PublishOutboxItemAsync(OutboxItem outboxItem);
     }
 }
