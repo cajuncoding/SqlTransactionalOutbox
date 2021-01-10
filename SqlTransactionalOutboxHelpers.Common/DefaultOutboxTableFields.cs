@@ -6,12 +6,11 @@ namespace SqlTransactionalOutboxHelpers
 {
     public class DefaultOutboxTableFields : ISqlTransactionalOutboxTableFields
     {
-        public string UUIDFieldName { get; } = nameof(OutboxItem.UUID);
-        public string StatusFieldName { get; } = nameof(OutboxItem.Status);
-        public string PublishingTargetFieldName { get; } = nameof(OutboxItem.PublishingTarget);
-        public string PublishingPayloadFieldName { get; } = nameof(OutboxItem.PublishingPayload);
-        public string PublishingAttemptsFieldName { get; } = nameof(OutboxItem.PublishingAttempts);
-        public string CreatedDateTimeUtcFieldName { get; } = nameof(OutboxItem.CreatedDateTimeUtc);
-        public string ExpirationDateTimeUtcFieldName { get; } = nameof(OutboxItem.ExpirationDateTimeUtc);
+        public string UniqueIdentifierFieldName { get; } = nameof(ISqlTransactionalOutboxItem.UniqueIdentifier);
+        public string StatusFieldName { get; } = nameof(ISqlTransactionalOutboxItem.Status);
+        public string PublishingTargetFieldName { get; } = nameof(ISqlTransactionalOutboxItem.PublishingTarget);
+        public string PublishingPayloadFieldName { get; } = nameof(ISqlTransactionalOutboxItem.PublishingPayload);
+        public string PublishingAttemptsFieldName { get; } = nameof(ISqlTransactionalOutboxItem.PublishingAttempts);
+        public string CreatedDateTimeUtcFieldName { get; } = nameof(ISqlTransactionalOutboxItem.CreatedDateTimeUtc);
     }
 }

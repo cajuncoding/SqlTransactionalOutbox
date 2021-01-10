@@ -5,8 +5,8 @@ using System.Threading.Tasks;
 
 namespace SqlTransactionalOutboxHelpers
 {
-    public interface ISqlTransactionalOutboxPublisher
+    public interface ISqlTransactionalOutboxSerializer
     {
-        Task PublishOutboxItemAsync(OutboxItem outboxItem);
+        string SerializePayload<TPayload>(TPayload payload);
     }
 }

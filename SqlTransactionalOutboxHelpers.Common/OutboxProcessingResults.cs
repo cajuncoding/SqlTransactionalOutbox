@@ -7,9 +7,9 @@ namespace SqlTransactionalOutboxHelpers
 {
     public class OutboxProcessingResults
     {
-        public List<OutboxItem> SuccessfullyPublishedItems { get; } = new List<OutboxItem>();
+        public List<ISqlTransactionalOutboxItem> SuccessfullyPublishedItems { get; } = new List<ISqlTransactionalOutboxItem>();
 
-        public List<OutboxItem> FailedItems { get; } = new List<OutboxItem>();
+        public List<ISqlTransactionalOutboxItem> FailedItems { get; } = new List<ISqlTransactionalOutboxItem>();
 
         public Stopwatch ProcessingTimer { get; set; }
     }

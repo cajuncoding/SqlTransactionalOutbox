@@ -7,11 +7,11 @@ namespace SqlTransactionalOutboxHelpers
 {
     public interface ISqlTransactionalOutboxRepository
     {
-        Task CreateOutboxItemAsync(OutboxItem outboxItem);
+        Task CreateOutboxItemAsync(ISqlTransactionalOutboxItem outboxItem);
 
-        Task UpdateOutboxItemsAsync(List<OutboxItem> outboxItem);
+        Task UpdateOutboxItemsAsync(List<ISqlTransactionalOutboxItem> outboxItem);
 
-        Task<List<OutboxItem>> RetrievePendingOutboxItemsAsync(int maxBatchSize = -1);
+        Task<List<ISqlTransactionalOutboxItem>> RetrieveOutboxItemsAsync(OutboxItemStatus status, int maxBatchSize = -1);
 
         Task<IAsyncDisposable> AcquireDistributedProcessingMutexAsync();
     }

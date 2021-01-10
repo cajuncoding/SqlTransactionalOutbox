@@ -12,7 +12,8 @@ namespace SqlTransactionalOutboxHelpers.SqlServer.SystemDataNS
 
         public SqlServerTransactionalOutboxProcessor(
             SqlTransaction sqlTransaction,
-            ISqlTransactionalOutboxPublisher outboxPublisher)
+            ISqlTransactionalOutboxPublisher outboxPublisher
+        )
         {
             //Initialize Sql Server repository and Outbox Processor with needed dependencies
             var sqlServerOutboxRepository = new SqlServerTransactionalOutboxRepository(sqlTransaction);

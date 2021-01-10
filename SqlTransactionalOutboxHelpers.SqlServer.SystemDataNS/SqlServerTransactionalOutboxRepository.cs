@@ -12,17 +12,17 @@ namespace SqlTransactionalOutboxHelpers.SqlServer.SystemDataNS
             
         }
 
-        public virtual async Task<List<OutboxItem>> RetrievePendingOutboxItemsAsync(int maxBatchSize = -1)
+        public virtual async Task<List<ISqlTransactionalOutboxItem>> RetrieveOutboxItemsAsync(OutboxItemStatus status, int maxBatchSize = -1)
         {
             throw new NotImplementedException();
         }
 
-        public virtual async Task CreateOutboxItemAsync(OutboxItem outboxItem)
+        public virtual async Task CreateOutboxItemAsync(ISqlTransactionalOutboxItem outboxItem)
         {
             throw new NotImplementedException();
         }
 
-        public virtual async Task UpdateOutboxItemsAsync(List<OutboxItem> outboxItem)
+        public virtual async Task UpdateOutboxItemsAsync(List<ISqlTransactionalOutboxItem> outboxItem)
         {
             throw new NotImplementedException();
         }
