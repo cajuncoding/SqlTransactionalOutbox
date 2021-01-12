@@ -6,8 +6,20 @@ namespace SqlTransactionalOutboxHelpers
 {
     public interface ISqlTransactionalOutboxItemFactory
     {
-        ISqlTransactionalOutboxItem CreateOutboxItem(string publishingTarget, string publishingPayload, TimeSpan? timeSpanToLive = null);
-        
+        ISqlTransactionalOutboxItem CreateExistingOutboxItem(
+            string uniqueIdentifier,
+            string status,
+            int publishingAttempts,
+            DateTime createdDateTimeUtc,
+            string publishingTarget, 
+            string publishingPayload
+        );
+
+        ISqlTransactionalOutboxItem CreateNewOutboxItem(
+            string publishingTarget, 
+            string publishingPayload
+        );
+
         string CreateUniqueIdentifier();
     }
 }

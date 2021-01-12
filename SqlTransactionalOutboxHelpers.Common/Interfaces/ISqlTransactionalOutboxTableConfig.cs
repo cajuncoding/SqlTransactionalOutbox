@@ -4,8 +4,12 @@ using System.Text;
 
 namespace SqlTransactionalOutboxHelpers
 {
-    public interface ISqlTransactionalOutboxTableFields
+    public interface ISqlTransactionalOutboxTableConfig
     {
+        string TransactionalOutboxSchemaName { get; }
+        
+        string TransactionalOutboxTableName { get; }
+        
         string UniqueIdentifierFieldName { get; }
         
         string StatusFieldName { get; }
