@@ -136,7 +136,7 @@ namespace SqlTransactionalOutboxHelpers.SqlServer.SystemDataNS
         protected void AddParam(SqlCommand sqlCmd, string name, object value, int index = -1)
         {
             sqlCmd.Parameters.AddWithValue(
-                QueryBuilder.ToSqlParamName(OutboxTableConfig.PublishingAttemptsFieldName, index),
+                QueryBuilder.ToSqlParamName(name, index),
                 value
             );
         }

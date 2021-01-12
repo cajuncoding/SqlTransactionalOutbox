@@ -6,14 +6,6 @@ using SqlTransactionalOutboxHelpers.CustomExtensions;
 
 namespace SqlTransactionalOutboxHelpers
 {
-    public interface ISqlTransactionalOutboxProcessor
-    {
-        Task<OutboxProcessingResults> ProcessPendingOutboxItemsAsync(
-            OutboxProcessingOptions processingOptions = null,
-            bool throwExceptionOnFailure = false
-        );
-    }
-
     /// <summary>
     /// Process all pending items in the transactional outbox using the specified ISqlTransactionalOutboxRepository,
     /// ISqlTransactionalOutboxPublisher, & OutboxProcessingOptions
@@ -33,6 +25,11 @@ namespace SqlTransactionalOutboxHelpers
             this.OutboxPublisher = outboxPublisher ?? throw new ArgumentNullException(nameof(OutboxPublisher));
         }
 
+        public Task ProcessCleanupOfOutboxHistoricalItemsAsync(TimeSpan historyTimeToKeepTimeSpan)
+        {
+            return OutboxRepository.CleanupOutboxHistoricalItemsAsync(historyTimeToKeepTimeSpan);
+        }
+
         public virtual async Task<OutboxProcessingResults> ProcessPendingOutboxItemsAsync(
             OutboxProcessingOptions processingOptions = null,
             bool throwExceptionOnFailure = false
@@ -40,7 +37,6 @@ namespace SqlTransactionalOutboxHelpers
         {
             var options = processingOptions ?? DefaultOutboxProcessingOptions;
             var results = new OutboxProcessingResults();
-            var processedItems = new List<ISqlTransactionalOutboxItem>();
 
             results.ProcessingTimer.Start();
 
@@ -66,6 +62,7 @@ namespace SqlTransactionalOutboxHelpers
                     $" [{results.ProcessingTimer.Elapsed.ToElapsedTimeDescriptiveFormat()}], at [{DateTime.Now}]..."
             );
 
+            //Attempt the acquire the Distributed Mutex Lock (if specified)!
             options.LogDebugCallback?.Invoke($"{nameof(options.EnableDistributedMutexLockForFifoPublishingOrder)} = {options.EnableDistributedMutexLockForFifoPublishingOrder}");
 
             results.ProcessingTimer.Start();
@@ -74,6 +71,8 @@ namespace SqlTransactionalOutboxHelpers
                 ? await OutboxRepository.AcquireDistributedProcessingMutexAsync()
                 : new NoOpAsyncDisposable();
 
+            //The distributed Mutex will ONLY be null if it could not be acquired; otherwise our
+            //  NoOp will be successfully initialized if locking is disabled.
             if (distributedMutex == null)
             {
                 var mutexErrorMessage = "Distributed Mutex Lock could not be acquired; processing will not continue.";
@@ -84,6 +83,38 @@ namespace SqlTransactionalOutboxHelpers
                 
                 return results;
             }
+
+            //Now process the Items and Update the Outbox appropriately...
+            var processedItems = await ProcessOutboxItemsInternal(
+                outboxItems, 
+                options, 
+                results, 
+                throwExceptionOnFailure
+            );
+
+            //Update & store the state for all Items Processed (e.g. Successful, Attempted, Failed, etc.)!
+            options.LogDebugCallback?.Invoke($"Starting to update the Outbox for [{processedItems.Count}] items...");
+            
+            results.ProcessingTimer.Start();
+            await OutboxRepository.UpdateOutboxItemsAsync(processedItems, options.ItemUpdatingBatchSize);
+            results.ProcessingTimer.Stop();
+
+            options.LogDebugCallback?.Invoke(
+                $"Finished updating the Outbox for [{processedItems.Count}] items in" +
+                    $" [{results.ProcessingTimer.Elapsed.ToElapsedTimeDescriptiveFormat()}]!"
+            );
+
+            return results;
+        }
+
+        public async Task<List<ISqlTransactionalOutboxItem>> ProcessOutboxItemsInternal(
+            List<ISqlTransactionalOutboxItem> outboxItems, 
+            OutboxProcessingOptions options,
+            OutboxProcessingResults results,
+            bool throwExceptionOnFailure
+        )
+        {
+            var processedItems = new List<ISqlTransactionalOutboxItem>();
 
             //We always sort data to generally maintain FIFO processing order, but parallelism risk is only mitigated
             //  by the above Mutex locking...
@@ -108,7 +139,7 @@ namespace SqlTransactionalOutboxHelpers
                             $"Item [{item.UniqueIdentifier}] has failed due to exceeding the max number of" +
                                 $" publishing attempts [{options.MaxPublishingAttempts}] with current PublishingAttempts=[{item.PublishingAttempts}]."
                         );
-                        
+
                         item.Status = OutboxItemStatus.FailedAttemptsExceeded;
                         results.FailedItems.Add(item);
                     }
@@ -119,7 +150,7 @@ namespace SqlTransactionalOutboxHelpers
                             $"Item [{item.UniqueIdentifier}] has failed due to exceeding the maximum time-to-live" +
                                 $" [{options.TimeSpanToLive.ToElapsedTimeDescriptiveFormat()}] because it was created at [{item.CreatedDateTimeUtc}] UTC."
                         );
-                        
+
                         item.Status = OutboxItemStatus.FailedExpired;
                         results.FailedItems.Add(item);
                     }
@@ -158,7 +189,7 @@ namespace SqlTransactionalOutboxHelpers
                         await OutboxRepository.UpdateOutboxItemsAsync(processedItems);
                         throw;
                     }
-                         
+
                     //Add Failed Item to the results
                     results.FailedItems.Add(item);
                 }
@@ -170,21 +201,7 @@ namespace SqlTransactionalOutboxHelpers
                     $" [{results.ProcessingTimer.Elapsed.ToElapsedTimeDescriptiveFormat()}]."
             );
 
-            //Update & store the state for all Items Processed (e.g. Successful, Attempted, Failed, etc.)!
-            options.LogDebugCallback?.Invoke($"Starting to update the Outbox for [{processedItems.Count}] items...");
-            
-            results.ProcessingTimer.Start();
-            await OutboxRepository.UpdateOutboxItemsAsync(processedItems, options.ItemUpdatingBatchSize);
-            results.ProcessingTimer.Stop();
-
-            options.LogDebugCallback?.Invoke(
-                $"Finished updating the Outbox for [{processedItems.Count}] items in" +
-                    $" [{results.ProcessingTimer.Elapsed.ToElapsedTimeDescriptiveFormat()}]!"
-            );
-
-            return results;
+            return processedItems;
         }
-
-
     }
 }

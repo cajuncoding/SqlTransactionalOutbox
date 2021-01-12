@@ -24,5 +24,9 @@ namespace SqlTransactionalOutboxHelpers.SqlServer.SystemDataNS
             var results = await this.OutboxProcessor.ProcessPendingOutboxItemsAsync(processingOptions, throwExceptionOnFailure);
             return results;
         }
+        public Task ProcessCleanupOfOutboxHistoricalItemsAsync(TimeSpan historyTimeToKeepTimeSpan)
+        {
+            return OutboxProcessor.ProcessCleanupOfOutboxHistoricalItemsAsync(historyTimeToKeepTimeSpan);
+        }
     }
 }
