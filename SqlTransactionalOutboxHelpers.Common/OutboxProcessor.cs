@@ -74,6 +74,17 @@ namespace SqlTransactionalOutboxHelpers
                 ? await OutboxRepository.AcquireDistributedProcessingMutexAsync()
                 : new NoOpAsyncDisposable();
 
+            if (distributedMutex == null)
+            {
+                var mutexErrorMessage = "Distributed Mutex Lock could not be acquired; processing will not continue.";
+                options.LogDebugCallback?.Invoke(mutexErrorMessage);
+
+                if (throwExceptionOnFailure) 
+                    throw new Exception(mutexErrorMessage);
+                
+                return results;
+            }
+
             //We always sort data to generally maintain FIFO processing order, but parallelism risk is only mitigated
             //  by the above Mutex locking...
             outboxItems = outboxItems.OrderBy(i => i.CreatedDateTimeUtc).ToList();
@@ -163,7 +174,7 @@ namespace SqlTransactionalOutboxHelpers
             options.LogDebugCallback?.Invoke($"Starting to update the Outbox for [{processedItems.Count}] items...");
             
             results.ProcessingTimer.Start();
-            await OutboxRepository.UpdateOutboxItemsAsync(processedItems);
+            await OutboxRepository.UpdateOutboxItemsAsync(processedItems, options.ItemUpdatingBatchSize);
             results.ProcessingTimer.Stop();
 
             options.LogDebugCallback?.Invoke(

@@ -13,6 +13,12 @@ namespace SqlTransactionalOutboxHelpers
         public int ItemProcessingBatchSize { get; set; } = -1;
 
         /// <summary>
+        /// Defines the maximum batch size (number) of items that can be processed per execution;
+        /// value of -1 disables batching and allow all items.
+        /// </summary>
+        public int ItemUpdatingBatchSize { get; set; } = 20;
+
+        /// <summary>
         /// The Maximum number of publishing retry attempts that can be made before the item fails;
         /// value of -1 disables this and allows an infinite number of retry attempts.
         /// </summary>

@@ -2,14 +2,17 @@
 
   <PropertyGroup>
     <TargetFramework>netstandard2.1</TargetFramework>
+    <UserSecretsId>e1071f99-800d-40a0-b5c4-dc4d485b27e4</UserSecretsId>
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="SqlAppLockHelper.SystemData" Version="1.0.1" />
     <PackageReference Include="System.Data.SqlClient" Version="4.8.2" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\SqlTransactionalOutboxHelpers.Common\SqlTransactionalOutboxHelpers.Common.csproj" />
+    <ProjectReference Include="..\SqlTransactionalOutboxHelpers.SqlServer.Common\SqlTransactionalOutboxHelpers.SqlServer.Common.csproj" />
   </ItemGroup>
 
 </Project>
