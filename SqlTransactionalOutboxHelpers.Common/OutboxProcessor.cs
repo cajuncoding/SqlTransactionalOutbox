@@ -10,24 +10,57 @@ namespace SqlTransactionalOutboxHelpers
     /// Process all pending items in the transactional outbox using the specified ISqlTransactionalOutboxRepository,
     /// ISqlTransactionalOutboxPublisher, & OutboxProcessingOptions
     /// </summary>
-    public class OutboxProcessor : ISqlTransactionalOutboxProcessor
+    public class OutboxProcessor<TPayload> : ISqlTransactionalOutboxProcessor<TPayload>
     {
-        public static OutboxProcessingOptions DefaultOutboxProcessingOptions = new OutboxProcessingOptions();
-
         protected ISqlTransactionalOutboxRepository OutboxRepository { get; }
         protected ISqlTransactionalOutboxPublisher OutboxPublisher { get; }
+        protected ISqlTransactionalOutboxSerializer PayloadSerializer { get; }
+        protected ISqlTransactionalOutboxItemFactory OutboxItemFactory { get; }
 
         public OutboxProcessor(
             ISqlTransactionalOutboxRepository outboxRepository,
-            ISqlTransactionalOutboxPublisher outboxPublisher)
+            ISqlTransactionalOutboxPublisher outboxPublisher,
+            ISqlTransactionalOutboxSerializer payloadSerializer = null,
+            ISqlTransactionalOutboxItemFactory outboxItemFactory = null
+        )
         {
             this.OutboxRepository = outboxRepository ?? throw new ArgumentNullException(nameof(OutboxRepository));
             this.OutboxPublisher = outboxPublisher ?? throw new ArgumentNullException(nameof(OutboxPublisher));
+            this.PayloadSerializer = payloadSerializer ?? new JsonOutboxPayloadSerializer();
         }
 
-        public Task ProcessCleanupOfOutboxHistoricalItemsAsync(TimeSpan historyTimeToKeepTimeSpan)
+        public virtual async Task ProcessCleanupOfOutboxHistoricalItemsAsync(TimeSpan historyTimeToKeepTimeSpan)
         {
-            return OutboxRepository.CleanupOutboxHistoricalItemsAsync(historyTimeToKeepTimeSpan);
+            //Cleanup the Historical data using the Repository...
+            await OutboxRepository.CleanupOutboxHistoricalItemsAsync(historyTimeToKeepTimeSpan).ConfigureAwait(false);
+        }
+        
+        public async Task<ISqlTransactionalOutboxItem> InsertNewPendingOutboxItemAsync(string publishingTarget, TPayload publishingPayload)
+        {
+            //Use the Outbox Item Factory to create a new Outbox Item (serialization of the Payload will be handled by the Factory).
+            var outboxInsertItem = new OutboxInsertItem<TPayload>(publishingTarget, publishingPayload);
+
+            //Store the outbox item using the Repository...
+            var resultItems = await InsertNewPendingOutboxItemsAsync(
+                new List<OutboxInsertItem<TPayload>>() { outboxInsertItem }
+            ).ConfigureAwait(false);
+
+            return resultItems.FirstOrDefault();
+        }
+
+        public async Task<IEnumerable<ISqlTransactionalOutboxItem>> InsertNewPendingOutboxItemsAsync(IEnumerable<OutboxInsertItem<TPayload>> outboxInsertItems)
+        {
+            //Use the Outbox Item Factory to create a new Outbox Item with serialized payload.
+            var outboxItems = outboxInsertItems.Select(i =>
+            {
+                var serializedPayload = PayloadSerializer.SerializePayload(i.PublishingPayload);
+                return OutboxItemFactory.CreateNewOutboxItem(i.PublishingTarget, serializedPayload);
+            });
+
+            //Store the outbox item using the Repository...
+            var resultItems = await OutboxRepository.InsertNewOutboxItemsAsync(outboxItems).ConfigureAwait(false);
+
+            return resultItems;
         }
 
         public virtual async Task<OutboxProcessingResults> ProcessPendingOutboxItemsAsync(
@@ -35,7 +68,7 @@ namespace SqlTransactionalOutboxHelpers
             bool throwExceptionOnFailure = false
         )
         {
-            var options = processingOptions ?? DefaultOutboxProcessingOptions;
+            var options = processingOptions ?? OutboxProcessingOptions.DefaultOutboxProcessingOptions;
             var results = new OutboxProcessingResults();
 
             results.ProcessingTimer.Start();
@@ -44,7 +77,7 @@ namespace SqlTransactionalOutboxHelpers
             var outboxItems = await OutboxRepository.RetrieveOutboxItemsAsync(
                 OutboxItemStatus.Pending, 
                 options.ItemProcessingBatchSize
-            );
+            ).ConfigureAwait(false);
 
             results.ProcessingTimer.Stop();
 
@@ -68,7 +101,7 @@ namespace SqlTransactionalOutboxHelpers
             results.ProcessingTimer.Start();
 
             await using var distributedMutex = options.EnableDistributedMutexLockForFifoPublishingOrder
-                ? await OutboxRepository.AcquireDistributedProcessingMutexAsync()
+                ? await OutboxRepository.AcquireDistributedProcessingMutexAsync().ConfigureAwait(false)
                 : new NoOpAsyncDisposable();
 
             //The distributed Mutex will ONLY be null if it could not be acquired; otherwise our
@@ -90,13 +123,13 @@ namespace SqlTransactionalOutboxHelpers
                 options, 
                 results, 
                 throwExceptionOnFailure
-            );
+            ).ConfigureAwait(false);
 
             //Update & store the state for all Items Processed (e.g. Successful, Attempted, Failed, etc.)!
             options.LogDebugCallback?.Invoke($"Starting to update the Outbox for [{processedItems.Count}] items...");
             
             results.ProcessingTimer.Start();
-            await OutboxRepository.UpdateOutboxItemsAsync(processedItems, options.ItemUpdatingBatchSize);
+            await OutboxRepository.UpdateOutboxItemsAsync(processedItems, options.ItemUpdatingBatchSize).ConfigureAwait(false);
             results.ProcessingTimer.Stop();
 
             options.LogDebugCallback?.Invoke(
@@ -158,7 +191,7 @@ namespace SqlTransactionalOutboxHelpers
                     else
                     {
                         item.PublishingAttempts++;
-                        await OutboxPublisher.PublishOutboxItemAsync(item);
+                        await OutboxPublisher.PublishOutboxItemAsync(item).ConfigureAwait(false);
 
                         options.LogDebugCallback?.Invoke(
                             $"Item [{item.UniqueIdentifier}] published successfully after [{item.PublishingAttempts}] publishing attempts!"
@@ -186,7 +219,7 @@ namespace SqlTransactionalOutboxHelpers
                     //Short circuit if we are configured to Throw the Error!
                     if (throwExceptionOnFailure)
                     {
-                        await OutboxRepository.UpdateOutboxItemsAsync(processedItems);
+                        await OutboxRepository.UpdateOutboxItemsAsync(processedItems).ConfigureAwait(false);
                         throw;
                     }
 

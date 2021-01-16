@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 
 namespace SqlTransactionalOutboxHelpers
@@ -42,41 +43,85 @@ namespace SqlTransactionalOutboxHelpers
             return sql;
         }
 
-        public virtual string BuildSqlForInsertNewOutboxItem(int index = -1)
+        /// <summary>
+        /// NOTE: In Sql Server, we ignore date/time values provided (if provided) because
+        ///         the value is critical to enforcing FIFO processing. Instead
+        ///         we use the DateTime the centralized database as the source.
+        /// NOTE: UTC Created DateTime will be automatically populated by DEFAULT constraint using
+        ///         SysUtcDateTime() per the Sql Server table script; SysUtcDateTime() is Sql Server's
+        ///         implementation for highly precise values stored as datetime2 fields.
+        /// </summary>
+        /// <param name="outboxItems"></param>
+        /// <returns></returns>
+        public virtual string BuildParameterizedSqlToInsertNewOutboxItems(IEnumerable<ISqlTransactionalOutboxItem> outboxItems)
         {
-            var sql = @$"
+            var itemCount = outboxItems.Count();
+            var sqlStringBuilder = new StringBuilder();
+
+            sqlStringBuilder.Append(@$"
                 INSERT INTO {BuildTableName()} (
                     {ToSqlFieldName(OutboxTableConfig.UniqueIdentifierFieldName)},
-                    {ToSqlFieldName(OutboxTableConfig.CreatedDateTimeUtcFieldName)},
                     {ToSqlFieldName(OutboxTableConfig.StatusFieldName)},
                     {ToSqlFieldName(OutboxTableConfig.PublishingAttemptsFieldName)},
                     {ToSqlFieldName(OutboxTableConfig.PublishingTargetFieldName)},
                     {ToSqlFieldName(OutboxTableConfig.PublishingPayloadFieldName)}
-                )
-                VALUES (
+                ) 
+                VALUES"
+            );
+
+            for (var index = 0; index < itemCount; index++)
+            {
+                //NOTE: In Sql Server, we ignore date/time values provided (if provided) because
+                //      the value is critical to enforcing FIFO processing. Instead
+                //      we use the DateTime the centralized database as the source to help ensure
+                //      integrity & precision of the item entry order.
+                //NOTE: UTC Created DateTime will be automatically populated by DEFAULT constraint using
+                //      SysUtcDateTime() per the Sql Server table script; SysUtcDateTime() is Sql Server's
+                //      implementation for highly precise values stored as datetime2 fields.
+                sqlStringBuilder.Append(@$"
+                (
                     {ToSqlParamName(OutboxTableConfig.UniqueIdentifierFieldName, index)},
-                    {ToSqlParamName(OutboxTableConfig.CreatedDateTimeUtcFieldName, index)},
                     {ToSqlParamName(OutboxTableConfig.StatusFieldName, index)},
                     {ToSqlParamName(OutboxTableConfig.PublishingAttemptsFieldName, index)},
                     {ToSqlParamName(OutboxTableConfig.PublishingTargetFieldName, index)},
                     {ToSqlParamName(OutboxTableConfig.PublishingPayloadFieldName, index)}
-                );
-            ";
+                )");
+            }
 
-            return sql;
+            //Append the OUTPUT so that we can return data initialized at the Database Layer!
+            //As noted above the UTC Created Date Time will be populated by Sql Server DEFAULT value
+            //  for this field in the table!
+            sqlStringBuilder.Append(@$"
+                OUTPUT 
+                    inserted.{ToSqlFieldName(OutboxTableConfig.UniqueIdentifierFieldName)}, 
+                    inserted.{ToSqlFieldName(OutboxTableConfig.CreatedDateTimeUtcFieldName)};
+            ");
+
+            return sqlStringBuilder.ToString();
         }
 
-        public virtual string BuildSqlForUpdateExistingOutboxItem(int index = -1)
+        public virtual string BuildParameterizedSqlToUpdateExistingOutboxItem(IEnumerable<ISqlTransactionalOutboxItem> outboxItems)
         {
-            var sql = @$"
-                UPDATE {BuildTableName()} SET
-                    {ToSqlFieldName(OutboxTableConfig.StatusFieldName)} = {ToSqlParamName(OutboxTableConfig.StatusFieldName, index)},
-                    {ToSqlFieldName(OutboxTableConfig.PublishingAttemptsFieldName)} = {ToSqlParamName(OutboxTableConfig.PublishingAttemptsFieldName, index)}
-                WHERE
-                    {ToSqlFieldName(OutboxTableConfig.UniqueIdentifierFieldName)} = {ToSqlParamName(OutboxTableConfig.UniqueIdentifierFieldName, index)}
-            ";
+            var uniqueIdentifierFieldName = ToSqlFieldName(OutboxTableConfig.UniqueIdentifierFieldName);
+            var tableName = BuildTableName();
+            var statusFieldName = ToSqlFieldName(OutboxTableConfig.StatusFieldName);
+            var publishingAttemptsFieldName = ToSqlFieldName(OutboxTableConfig.PublishingAttemptsFieldName);
 
-            return sql;
+            var sqlStringBuilder = new StringBuilder();
+            var itemCount = outboxItems.Count();
+
+            for (var index = 0; index < itemCount; index++)
+            {
+                sqlStringBuilder.Append(@$"
+                    UPDATE {tableName} SET
+                        {statusFieldName} = {ToSqlParamName(OutboxTableConfig.StatusFieldName, index)},
+                        {publishingAttemptsFieldName} = {ToSqlParamName(OutboxTableConfig.PublishingAttemptsFieldName, index)}
+                    WHERE
+                        {uniqueIdentifierFieldName} = {ToSqlParamName(OutboxTableConfig.UniqueIdentifierFieldName, index)};
+                ");
+            }
+
+            return sqlStringBuilder.ToString();
         }
 
         #region Internal Helpers

@@ -6,6 +6,8 @@ namespace SqlTransactionalOutboxHelpers
 {
     public class OutboxProcessingOptions
     {
+        public static OutboxProcessingOptions DefaultOutboxProcessingOptions = new OutboxProcessingOptions();
+
         /// <summary>
         /// Defines the maximum batch size (number) of items that can be processed per execution;
         /// value of -1 disables batching and allow all items.

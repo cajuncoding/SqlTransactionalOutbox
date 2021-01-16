@@ -6,8 +6,12 @@ using SqlTransactionalOutboxHelpers.CustomExtensions;
 
 namespace SqlTransactionalOutboxHelpers
 {
-    public class OutboxItemFactory : ISqlTransactionalOutboxItemFactory
+    public class OutboxItemFactory: ISqlTransactionalOutboxItemFactory
     {
+        public OutboxItemFactory()
+        {
+        }
+
         public virtual ISqlTransactionalOutboxItem CreateExistingOutboxItem(
             string uniqueIdentifier,
             string status,
@@ -55,6 +59,7 @@ namespace SqlTransactionalOutboxHelpers
             publishingTarget.AssertNotNullOrWhiteSpace(nameof(publishingTarget));
             publishingPayload.AssertNotNullOrWhiteSpace(nameof(publishingPayload));
 
+            //Now we can create the fully validated Outbox Item
             var outboxItem = new OutboxItem()
             {
                 //Initialize Internal Variables

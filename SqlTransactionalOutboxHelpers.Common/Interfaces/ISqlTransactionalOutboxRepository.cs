@@ -7,9 +7,15 @@ namespace SqlTransactionalOutboxHelpers
 {
     public interface ISqlTransactionalOutboxRepository
     {
-        Task InsertNewOutboxItemAsync(ISqlTransactionalOutboxItem outboxItem);
+        Task<IEnumerable<ISqlTransactionalOutboxItem>> InsertNewOutboxItemsAsync(
+            IEnumerable<ISqlTransactionalOutboxItem> outboxItems, 
+            int insertBatchSize = 20
+        );
 
-        Task UpdateOutboxItemsAsync(List<ISqlTransactionalOutboxItem> outboxItems, int updateBatchSize = 20);
+        Task<IEnumerable<ISqlTransactionalOutboxItem>> UpdateOutboxItemsAsync(
+            IEnumerable<ISqlTransactionalOutboxItem> outboxItems, 
+            int updateBatchSize = 20
+        );
 
         Task<List<ISqlTransactionalOutboxItem>> RetrieveOutboxItemsAsync(OutboxItemStatus status, int maxBatchSize = -1);
 

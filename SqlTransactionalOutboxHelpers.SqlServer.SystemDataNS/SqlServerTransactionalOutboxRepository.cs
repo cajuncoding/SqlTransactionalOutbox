@@ -22,7 +22,7 @@ namespace SqlTransactionalOutboxHelpers.SqlServer.SystemDataNS
         )
         {
             SqlTransaction = sqlTransaction ?? 
-                throw new ArgumentNullException(nameof(sqlTransaction), "A valid Sql Transaction must be provided for Sql Transactional Outbox processing.");
+                throw new ArgumentNullException(nameof(sqlTransaction), "A valid SqlTransaction must be provided for Sql Transactional Outbox processing.");
 
             SqlConnection = sqlTransaction.Connection ?? 
                 throw new ArgumentNullException(nameof(SqlConnection), "The SqlTransaction specified must have a valid SqlConnection.");
@@ -40,8 +40,8 @@ namespace SqlTransactionalOutboxHelpers.SqlServer.SystemDataNS
 
             var results = new List<ISqlTransactionalOutboxItem>();
 
-            await using var sqlReader = await sqlCmd.ExecuteReaderAsync();
-            while (await sqlReader.ReadAsync())
+            await using var sqlReader = await sqlCmd.ExecuteReaderAsync().ConfigureAwait(false);
+            while (await sqlReader.ReadAsync().ConfigureAwait(false))
             {
                 var outboxItem = OutboxItemFactory.CreateExistingOutboxItem(
                     uniqueIdentifier: (string)sqlReader[OutboxTableConfig.UniqueIdentifierFieldName],
@@ -68,47 +68,87 @@ namespace SqlTransactionalOutboxHelpers.SqlServer.SystemDataNS
             await using var sqlCmd = CreateSqlCommand(sql);
             AddParam(sqlCmd, purgeHistoryParamName, purgeHistoryBeforeDate);
 
-            await sqlCmd.ExecuteNonQueryAsync();
+            await sqlCmd.ExecuteNonQueryAsync().ConfigureAwait(false);
         }
 
-        public virtual async Task InsertNewOutboxItemAsync(ISqlTransactionalOutboxItem outboxItem)
+        public virtual async Task<IEnumerable<ISqlTransactionalOutboxItem>> InsertNewOutboxItemsAsync(IEnumerable<ISqlTransactionalOutboxItem> outboxItems, int insertBatchSize = 20)
         {
-            var sql = QueryBuilder.BuildSqlForInsertNewOutboxItem();
+            await using var sqlCmd = CreateSqlCommand("");
+            
+            var outboxItemsList = outboxItems.ToList();
 
-            await using var sqlCmd = CreateSqlCommand(sql);
-            AddParam(sqlCmd, OutboxTableConfig.UniqueIdentifierFieldName, outboxItem.UniqueIdentifier);
-            AddParam(sqlCmd, OutboxTableConfig.CreatedDateTimeUtcFieldName, outboxItem.CreatedDateTimeUtc);
-            AddParam(sqlCmd, OutboxTableConfig.StatusFieldName, outboxItem.Status);
-            AddParam(sqlCmd, OutboxTableConfig.PublishingAttemptsFieldName, outboxItem.PublishingAttempts);
-            AddParam(sqlCmd, OutboxTableConfig.PublishingTargetFieldName, outboxItem.PublishingTarget);
-            AddParam(sqlCmd, OutboxTableConfig.PublishingPayloadFieldName, outboxItem.PublishingPayload);
+            var batches = outboxItemsList.Chunk(insertBatchSize);
+            foreach (var batch in batches)
+            {
+                sqlCmd.CommandText = QueryBuilder.BuildParameterizedSqlToInsertNewOutboxItems(batch);
 
-            await sqlCmd.ExecuteNonQueryAsync();
+                //Add the Parameters!
+                var batchIndex = 0;
+                foreach (var outboxItem in batch)
+                {
+                    //NOTE: The for Sql Server, the CreatedDateTimeUtcField is automatically populated by Sql Server,
+                    //      so we skip it here!
+                    //NOTE: This is because the value is critical to enforcing FIFO processing we use the centralized
+                    //      database as the source of getting highly precise Utc DateTime values for all data inserted.
+                    //NOTE: UTC Created DateTime will be automatically populated by DEFAULT constraint using
+                    //      SysUtcDateTime() per the Sql Server table script; SysUtcDateTime() is Sql Server's
+                    //      implementation for highly precise values stored as datetime2 fields.
+                    AddParam(sqlCmd, OutboxTableConfig.UniqueIdentifierFieldName, outboxItem.UniqueIdentifier, batchIndex);
+                    //AddParam(sqlCmd, OutboxTableConfig.CreatedDateTimeUtcFieldName, outboxItem.CreatedDateTimeUtc, batchIndex);
+                    AddParam(sqlCmd, OutboxTableConfig.StatusFieldName, outboxItem.Status, batchIndex);
+                    AddParam(sqlCmd, OutboxTableConfig.PublishingAttemptsFieldName, outboxItem.PublishingAttempts, batchIndex);
+                    AddParam(sqlCmd, OutboxTableConfig.PublishingTargetFieldName, outboxItem.PublishingTarget, batchIndex);
+                    AddParam(sqlCmd, OutboxTableConfig.PublishingPayloadFieldName, outboxItem.PublishingPayload, batchIndex);
+                    batchIndex++;
+                }
+
+                //Execute the Batch and continue...
+                var sqlReader = await sqlCmd.ExecuteReaderAsync().ConfigureAwait(false);
+
+                //Since some fields are actually populated in the Database, we post-process to update the models with valid
+                //  values as returned from teh Insert process...
+                var outboxBatchLookup = batch.ToLookup(i => i.UniqueIdentifier);
+                while (await sqlReader.ReadAsync().ConfigureAwait(false))
+                {
+                    //The First field is always our UniqueIdentifier (as defined by the Output clause of the Sql)
+                    // and the Second field is always the UTC Created DateTime returned from the Database.
+                    var uniqueIdentifier = sqlReader.GetString(0);
+                    var createdDateUtcFromDb = sqlReader.GetDateTime(1);
+
+                    var outboxItem = outboxBatchLookup[uniqueIdentifier].First();
+                    outboxItem.CreatedDateTimeUtc = createdDateUtcFromDb;
+                }
+            }
+
+            return outboxItemsList;
         }
 
-        public virtual async Task UpdateOutboxItemsAsync(List<ISqlTransactionalOutboxItem> outboxItems, int updateBatchSize = 20)
+        public virtual async Task<IEnumerable<ISqlTransactionalOutboxItem>> UpdateOutboxItemsAsync(IEnumerable<ISqlTransactionalOutboxItem> outboxItems, int updateBatchSize = 20)
         {
             await using var sqlCmd = CreateSqlCommand("");
 
-            var batches = outboxItems.Chunk(updateBatchSize);
+            var outboxItemsList = outboxItems.ToList();
+
+            var batches = outboxItemsList.Chunk(updateBatchSize);
             foreach (var batch in batches)
             {
+                sqlCmd.CommandText = QueryBuilder.BuildParameterizedSqlToUpdateExistingOutboxItem(batch);
+
+                //Add the Parameters!
                 var batchIndex = 0;
-                var itemSqlList = new List<string>();
                 foreach (var outboxItem in batch)
                 {
-                    itemSqlList.Add(QueryBuilder.BuildSqlForInsertNewOutboxItem(batchIndex));
-
-                    //NOTE: The only Updateable Fields are Status & PublishingAttempts
+                   //NOTE: The only Updateable Fields are Status & PublishingAttempts
                     AddParam(sqlCmd, OutboxTableConfig.StatusFieldName, outboxItem.Status, batchIndex);
                     AddParam(sqlCmd, OutboxTableConfig.PublishingAttemptsFieldName, outboxItem.PublishingAttempts, batchIndex);
                     batchIndex++;
                 }
 
-                sqlCmd.CommandText = string.Join($"; {Environment.NewLine}", itemSqlList); ;
-                await sqlCmd.ExecuteNonQueryAsync();
+                //Execute the Batch and continue...
+                await sqlCmd.ExecuteNonQueryAsync().ConfigureAwait(false);
             }
 
+            return outboxItemsList;
         }
 
         public virtual async Task<IAsyncDisposable> AcquireDistributedProcessingMutexAsync()
