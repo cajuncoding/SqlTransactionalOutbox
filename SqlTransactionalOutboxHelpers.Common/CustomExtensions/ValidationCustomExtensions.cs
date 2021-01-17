@@ -17,7 +17,7 @@ namespace SqlTransactionalOutboxHelpers.CustomExtensions
             return value;
         }
 
-        public static T AssertNotNull<T>(this T value, string argName, string errorMessage = null) where T: class
+        public static T AssertNotNull<T>(this T value, string argName, string errorMessage = null)
         {
             //Initialize User specified variables
             if (value == null)

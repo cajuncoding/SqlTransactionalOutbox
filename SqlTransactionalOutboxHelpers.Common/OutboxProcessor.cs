@@ -10,23 +10,19 @@ namespace SqlTransactionalOutboxHelpers
     /// Process all pending items in the transactional outbox using the specified ISqlTransactionalOutboxRepository,
     /// ISqlTransactionalOutboxPublisher, & OutboxProcessingOptions
     /// </summary>
-    public class OutboxProcessor<TPayload> : ISqlTransactionalOutboxProcessor<TPayload>
+    public class OutboxProcessor<TUniqueIdentifier, TPayload> : ISqlTransactionalOutboxProcessor<TUniqueIdentifier, TPayload>
     {
-        protected ISqlTransactionalOutboxRepository OutboxRepository { get; }
-        protected ISqlTransactionalOutboxPublisher OutboxPublisher { get; }
-        protected ISqlTransactionalOutboxSerializer PayloadSerializer { get; }
-        protected ISqlTransactionalOutboxItemFactory OutboxItemFactory { get; }
+        protected ISqlTransactionalOutboxRepository<TUniqueIdentifier, TPayload> OutboxRepository { get; }
+        protected ISqlTransactionalOutboxPublisher<TUniqueIdentifier> OutboxPublisher { get; }
 
         public OutboxProcessor(
-            ISqlTransactionalOutboxRepository outboxRepository,
-            ISqlTransactionalOutboxPublisher outboxPublisher,
-            ISqlTransactionalOutboxSerializer payloadSerializer = null,
-            ISqlTransactionalOutboxItemFactory outboxItemFactory = null
+            ISqlTransactionalOutboxRepository<TUniqueIdentifier, TPayload> outboxRepository,
+            ISqlTransactionalOutboxPublisher<TUniqueIdentifier> outboxPublisher,
+            ISqlTransactionalOutboxItemFactory<TUniqueIdentifier, TPayload> outboxItemFactory = null
         )
         {
             this.OutboxRepository = outboxRepository ?? throw new ArgumentNullException(nameof(OutboxRepository));
             this.OutboxPublisher = outboxPublisher ?? throw new ArgumentNullException(nameof(OutboxPublisher));
-            this.PayloadSerializer = payloadSerializer ?? new JsonOutboxPayloadSerializer();
         }
 
         public virtual async Task ProcessCleanupOfOutboxHistoricalItemsAsync(TimeSpan historyTimeToKeepTimeSpan)
@@ -35,41 +31,39 @@ namespace SqlTransactionalOutboxHelpers
             await OutboxRepository.CleanupOutboxHistoricalItemsAsync(historyTimeToKeepTimeSpan).ConfigureAwait(false);
         }
         
-        public async Task<ISqlTransactionalOutboxItem> InsertNewPendingOutboxItemAsync(string publishingTarget, TPayload publishingPayload)
+        public async Task<ISqlTransactionalOutboxItem<TUniqueIdentifier>> InsertNewPendingOutboxItemAsync(
+            string publishingTarget, 
+            TPayload publishingPayload
+        )
         {
             //Use the Outbox Item Factory to create a new Outbox Item (serialization of the Payload will be handled by the Factory).
-            var outboxInsertItem = new OutboxInsertItem<TPayload>(publishingTarget, publishingPayload);
+            var outboxInsertItem = new OutboxInsertionItem<TPayload>(publishingTarget, publishingPayload);
 
             //Store the outbox item using the Repository...
             var resultItems = await InsertNewPendingOutboxItemsAsync(
-                new List<OutboxInsertItem<TPayload>>() { outboxInsertItem }
+                new List<ISqlTransactionalOutboxInsertionItem<TPayload>>() { outboxInsertItem }
             ).ConfigureAwait(false);
 
             return resultItems.FirstOrDefault();
         }
 
-        public async Task<IEnumerable<ISqlTransactionalOutboxItem>> InsertNewPendingOutboxItemsAsync(IEnumerable<OutboxInsertItem<TPayload>> outboxInsertItems)
+        public async Task<IEnumerable<ISqlTransactionalOutboxItem<TUniqueIdentifier>>> InsertNewPendingOutboxItemsAsync(
+            IEnumerable<ISqlTransactionalOutboxInsertionItem<TPayload>> outboxInsertionItems
+        )
         {
-            //Use the Outbox Item Factory to create a new Outbox Item with serialized payload.
-            var outboxItems = outboxInsertItems.Select(i =>
-            {
-                var serializedPayload = PayloadSerializer.SerializePayload(i.PublishingPayload);
-                return OutboxItemFactory.CreateNewOutboxItem(i.PublishingTarget, serializedPayload);
-            });
-
             //Store the outbox item using the Repository...
-            var resultItems = await OutboxRepository.InsertNewOutboxItemsAsync(outboxItems).ConfigureAwait(false);
+            var resultItems = await OutboxRepository.InsertNewOutboxItemsAsync(outboxInsertionItems).ConfigureAwait(false);
 
             return resultItems;
         }
 
-        public virtual async Task<OutboxProcessingResults> ProcessPendingOutboxItemsAsync(
+        public virtual async Task<ISqlTransactionalOutboxProcessingResults<TUniqueIdentifier>> ProcessPendingOutboxItemsAsync(
             OutboxProcessingOptions processingOptions = null,
             bool throwExceptionOnFailure = false
         )
         {
             var options = processingOptions ?? OutboxProcessingOptions.DefaultOutboxProcessingOptions;
-            var results = new OutboxProcessingResults();
+            var results = new OutboxProcessingResults<TUniqueIdentifier>();
 
             results.ProcessingTimer.Start();
 
@@ -140,14 +134,14 @@ namespace SqlTransactionalOutboxHelpers
             return results;
         }
 
-        public async Task<List<ISqlTransactionalOutboxItem>> ProcessOutboxItemsInternal(
-            List<ISqlTransactionalOutboxItem> outboxItems, 
+        protected async Task<List<ISqlTransactionalOutboxItem<TUniqueIdentifier>>> ProcessOutboxItemsInternal(
+            List<ISqlTransactionalOutboxItem<TUniqueIdentifier>> outboxItems, 
             OutboxProcessingOptions options,
-            OutboxProcessingResults results,
+            OutboxProcessingResults<TUniqueIdentifier> results,
             bool throwExceptionOnFailure
         )
         {
-            var processedItems = new List<ISqlTransactionalOutboxItem>();
+            var processedItems = new List<ISqlTransactionalOutboxItem<TUniqueIdentifier>>();
 
             //We always sort data to generally maintain FIFO processing order, but parallelism risk is only mitigated
             //  by the above Mutex locking...

@@ -7,23 +7,26 @@ using SqlTransactionalOutboxHelpers.CustomExtensions;
 
 namespace SqlTransactionalOutboxHelpers.SqlServer.SystemDataNS
 {
-    public abstract class BaseSqlServerTransactionalOutboxRepository
+    public abstract class BaseSqlServerTransactionalOutboxRepository<TUniqueIdentifier, TPayload>
     {
         protected ISqlTransactionalOutboxTableConfig OutboxTableConfig { get; set; }
-        protected SqlServerTransactionalOutboxQueryBuilder QueryBuilder { get; set; }
-        protected ISqlTransactionalOutboxItemFactory OutboxItemFactory { get; set; }
+        protected SqlServerTransactionalOutboxQueryBuilder<TUniqueIdentifier> QueryBuilder { get; set; }
+        protected ISqlTransactionalOutboxItemFactory<TUniqueIdentifier, TPayload> OutboxItemFactory { get; set; }
         protected int DistributedMutexAcquisitionTimeoutSeconds { get; set; }
         protected string DistributedMutexLockName { get; set; }
 
         protected void Init(
             ISqlTransactionalOutboxTableConfig outboxTableConfig = null,
-            ISqlTransactionalOutboxItemFactory outboxItemFactory = null,
+            ISqlTransactionalOutboxItemFactory<TUniqueIdentifier, TPayload> outboxItemFactory = null,
             int distributedMutexAcquisitionTimeoutSeconds = 5
         )
         {
+            //Possible Dependencies
             OutboxTableConfig = outboxTableConfig.AssertNotNull(nameof(outboxTableConfig));
-            QueryBuilder = new SqlServerTransactionalOutboxQueryBuilder(outboxTableConfig);
-            OutboxItemFactory = outboxItemFactory ?? new OutboxItemFactory();
+            OutboxItemFactory = outboxItemFactory.AssertNotNull(nameof(outboxItemFactory));
+
+            //Default Known setup for Sql Server...
+            QueryBuilder = new SqlServerTransactionalOutboxQueryBuilder<TUniqueIdentifier>(outboxTableConfig); 
             DistributedMutexLockName = $"SqlServerTransactionalOutboxProcessor::{QueryBuilder.BuildTableName()}";
             DistributedMutexAcquisitionTimeoutSeconds = distributedMutexAcquisitionTimeoutSeconds;
         }

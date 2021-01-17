@@ -5,19 +5,22 @@ using System.Threading.Tasks;
 
 namespace SqlTransactionalOutboxHelpers
 {
-    public interface ISqlTransactionalOutboxRepository
+    public interface ISqlTransactionalOutboxRepository<TUniqueIdentifier, TPayload>
     {
-        Task<IEnumerable<ISqlTransactionalOutboxItem>> InsertNewOutboxItemsAsync(
-            IEnumerable<ISqlTransactionalOutboxItem> outboxItems, 
+        Task<IEnumerable<ISqlTransactionalOutboxItem<TUniqueIdentifier>>> InsertNewOutboxItemsAsync(
+            IEnumerable<ISqlTransactionalOutboxInsertionItem<TPayload>> outboxItems, 
             int insertBatchSize = 20
         );
 
-        Task<IEnumerable<ISqlTransactionalOutboxItem>> UpdateOutboxItemsAsync(
-            IEnumerable<ISqlTransactionalOutboxItem> outboxItems, 
+        Task<IEnumerable<ISqlTransactionalOutboxItem<TUniqueIdentifier>>> UpdateOutboxItemsAsync(
+            IEnumerable<ISqlTransactionalOutboxItem<TUniqueIdentifier>> outboxItems, 
             int updateBatchSize = 20
         );
 
-        Task<List<ISqlTransactionalOutboxItem>> RetrieveOutboxItemsAsync(OutboxItemStatus status, int maxBatchSize = -1);
+        Task<List<ISqlTransactionalOutboxItem<TUniqueIdentifier>>> RetrieveOutboxItemsAsync(
+            OutboxItemStatus status, 
+            int maxBatchSize = -1
+        );
 
         Task CleanupOutboxHistoricalItemsAsync(TimeSpan historyTimeToKeepTimeSpan);
 

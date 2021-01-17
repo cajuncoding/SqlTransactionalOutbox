@@ -5,13 +5,18 @@ using System.Threading.Tasks;
 
 namespace SqlTransactionalOutboxHelpers
 {
-    public interface ISqlTransactionalOutboxProcessor<TPayload>
+    public interface ISqlTransactionalOutboxProcessor<TUniqueIdentifier, TPayload>
     {
-        Task<IEnumerable<ISqlTransactionalOutboxItem>> InsertNewPendingOutboxItemsAsync(IEnumerable<OutboxInsertItem<TPayload>> outboxInsertItems);
+        Task<ISqlTransactionalOutboxItem<TUniqueIdentifier>> InsertNewPendingOutboxItemAsync(
+            string publishingTarget, 
+            TPayload publishingPayload
+        );
 
-        Task<ISqlTransactionalOutboxItem> InsertNewPendingOutboxItemAsync(string publishingTarget, TPayload publishingPayload);
+        Task<IEnumerable<ISqlTransactionalOutboxItem<TUniqueIdentifier>>> InsertNewPendingOutboxItemsAsync(
+            IEnumerable<ISqlTransactionalOutboxInsertionItem<TPayload>> outboxInsertionItems
+        );
 
-        Task<OutboxProcessingResults> ProcessPendingOutboxItemsAsync(
+        Task<ISqlTransactionalOutboxProcessingResults<TUniqueIdentifier>> ProcessPendingOutboxItemsAsync(
             OutboxProcessingOptions processingOptions = null,
             bool throwExceptionOnFailure = false
         );

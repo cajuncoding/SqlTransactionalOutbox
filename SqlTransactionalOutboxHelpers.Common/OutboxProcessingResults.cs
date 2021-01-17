@@ -5,11 +5,13 @@ using System.Text;
 
 namespace SqlTransactionalOutboxHelpers
 {
-    public class OutboxProcessingResults
+    public class OutboxProcessingResults<TUniqueIdentifier> : ISqlTransactionalOutboxProcessingResults<TUniqueIdentifier>
     {
-        public List<ISqlTransactionalOutboxItem> SuccessfullyPublishedItems { get; } = new List<ISqlTransactionalOutboxItem>();
+        public List<ISqlTransactionalOutboxItem<TUniqueIdentifier>> SuccessfullyPublishedItems { get; } 
+            = new List<ISqlTransactionalOutboxItem<TUniqueIdentifier>>();
 
-        public List<ISqlTransactionalOutboxItem> FailedItems { get; } = new List<ISqlTransactionalOutboxItem>();
+        public List<ISqlTransactionalOutboxItem<TUniqueIdentifier>> FailedItems { get; } 
+            = new List<ISqlTransactionalOutboxItem<TUniqueIdentifier>>();
 
         public Stopwatch ProcessingTimer { get; set; }
     }

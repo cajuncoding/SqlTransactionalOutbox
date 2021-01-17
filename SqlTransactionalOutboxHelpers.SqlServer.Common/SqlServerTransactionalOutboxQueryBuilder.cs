@@ -5,7 +5,7 @@ using System.Text;
 
 namespace SqlTransactionalOutboxHelpers
 {
-    public class SqlServerTransactionalOutboxQueryBuilder
+    public class SqlServerTransactionalOutboxQueryBuilder<TUniqueIdentifier>
     {
         public ISqlTransactionalOutboxTableConfig OutboxTableConfig { get; protected set; }
 
@@ -53,7 +53,9 @@ namespace SqlTransactionalOutboxHelpers
         /// </summary>
         /// <param name="outboxItems"></param>
         /// <returns></returns>
-        public virtual string BuildParameterizedSqlToInsertNewOutboxItems(IEnumerable<ISqlTransactionalOutboxItem> outboxItems)
+        public virtual string BuildParameterizedSqlToInsertNewOutboxItems(
+            IEnumerable<ISqlTransactionalOutboxItem<TUniqueIdentifier>> outboxItems
+        )
         {
             var itemCount = outboxItems.Count();
             var sqlStringBuilder = new StringBuilder();
@@ -100,7 +102,9 @@ namespace SqlTransactionalOutboxHelpers
             return sqlStringBuilder.ToString();
         }
 
-        public virtual string BuildParameterizedSqlToUpdateExistingOutboxItem(IEnumerable<ISqlTransactionalOutboxItem> outboxItems)
+        public virtual string BuildParameterizedSqlToUpdateExistingOutboxItem(
+            IEnumerable<ISqlTransactionalOutboxItem<TUniqueIdentifier>> outboxItems
+        )
         {
             var uniqueIdentifierFieldName = ToSqlFieldName(OutboxTableConfig.UniqueIdentifierFieldName);
             var tableName = BuildTableName();

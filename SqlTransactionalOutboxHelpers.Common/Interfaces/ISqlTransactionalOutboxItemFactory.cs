@@ -4,22 +4,21 @@ using System.Text;
 
 namespace SqlTransactionalOutboxHelpers
 {
-    public interface ISqlTransactionalOutboxItemFactory
+    public interface ISqlTransactionalOutboxItemFactory<TUniqueIdentifier, in TPayload>
     {
-        ISqlTransactionalOutboxItem CreateExistingOutboxItem(
-            string uniqueIdentifier,
+        ISqlTransactionalOutboxItem<TUniqueIdentifier> CreateNewOutboxItem(
+            string publishingTarget,
+            TPayload publishingPayload
+        );
+        
+        ISqlTransactionalOutboxItem<TUniqueIdentifier> CreateExistingOutboxItem(
+            TUniqueIdentifier uniqueIdentifier,
             string status,
             int publishingAttempts,
             DateTime createdDateTimeUtc,
             string publishingTarget, 
-            string publishingPayload
+            //NOTE: When Creating an Existing Item we always take in the Serialized Payload
+            string serializedPayload
         );
-
-        ISqlTransactionalOutboxItem CreateNewOutboxItem(
-            string publishingTarget, 
-            string publishingPayload
-        );
-
-        string CreateUniqueIdentifier();
     }
 }

@@ -4,9 +4,9 @@ using System.Text;
 
 namespace SqlTransactionalOutboxHelpers
 {
-    public class OutboxInsertItem<TPayload>
+    public class OutboxInsertionItem<TPayload> : ISqlTransactionalOutboxInsertionItem<TPayload>
     {
-        public OutboxInsertItem(string publishingTarget, TPayload publishingPayload)
+        public OutboxInsertionItem(string publishingTarget, TPayload publishingPayload)
         {
             PublishingTarget = publishingTarget;
             PublishingPayload = publishingPayload;

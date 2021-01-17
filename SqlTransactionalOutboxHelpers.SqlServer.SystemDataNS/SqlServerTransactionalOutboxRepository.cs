@@ -9,7 +9,7 @@ using SqlTransactionalOutboxHelpers.CustomExtensions;
 
 namespace SqlTransactionalOutboxHelpers.SqlServer.SystemDataNS
 {
-    public class SqlServerTransactionalOutboxRepository : BaseSqlServerTransactionalOutboxRepository, ISqlTransactionalOutboxRepository
+    public class SqlServerTransactionalOutboxRepository<TPayload> : BaseSqlServerTransactionalOutboxRepository<Guid, TPayload>, ISqlTransactionalOutboxRepository<Guid, TPayload>
     {
         protected SqlTransaction SqlTransaction { get; set; }
         protected SqlConnection SqlConnection { get; set; }
@@ -17,7 +17,7 @@ namespace SqlTransactionalOutboxHelpers.SqlServer.SystemDataNS
         public SqlServerTransactionalOutboxRepository(
             SqlTransaction sqlTransaction, 
             ISqlTransactionalOutboxTableConfig outboxTableConfig = null,
-            ISqlTransactionalOutboxItemFactory outboxItemFactory = null,
+            ISqlTransactionalOutboxItemFactory<Guid, TPayload> outboxItemFactory = null,
             int distributedMutexAcquisitionTimeoutSeconds = 5
         )
         {
@@ -27,10 +27,14 @@ namespace SqlTransactionalOutboxHelpers.SqlServer.SystemDataNS
             SqlConnection = sqlTransaction.Connection ?? 
                 throw new ArgumentNullException(nameof(SqlConnection), "The SqlTransaction specified must have a valid SqlConnection.");
 
-            base.Init(outboxTableConfig, outboxItemFactory, distributedMutexAcquisitionTimeoutSeconds);
+            base.Init(
+                outboxTableConfig, 
+                outboxItemFactory ?? new OutboxItemFactory<TPayload>(), 
+                distributedMutexAcquisitionTimeoutSeconds
+            );
         }
 
-        public virtual async Task<List<ISqlTransactionalOutboxItem>> RetrieveOutboxItemsAsync(OutboxItemStatus status, int maxBatchSize = -1)
+        public virtual async Task<List<ISqlTransactionalOutboxItem<Guid>>> RetrieveOutboxItemsAsync(OutboxItemStatus status, int maxBatchSize = -1)
         {
             var statusParamName = "status";
             var sql = QueryBuilder.BuildSqlForRetrieveOutboxItemsByStatus(status, maxBatchSize, statusParamName);
@@ -38,18 +42,18 @@ namespace SqlTransactionalOutboxHelpers.SqlServer.SystemDataNS
             await using var sqlCmd = CreateSqlCommand(sql);
             AddParam(sqlCmd, statusParamName, status.ToString());
 
-            var results = new List<ISqlTransactionalOutboxItem>();
+            var results = new List<ISqlTransactionalOutboxItem<Guid>>();
 
             await using var sqlReader = await sqlCmd.ExecuteReaderAsync().ConfigureAwait(false);
             while (await sqlReader.ReadAsync().ConfigureAwait(false))
             {
                 var outboxItem = OutboxItemFactory.CreateExistingOutboxItem(
-                    uniqueIdentifier: (string)sqlReader[OutboxTableConfig.UniqueIdentifierFieldName],
+                    uniqueIdentifier: (Guid)sqlReader[OutboxTableConfig.UniqueIdentifierFieldName],
                     status:(string)sqlReader[OutboxTableConfig.StatusFieldName],
                     publishingAttempts:(int)sqlReader[OutboxTableConfig.PublishingAttemptsFieldName],
                     createdDateTimeUtc:(DateTime)sqlReader[OutboxTableConfig.CreatedDateTimeUtcFieldName],
                     publishingTarget:(string)sqlReader[OutboxTableConfig.PublishingTargetFieldName],
-                    publishingPayload:(string)sqlReader[OutboxTableConfig.PublishingPayloadFieldName]
+                    serializedPayload:(string)sqlReader[OutboxTableConfig.PublishingPayloadFieldName]
                 );
 
                 results.Add(outboxItem);
@@ -71,11 +75,20 @@ namespace SqlTransactionalOutboxHelpers.SqlServer.SystemDataNS
             await sqlCmd.ExecuteNonQueryAsync().ConfigureAwait(false);
         }
 
-        public virtual async Task<IEnumerable<ISqlTransactionalOutboxItem>> InsertNewOutboxItemsAsync(IEnumerable<ISqlTransactionalOutboxItem> outboxItems, int insertBatchSize = 20)
+        public virtual async Task<IEnumerable<ISqlTransactionalOutboxItem<Guid>>> InsertNewOutboxItemsAsync(
+            IEnumerable<ISqlTransactionalOutboxInsertionItem<TPayload>> outboxItems, 
+            int insertBatchSize = 20
+        )
         {
             await using var sqlCmd = CreateSqlCommand("");
-            
-            var outboxItemsList = outboxItems.ToList();
+
+            //Use the Outbox Item Factory to create a new Outbox Item with serialized payload.
+            var outboxItemsList = outboxItems.Select(
+                i => OutboxItemFactory.CreateNewOutboxItem(
+                    i.PublishingTarget, 
+                    i.PublishingPayload
+                )
+            ).ToList();
 
             var batches = outboxItemsList.Chunk(insertBatchSize);
             foreach (var batch in batches)
@@ -112,7 +125,7 @@ namespace SqlTransactionalOutboxHelpers.SqlServer.SystemDataNS
                 {
                     //The First field is always our UniqueIdentifier (as defined by the Output clause of the Sql)
                     // and the Second field is always the UTC Created DateTime returned from the Database.
-                    var uniqueIdentifier = sqlReader.GetString(0);
+                    var uniqueIdentifier = sqlReader.GetGuid(0);
                     var createdDateUtcFromDb = sqlReader.GetDateTime(1);
 
                     var outboxItem = outboxBatchLookup[uniqueIdentifier].First();
@@ -123,7 +136,9 @@ namespace SqlTransactionalOutboxHelpers.SqlServer.SystemDataNS
             return outboxItemsList;
         }
 
-        public virtual async Task<IEnumerable<ISqlTransactionalOutboxItem>> UpdateOutboxItemsAsync(IEnumerable<ISqlTransactionalOutboxItem> outboxItems, int updateBatchSize = 20)
+        public virtual async Task<IEnumerable<ISqlTransactionalOutboxItem<Guid>>> UpdateOutboxItemsAsync(
+            IEnumerable<ISqlTransactionalOutboxItem<Guid>> outboxItems, int updateBatchSize = 20
+        )
         {
             await using var sqlCmd = CreateSqlCommand("");
 

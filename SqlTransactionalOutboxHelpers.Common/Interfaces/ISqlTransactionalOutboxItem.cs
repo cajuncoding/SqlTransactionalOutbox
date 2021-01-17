@@ -2,14 +2,14 @@
 
 namespace SqlTransactionalOutboxHelpers
 {
-    public interface ISqlTransactionalOutboxItem
+    public interface ISqlTransactionalOutboxItem<TUniqueIdentifier>
     {
         /// <summary>
         /// A System generated UUID for the outbox; C# syntax for rendering GUID's should provide plenty
         /// of performance for the majority of implementations. Rarely is there a need for anything advanced like Snowflake Ids,
         /// but if necessary an ISqlTransactionalOutboxItemFactory may be implemented to override the generation of ID as a GUID.
         /// </summary>
-        string UniqueIdentifier { get; set; }
+        TUniqueIdentifier UniqueIdentifier { get; set; }
 
         /// <summary>
         /// Status of the Outbox item (e.g. Pending, Successful, Failed*).

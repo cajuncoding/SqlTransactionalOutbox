@@ -10,12 +10,12 @@ namespace SqlTransactionalOutboxHelpers.Tests
 {
     public class TestHelper
     {
-        public static List<OutboxInsertItem<string>> CreateTestStringOutboxItemData(int dataSize, int targetModulus = 5)
+        public static List<OutboxInsertionItem<string>> CreateTestStringOutboxItemData(int dataSize, int targetModulus = 5)
         {
-            var list = new List<OutboxInsertItem<string>>();
+            var list = new List<OutboxInsertionItem<string>>();
             for (var x = 1; x <= dataSize; x++)
             {
-                list.Add(new OutboxInsertItem<string>(
+                list.Add(new OutboxInsertionItem<string>(
                     $"/publish/target_{(int)dataSize % 5}",
                     $"Payload Message #{x:00000}"
                 ));
