@@ -12,13 +12,12 @@ namespace SqlTransactionalOutboxHelpers
     /// </summary>
     public class OutboxProcessor<TUniqueIdentifier, TPayload> : ISqlTransactionalOutboxProcessor<TUniqueIdentifier, TPayload>
     {
-        protected ISqlTransactionalOutboxRepository<TUniqueIdentifier, TPayload> OutboxRepository { get; }
-        protected ISqlTransactionalOutboxPublisher<TUniqueIdentifier> OutboxPublisher { get; }
+        public ISqlTransactionalOutboxRepository<TUniqueIdentifier, TPayload> OutboxRepository { get; }
+        public ISqlTransactionalOutboxPublisher<TUniqueIdentifier> OutboxPublisher { get; }
 
         public OutboxProcessor(
             ISqlTransactionalOutboxRepository<TUniqueIdentifier, TPayload> outboxRepository,
-            ISqlTransactionalOutboxPublisher<TUniqueIdentifier> outboxPublisher,
-            ISqlTransactionalOutboxItemFactory<TUniqueIdentifier, TPayload> outboxItemFactory = null
+            ISqlTransactionalOutboxPublisher<TUniqueIdentifier> outboxPublisher
         )
         {
             this.OutboxRepository = outboxRepository ?? throw new ArgumentNullException(nameof(OutboxRepository));

@@ -27,7 +27,11 @@ namespace SqlTransactionalOutboxHelpers
                 FROM
                     {BuildTableName()}
                 WHERE
-                   {OutboxTableConfig.StatusFieldName} = {ToSqlParamName(statusParamName)};
+                   {OutboxTableConfig.StatusFieldName} = {ToSqlParamName(statusParamName)}
+                ORDER BY
+                    --Order by Created DateTime, and break any collisions using the PKey field (IDENTITY).
+                    {ToSqlFieldName(OutboxTableConfig.CreatedDateTimeUtcFieldName)},
+                    {ToSqlFieldName(OutboxTableConfig.PKeyFieldName)};
             ";
 
             return sql;
@@ -45,11 +49,18 @@ namespace SqlTransactionalOutboxHelpers
 
         /// <summary>
         /// NOTE: In Sql Server, we ignore date/time values provided (if provided) because
-        ///         the value is critical to enforcing FIFO processing. Instead
-        ///         we use the DateTime the centralized database as the source.
-        /// NOTE: UTC Created DateTime will be automatically populated by DEFAULT constraint using
-        ///         SysUtcDateTime() per the Sql Server table script; SysUtcDateTime() is Sql Server's
-        ///         implementation for highly precise values stored as datetime2 fields.
+        ///       the value is critical to enforcing FIFO processing. Instead
+        ///       we use the DateTime the centralized database as the source to help ensure
+        ///       integrity & precision of the item entry order.
+        /// NOTE: UTC Created DateTime will be automatically populated by datetime generated
+        ///       at the database level for continuity of time to eliminate risk of DateTime sequencing
+        ///       across servers or server-less environments.
+        /// NOTE: SysUtcDateTime() is the Sql Server implementation for highly precise date time values
+        ///       stored as datetime2 with maximum support for fractional seconds; but this will not be
+        ///       Unique when many items are stored at the same time in bulk.
+        /// NOTE: Therefore the IDENTITY Id column is used as the Secondary Sort to break any ties,
+        ///       while also providing an efficient PKey for Sql Server; though the IDENTITY Value
+        ///       is a DB Specific use and is never returned as part of the Outbox Item.
         /// </summary>
         /// <param name="outboxItems"></param>
         /// <returns></returns>
@@ -57,51 +68,54 @@ namespace SqlTransactionalOutboxHelpers
             IEnumerable<ISqlTransactionalOutboxItem<TUniqueIdentifier>> outboxItems
         )
         {
-            var itemCount = outboxItems.Count();
             var sqlStringBuilder = new StringBuilder();
 
-            //Append the OUTPUT so that we can return data initialized at the Database Layer!
-            //As noted below the UTC Created Date Time will be populated by Sql Server 
-            //  for this field in the table!
-            sqlStringBuilder.Append(@$"
-                INSERT INTO {BuildTableName()} (
+            var sqlTransactionalOutboxTableFieldNames = @$"
                     {ToSqlFieldName(OutboxTableConfig.UniqueIdentifierFieldName)},
                     {ToSqlFieldName(OutboxTableConfig.StatusFieldName)},
                     {ToSqlFieldName(OutboxTableConfig.CreatedDateTimeUtcFieldName)},                    
                     {ToSqlFieldName(OutboxTableConfig.PublishingAttemptsFieldName)},
                     {ToSqlFieldName(OutboxTableConfig.PublishingTargetFieldName)},
                     {ToSqlFieldName(OutboxTableConfig.PublishingPayloadFieldName)}
-                )
+            ";
+
+            sqlStringBuilder.Append(@$"
+                INSERT INTO {BuildTableName()} ({sqlTransactionalOutboxTableFieldNames})
                 OUTPUT
-                    inserted.{ToSqlFieldName(OutboxTableConfig.UniqueIdentifierFieldName)},
-                    inserted.{ToSqlFieldName(OutboxTableConfig.CreatedDateTimeUtcFieldName)}
-                VALUES"
+                    INSERTED.{ToSqlFieldName(OutboxTableConfig.UniqueIdentifierFieldName)},
+                    INSERTED.{ToSqlFieldName(OutboxTableConfig.CreatedDateTimeUtcFieldName)}
+                SELECT {sqlTransactionalOutboxTableFieldNames}
+                FROM (                
+                    VALUES"
             );
 
+            var itemCount = outboxItems.Count();
             for (var index = 0; index < itemCount; index++)
             {
                 //Comma delimit the VALUES sets...
                 if (index > 0) sqlStringBuilder.Append(",");
-                
-                //NOTE: In Sql Server, we ignore date/time values provided (if provided) because
-                //      the value is critical to enforcing FIFO processing. Instead
-                //      we use the DateTime the centralized database as the source to help ensure
-                //      integrity & precision of the item entry order.
-                //NOTE: UTC Created DateTime will be automatically populated by datetime generated
-                //      at the database level for continuity of time to eliminate risk of DateTime sequencing
-                //      across servers or server-less environments.
-                //NOTE: SysUtcDateTime() is the Sql Server implementation for highly precise date time values
-                //      stored as datetime2 with maximum support for fractional seconds (e.g. nanoseconds).
+
                 sqlStringBuilder.Append(@$"
-                (
-                    {ToSqlParamName(OutboxTableConfig.UniqueIdentifierFieldName, index)},
-                    {ToSqlParamName(OutboxTableConfig.StatusFieldName, index)},
-                    SysUtcDateTime(),
-                    {ToSqlParamName(OutboxTableConfig.PublishingAttemptsFieldName, index)},
-                    {ToSqlParamName(OutboxTableConfig.PublishingTargetFieldName, index)},
-                    {ToSqlParamName(OutboxTableConfig.PublishingPayloadFieldName, index)}
-                )");
+                    (
+                        {ToSqlParamName(OutboxTableConfig.UniqueIdentifierFieldName, index)},
+                        {ToSqlParamName(OutboxTableConfig.StatusFieldName, index)},
+                        SysUtcDateTime(),
+                        {ToSqlParamName(OutboxTableConfig.PublishingAttemptsFieldName, index)},
+                        {ToSqlParamName(OutboxTableConfig.PublishingTargetFieldName, index)},
+                        {ToSqlParamName(OutboxTableConfig.PublishingPayloadFieldName, index)},
+                        {index}
+                    )
+                ");
             }
+
+            sqlStringBuilder.Append(@$"
+                ) AS TempTable (
+                    {sqlTransactionalOutboxTableFieldNames}, 
+                    [SortOrdinal]
+                )
+                --The Order By clause guarantees that IDENTITY values will be assigned in the Order we Specify!
+                ORDER BY [SortOrdinal] ASC;
+            ");
 
             return sqlStringBuilder.ToString();
         }

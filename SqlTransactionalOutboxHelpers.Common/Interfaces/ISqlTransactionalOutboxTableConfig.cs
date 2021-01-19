@@ -9,6 +9,8 @@ namespace SqlTransactionalOutboxHelpers
         string TransactionalOutboxSchemaName { get; }
         
         string TransactionalOutboxTableName { get; }
+
+        string PKeyFieldName { get; }
         
         string UniqueIdentifierFieldName { get; }
         

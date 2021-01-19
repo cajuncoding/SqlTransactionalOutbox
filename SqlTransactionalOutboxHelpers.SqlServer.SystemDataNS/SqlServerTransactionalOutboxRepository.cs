@@ -101,22 +101,18 @@ namespace SqlTransactionalOutboxHelpers.SqlServer.SystemDataNS
                 {
                     var outboxItem = batch[batchIndex];
 
-                    //NOTE: The for Sql Server, the CreatedDateTimeUtcField is automatically populated by Sql Server, so we skip it here!
-                    //NOTE: This is because the value is critical to enforcing FIFO processing we use the centralized
-                    //      database as the source of getting highly precise Utc DateTime values for all data inserted to eliminate
-                    //      risks of datetime sequencing across servers or server-less environments.
-                    //NOTE: SysUtcDateTime() is the Sql Server implementation for highly precise date time values
-                    //      stored as datetime2 with maximum support for fractional seconds (e.g. nanoseconds).
                     AddParam(sqlCmd, OutboxTableConfig.UniqueIdentifierFieldName, outboxItem.UniqueIdentifier, batchIndex);
+                    //NOTE: The for Sql Server, the CreatedDateTimeUtcField is automatically populated by Sql Server.
+                    //      this helps eliminate risks of datetime sequencing across servers or server-less environments.
                     //AddParam(sqlCmd, OutboxTableConfig.CreatedDateTimeUtcFieldName, outboxItem.CreatedDateTimeUtc, batchIndex);
-                    AddParam(sqlCmd, OutboxTableConfig.StatusFieldName, outboxItem.Status, batchIndex);
+                    AddParam(sqlCmd, OutboxTableConfig.StatusFieldName, outboxItem.Status.ToString(), batchIndex);
                     AddParam(sqlCmd, OutboxTableConfig.PublishingAttemptsFieldName, outboxItem.PublishingAttempts, batchIndex);
                     AddParam(sqlCmd, OutboxTableConfig.PublishingTargetFieldName, outboxItem.PublishingTarget, batchIndex);
                     AddParam(sqlCmd, OutboxTableConfig.PublishingPayloadFieldName, outboxItem.PublishingPayload, batchIndex);
                 }
 
                 //Execute the Batch and continue...
-                var sqlReader = await sqlCmd.ExecuteReaderAsync().ConfigureAwait(false);
+                await using var sqlReader = await sqlCmd.ExecuteReaderAsync().ConfigureAwait(false);
 
                 //Since some fields are actually populated in the Database, we post-process to update the models with valid
                 //  values as returned from teh Insert process...
@@ -131,8 +127,6 @@ namespace SqlTransactionalOutboxHelpers.SqlServer.SystemDataNS
                     var outboxItem = outboxBatchLookup[uniqueIdentifier].First();
                     outboxItem.CreatedDateTimeUtc = createdDateUtcFromDb;
                 }
-
-                await sqlReader.CloseAsync();
             }
 
             return outboxItemsList;
@@ -201,5 +195,11 @@ namespace SqlTransactionalOutboxHelpers.SqlServer.SystemDataNS
 
         #endregion
 
+    }
+
+    internal class SqlServerInsertedItem
+    {
+        public int Id { get; set; }
+        public Guid Guid { get; set; }
     }
 }

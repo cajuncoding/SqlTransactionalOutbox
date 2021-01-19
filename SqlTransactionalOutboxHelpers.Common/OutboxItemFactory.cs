@@ -1,6 +1,7 @@
 ﻿#nullable enable
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Text;
 using SqlTransactionalOutboxHelpers.CustomExtensions;
 
@@ -25,10 +26,25 @@ namespace SqlTransactionalOutboxHelpers
             TPayload publishingPayload
         )
         {
-            var outboxItem = CreateOutboxItemInternal(
-                publishingTarget: publishingTarget,  //Will be validated by lower level code.
-                publishingPayload: publishingPayload //Will be validated by lower level code.
-            );
+            //Validate key required values that are always user provided in this one place...
+            publishingTarget.AssertNotNullOrWhiteSpace(nameof(publishingTarget));
+            publishingPayload.AssertNotNull(nameof(publishingPayload));
+
+            //Serialize the Payload for Storage with our Outbox Item...
+            var serializedPayload = PayloadSerializer.SerializePayload(publishingPayload);
+
+            //Now we can create the fully validated Outbox Item
+            var outboxItem = new OutboxItem()
+            {
+                //Initialize Internal Variables
+                UniqueIdentifier = UniqueIdentifierFactory.CreateUniqueIdentifier(),
+                Status = OutboxItemStatus.Pending,
+                PublishingAttempts = 0,
+                CreatedDateTimeUtc = DateTime.UtcNow,
+                //Initialize client provided details
+                PublishingTarget = publishingTarget,
+                PublishingPayload = serializedPayload
+            };
 
             return outboxItem;
         }
@@ -43,53 +59,38 @@ namespace SqlTransactionalOutboxHelpers
         )
         {
             if (uniqueIdentifier == Guid.Empty)
-                throw new ArgumentNullException(nameof(uniqueIdentifier));
+                AssertInvalidArgument(nameof(uniqueIdentifier), uniqueIdentifier.ToString());
 
-            //Deserialize (re-hydrate) the TPayload type from the serialized value provided....
-            var deserializedPayload = PayloadSerializer.DeserializePayload<TPayload>(serializedPayload);
+            if(createdDateTimeUtc == DateTime.MinValue)
+                AssertInvalidArgument(nameof(createdDateTimeUtc), createdDateTimeUtc.ToString(CultureInfo.InvariantCulture));
 
-            var outboxItem = CreateOutboxItemInternal(
-                uniqueIdentifier,
-                status.AssertNotNullOrWhiteSpace(nameof(status)),
-                publishingAttempts,
-                createdDateTimeUtc,
-                publishingTarget, //Will be validated by lower level code.
-                deserializedPayload //Will be validated by lower level code.
-            );
+            if (publishingAttempts < 0)
+                AssertInvalidArgument(nameof(publishingAttempts), publishingAttempts.ToString());
 
-            return outboxItem;
-        }
 
-        protected virtual ISqlTransactionalOutboxItem<Guid> CreateOutboxItemInternal(
-            Guid? uniqueIdentifier = null,
-            string? status = null,
-            int publishingAttempts = 0,
-            DateTime? createdDateTimeUtc = null,
-            string? publishingTarget = null,
-            TPayload publishingPayload = default
-        )
-        {
             //Validate key required values that are always user provided in this one place...
             publishingTarget.AssertNotNullOrWhiteSpace(nameof(publishingTarget));
-            publishingPayload.AssertNotNull(nameof(publishingPayload));
-
-            //Serialize the Payload for Storage with our Outbox Item...
-            var serializedPayload = PayloadSerializer.SerializePayload(publishingPayload);
+            serializedPayload.AssertNotNullOrWhiteSpace(nameof(serializedPayload));
 
             //Now we can create the fully validated Outbox Item
             var outboxItem = new OutboxItem()
             {
                 //Initialize Internal Variables
-                UniqueIdentifier = uniqueIdentifier ?? UniqueIdentifierFactory.CreateUniqueIdentifier(),
-                Status = string.IsNullOrWhiteSpace(status) ? OutboxItemStatus.Pending : Enum.Parse<OutboxItemStatus>(status),
-                PublishingAttempts = Math.Max(publishingAttempts, 0),
-                CreatedDateTimeUtc = createdDateTimeUtc ?? DateTime.UtcNow,
+                UniqueIdentifier = uniqueIdentifier,
+                Status = Enum.Parse<OutboxItemStatus>(status),
+                PublishingAttempts = publishingAttempts,
+                CreatedDateTimeUtc = createdDateTimeUtc,
                 //Initialize client provided details
                 PublishingTarget = publishingTarget,
                 PublishingPayload = serializedPayload
             };
 
             return outboxItem;
+        }
+
+        private void AssertInvalidArgument(string argName, string value)
+        {
+            throw new ArgumentException(argName, $"Invalid value of [{value}] specified.");
         }
     }
 }
