@@ -16,8 +16,8 @@ namespace SqlTransactionalOutboxHelpers.SqlServer.SystemDataNS
         protected string DistributedMutexLockName { get; set; }
 
         protected void Init(
-            ISqlTransactionalOutboxTableConfig outboxTableConfig = null,
-            ISqlTransactionalOutboxItemFactory<TUniqueIdentifier, TPayload> outboxItemFactory = null,
+            ISqlTransactionalOutboxTableConfig outboxTableConfig,
+            ISqlTransactionalOutboxItemFactory<TUniqueIdentifier, TPayload> outboxItemFactory,
             int distributedMutexAcquisitionTimeoutSeconds = 5
         )
         {

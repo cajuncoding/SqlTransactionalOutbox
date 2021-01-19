@@ -28,8 +28,8 @@ namespace SqlTransactionalOutboxHelpers.SqlServer.SystemDataNS
                 throw new ArgumentNullException(nameof(SqlConnection), "The SqlTransaction specified must have a valid SqlConnection.");
 
             base.Init(
-                outboxTableConfig, 
-                outboxItemFactory ?? new OutboxItemFactory<TPayload>(), 
+                outboxTableConfig: outboxTableConfig ?? new DefaultOutboxTableConfig(), 
+                outboxItemFactory: outboxItemFactory ?? new OutboxItemFactory<TPayload>(), 
                 distributedMutexAcquisitionTimeoutSeconds
             );
         }
@@ -75,7 +75,7 @@ namespace SqlTransactionalOutboxHelpers.SqlServer.SystemDataNS
             await sqlCmd.ExecuteNonQueryAsync().ConfigureAwait(false);
         }
 
-        public virtual async Task<IEnumerable<ISqlTransactionalOutboxItem<Guid>>> InsertNewOutboxItemsAsync(
+        public virtual async Task<List<ISqlTransactionalOutboxItem<Guid>>> InsertNewOutboxItemsAsync(
             IEnumerable<ISqlTransactionalOutboxInsertionItem<TPayload>> outboxItems, 
             int insertBatchSize = 20
         )
@@ -94,25 +94,25 @@ namespace SqlTransactionalOutboxHelpers.SqlServer.SystemDataNS
             foreach (var batch in batches)
             {
                 sqlCmd.CommandText = QueryBuilder.BuildParameterizedSqlToInsertNewOutboxItems(batch);
+                sqlCmd.Parameters.Clear();
 
                 //Add the Parameters!
-                var batchIndex = 0;
-                foreach (var outboxItem in batch)
+                for (var batchIndex = 0; batchIndex < batch.Length; batchIndex++)
                 {
-                    //NOTE: The for Sql Server, the CreatedDateTimeUtcField is automatically populated by Sql Server,
-                    //      so we skip it here!
+                    var outboxItem = batch[batchIndex];
+
+                    //NOTE: The for Sql Server, the CreatedDateTimeUtcField is automatically populated by Sql Server, so we skip it here!
                     //NOTE: This is because the value is critical to enforcing FIFO processing we use the centralized
-                    //      database as the source of getting highly precise Utc DateTime values for all data inserted.
-                    //NOTE: UTC Created DateTime will be automatically populated by DEFAULT constraint using
-                    //      SysUtcDateTime() per the Sql Server table script; SysUtcDateTime() is Sql Server's
-                    //      implementation for highly precise values stored as datetime2 fields.
+                    //      database as the source of getting highly precise Utc DateTime values for all data inserted to eliminate
+                    //      risks of datetime sequencing across servers or server-less environments.
+                    //NOTE: SysUtcDateTime() is the Sql Server implementation for highly precise date time values
+                    //      stored as datetime2 with maximum support for fractional seconds (e.g. nanoseconds).
                     AddParam(sqlCmd, OutboxTableConfig.UniqueIdentifierFieldName, outboxItem.UniqueIdentifier, batchIndex);
                     //AddParam(sqlCmd, OutboxTableConfig.CreatedDateTimeUtcFieldName, outboxItem.CreatedDateTimeUtc, batchIndex);
                     AddParam(sqlCmd, OutboxTableConfig.StatusFieldName, outboxItem.Status, batchIndex);
                     AddParam(sqlCmd, OutboxTableConfig.PublishingAttemptsFieldName, outboxItem.PublishingAttempts, batchIndex);
                     AddParam(sqlCmd, OutboxTableConfig.PublishingTargetFieldName, outboxItem.PublishingTarget, batchIndex);
                     AddParam(sqlCmd, OutboxTableConfig.PublishingPayloadFieldName, outboxItem.PublishingPayload, batchIndex);
-                    batchIndex++;
                 }
 
                 //Execute the Batch and continue...
@@ -131,12 +131,14 @@ namespace SqlTransactionalOutboxHelpers.SqlServer.SystemDataNS
                     var outboxItem = outboxBatchLookup[uniqueIdentifier].First();
                     outboxItem.CreatedDateTimeUtc = createdDateUtcFromDb;
                 }
+
+                await sqlReader.CloseAsync();
             }
 
             return outboxItemsList;
         }
 
-        public virtual async Task<IEnumerable<ISqlTransactionalOutboxItem<Guid>>> UpdateOutboxItemsAsync(
+        public virtual async Task<List<ISqlTransactionalOutboxItem<Guid>>> UpdateOutboxItemsAsync(
             IEnumerable<ISqlTransactionalOutboxItem<Guid>> outboxItems, int updateBatchSize = 20
         )
         {
@@ -182,9 +184,10 @@ namespace SqlTransactionalOutboxHelpers.SqlServer.SystemDataNS
         
         protected SqlCommand CreateSqlCommand(string sqlCmdText)
         {
-            var sqlCmd = this.SqlConnection.CreateCommand();
-            sqlCmd.CommandType = CommandType.Text;
-            sqlCmd.CommandText = sqlCmdText;
+            var sqlCmd = new SqlCommand(sqlCmdText, this.SqlConnection, this.SqlTransaction)
+            {
+                CommandType = CommandType.Text
+            };
             return sqlCmd;
         }
 

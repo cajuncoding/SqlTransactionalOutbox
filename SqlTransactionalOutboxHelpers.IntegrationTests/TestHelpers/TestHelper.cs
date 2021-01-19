@@ -16,7 +16,7 @@ namespace SqlTransactionalOutboxHelpers.Tests
             for (var x = 1; x <= dataSize; x++)
             {
                 list.Add(new OutboxInsertionItem<string>(
-                    $"/publish/target_{(int)dataSize % 5}",
+                    $"/publish/target_{(int)x % targetModulus}",
                     $"Payload Message #{x:00000}"
                 ));
             }

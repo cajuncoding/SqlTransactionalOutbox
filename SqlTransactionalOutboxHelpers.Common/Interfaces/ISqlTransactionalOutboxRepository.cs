@@ -7,12 +7,12 @@ namespace SqlTransactionalOutboxHelpers
 {
     public interface ISqlTransactionalOutboxRepository<TUniqueIdentifier, TPayload>
     {
-        Task<IEnumerable<ISqlTransactionalOutboxItem<TUniqueIdentifier>>> InsertNewOutboxItemsAsync(
+        Task<List<ISqlTransactionalOutboxItem<TUniqueIdentifier>>> InsertNewOutboxItemsAsync(
             IEnumerable<ISqlTransactionalOutboxInsertionItem<TPayload>> outboxItems, 
             int insertBatchSize = 20
         );
 
-        Task<IEnumerable<ISqlTransactionalOutboxItem<TUniqueIdentifier>>> UpdateOutboxItemsAsync(
+        Task<List<ISqlTransactionalOutboxItem<TUniqueIdentifier>>> UpdateOutboxItemsAsync(
             IEnumerable<ISqlTransactionalOutboxItem<TUniqueIdentifier>> outboxItems, 
             int updateBatchSize = 20
         );

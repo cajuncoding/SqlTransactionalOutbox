@@ -12,7 +12,7 @@ namespace SqlTransactionalOutboxHelpers
             TPayload publishingPayload
         );
 
-        Task<IEnumerable<ISqlTransactionalOutboxItem<TUniqueIdentifier>>> InsertNewPendingOutboxItemsAsync(
+        Task<List<ISqlTransactionalOutboxItem<TUniqueIdentifier>>> InsertNewPendingOutboxItemsAsync(
             IEnumerable<ISqlTransactionalOutboxInsertionItem<TPayload>> outboxInsertionItems
         );
 
