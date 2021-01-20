@@ -7,6 +7,10 @@ namespace SqlTransactionalOutboxHelpers
     {
         List<ISqlTransactionalOutboxItem<TUniqueIdentifier>> SuccessfullyPublishedItems { get; }
         List<ISqlTransactionalOutboxItem<TUniqueIdentifier>> FailedItems { get; }
-        Stopwatch ProcessingTimer { get; set; }
+        List<ISqlTransactionalOutboxItem<TUniqueIdentifier>> SkippedItems { get; }
+
+        int ProcessedItemsCount { get; }
+
+        Stopwatch ProcessingTimer { get; }
     }
 }

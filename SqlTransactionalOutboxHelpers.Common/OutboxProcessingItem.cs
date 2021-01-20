@@ -3,14 +3,17 @@ using System.Xml;
 
 namespace SqlTransactionalOutboxHelpers
 {
-    public class OutboxItem : ISqlTransactionalOutboxItem<Guid>
+    public class OutboxProcessingItem<TUniqueIdentifier> : ISqlTransactionalOutboxItem<TUniqueIdentifier>
     {
         /// <summary>
-        /// A System generated UUID for the outbox; C# syntax for rendering GUID's should provide plenty
-        /// of performance for the majority of implementations. Rarely is there a need for anything advanced like Snowflake Ids,
-        /// but if necessary an ISqlTransactionalOutboxItemFactory may be implemented to override the generation of ID as a GUID.
+        /// A System generated UUID for the outbox; C# syntax for rendering GUID values should provide plenty
+        /// of performance for the majority of implementations. In a micro-services world, where each application controls
+        /// it's own outbox, and with the use of Sql Server IDENTITY, then there is not a need for anything advanced like
+        /// Snowflake Ids for the majority of use cases; but this can be fully customized if necessary
+        /// via ISqlTransactionalOutboxItemFactory & corresponding ISqlTransactionalOutboxUniqueIdFactory
+        /// implementations to override the generation of ID as a GUID.
         /// </summary>
-        public Guid UniqueIdentifier { get; set; }
+        public TUniqueIdentifier UniqueIdentifier { get; set; }
 
         /// <summary>
         /// Status of the Outbox item (e.g. Pending, Successful, Failed*).

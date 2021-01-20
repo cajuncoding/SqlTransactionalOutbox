@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -30,7 +31,7 @@ namespace SqlTransactionalOutboxHelpers
             await OutboxRepository.CleanupOutboxHistoricalItemsAsync(historyTimeToKeepTimeSpan).ConfigureAwait(false);
         }
         
-        public async Task<ISqlTransactionalOutboxItem<TUniqueIdentifier>> InsertNewPendingOutboxItemAsync(
+        public virtual async Task<ISqlTransactionalOutboxItem<TUniqueIdentifier>> InsertNewPendingOutboxItemAsync(
             string publishingTarget, 
             TPayload publishingPayload
         )
@@ -46,7 +47,7 @@ namespace SqlTransactionalOutboxHelpers
             return resultItems.FirstOrDefault();
         }
 
-        public async Task<List<ISqlTransactionalOutboxItem<TUniqueIdentifier>>> InsertNewPendingOutboxItemsAsync(
+        public virtual async Task<List<ISqlTransactionalOutboxItem<TUniqueIdentifier>>> InsertNewPendingOutboxItemsAsync(
             IEnumerable<ISqlTransactionalOutboxInsertionItem<TPayload>> outboxInsertionItems
         )
         {
@@ -101,7 +102,7 @@ namespace SqlTransactionalOutboxHelpers
             //  NoOp will be successfully initialized if locking is disabled.
             if (distributedMutex == null)
             {
-                var mutexErrorMessage = "Distributed Mutex Lock could not be acquired; processing will not continue.";
+                const string mutexErrorMessage = "Distributed Mutex Lock could not be acquired; processing will not continue.";
                 options.LogDebugCallback?.Invoke(mutexErrorMessage);
 
                 if (throwExceptionOnFailure) 
@@ -110,124 +111,188 @@ namespace SqlTransactionalOutboxHelpers
                 return results;
             }
 
-            //Now process the Items and Update the Outbox appropriately...
-            var processedItems = await ProcessOutboxItemsInternal(
+            //Now EXECUTE & PROCESS the Items and Update the Outbox appropriately...
+            //NOTE: It's CRITICAL that we attempt to Publish BEFORE we update the results in the TransactionalOutbox,
+            //      this ensures that we guarantee at-least-once delivery because the item will be retried at a later point
+            //      if anything fails with the update.
+            await ProcessOutboxItemsInternalAsync(
                 outboxItems, 
                 options, 
                 results, 
                 throwExceptionOnFailure
             ).ConfigureAwait(false);
 
-            //Update & store the state for all Items Processed (e.g. Successful, Attempted, Failed, etc.)!
-            options.LogDebugCallback?.Invoke($"Starting to update the Outbox for [{processedItems.Count}] items...");
-            
-            results.ProcessingTimer.Start();
-            await OutboxRepository.UpdateOutboxItemsAsync(processedItems, options.ItemUpdatingBatchSize).ConfigureAwait(false);
-            results.ProcessingTimer.Stop();
-
-            options.LogDebugCallback?.Invoke(
-                $"Finished updating the Outbox for [{processedItems.Count}] items in" +
-                    $" [{results.ProcessingTimer.Elapsed.ToElapsedTimeDescriptiveFormat()}]!"
-            );
-
             return results;
         }
 
-        protected async Task<List<ISqlTransactionalOutboxItem<TUniqueIdentifier>>> ProcessOutboxItemsInternal(
+        protected virtual async Task ProcessOutboxItemsInternalAsync(
             List<ISqlTransactionalOutboxItem<TUniqueIdentifier>> outboxItems, 
             OutboxProcessingOptions options,
             OutboxProcessingResults<TUniqueIdentifier> results,
             bool throwExceptionOnFailure
         )
         {
-            var processedItems = new List<ISqlTransactionalOutboxItem<TUniqueIdentifier>>();
-
-            //We always sort data to generally maintain FIFO processing order, but parallelism risk is only mitigated
-            //  by the above Mutex locking...
-            outboxItems = outboxItems.OrderBy(i => i.CreatedDateTimeUtc).ToList();
+            //Convert the list to a Queue for easier processing...
+            var processingQueue = new Queue<ISqlTransactionalOutboxItem<TUniqueIdentifier>>(outboxItems);
 
             //This process will publish pending items, while also cleaning up Pending Items that need to be Failed because
             //  they couldn't be successfully published before and are exceeding the currently configured limits for
             //  retry attempts and/or time-to-live.
-            //NOTE: IF any of this fails due to issues with Sql Server it's ok because we have alreayd transactionally
+            //NOTE: IF any of this fails due to issues with Sql Server it's ok because we have already transaction-ally
             //      secured the data in the outbox therefore we can repeat processing over-and-over under the promise of
             //      'at-least-once' publishing attempt.
-            foreach (var item in outboxItems)
+            while (processingQueue.Count > 0)
             {
+                var item = processingQueue.Dequeue();
+
                 try
                 {
-                    options.LogDebugCallback?.Invoke($"Processing Item [{item.UniqueIdentifier}]...");
-
-                    //Validate the Item hasn't exceeded the Max Retry Attempts if enabled in the options...
-                    if (options.MaxPublishingAttempts > 0 && item.PublishingAttempts >= options.MaxPublishingAttempts)
-                    {
-                        options.LogDebugCallback?.Invoke(
-                            $"Item [{item.UniqueIdentifier}] has failed due to exceeding the max number of" +
-                                $" publishing attempts [{options.MaxPublishingAttempts}] with current PublishingAttempts=[{item.PublishingAttempts}]."
-                        );
-
-                        item.Status = OutboxItemStatus.FailedAttemptsExceeded;
-                        results.FailedItems.Add(item);
-                    }
-                    //Validate the Item hasn't expired if enabled in the options...
-                    else if (options.TimeSpanToLive > TimeSpan.Zero && item.CreatedDateTimeUtc.Add(options.TimeSpanToLive) >= DateTime.UtcNow)
-                    {
-                        options.LogDebugCallback?.Invoke(
-                            $"Item [{item.UniqueIdentifier}] has failed due to exceeding the maximum time-to-live" +
-                                $" [{options.TimeSpanToLive.ToElapsedTimeDescriptiveFormat()}] because it was created at [{item.CreatedDateTimeUtc}] UTC."
-                        );
-
-                        item.Status = OutboxItemStatus.FailedExpired;
-                        results.FailedItems.Add(item);
-                    }
-                    //Finally attempt to publish the item...
-                    else
-                    {
-                        item.PublishingAttempts++;
-                        await OutboxPublisher.PublishOutboxItemAsync(item).ConfigureAwait(false);
-
-                        options.LogDebugCallback?.Invoke(
-                            $"Item [{item.UniqueIdentifier}] published successfully after [{item.PublishingAttempts}] publishing attempts!"
-                        );
-
-                        //Update the Status only AFTER successful Publishing!
-                        item.Status = OutboxItemStatus.Successful;
-                        processedItems.Add(item);
-                        results.SuccessfullyPublishedItems.Add(item);
-
-                        options.LogDebugCallback?.Invoke(
-                            $"Item [{item.UniqueIdentifier}] outbox status will be updated to [{item.Status}]."
-                        );
-                    }
+                    await ProcessOutboxItemFromQueueInternal(item, options, results);
                 }
                 catch (Exception exc)
                 {
-                    var processingException = new Exception(
-                        message: $"An Exception occurred while processing outbox item [{item.UniqueIdentifier}].",
-                        innerException: exc
-                    );
-
-                    options.LogErrorCallback?.Invoke(processingException);
-
-                    //Short circuit if we are configured to Throw the Error!
-                    if (throwExceptionOnFailure)
-                    {
-                        await OutboxRepository.UpdateOutboxItemsAsync(processedItems).ConfigureAwait(false);
-                        throw;
-                    }
-
-                    //Add Failed Item to the results
-                    results.FailedItems.Add(item);
+                    await HandleExceptionForOutboxItemFromQueueInternal(processingQueue, item, exc, options, results, throwExceptionOnFailure);
                 }
             }
 
             results.ProcessingTimer.Stop();
             options.LogDebugCallback?.Invoke(
-                $"Finished Publishing [{processedItems.Count}] items in" +
+                $"Finished Publishing [{results.SuccessfullyPublishedItems.Count}] items in" +
                     $" [{results.ProcessingTimer.Elapsed.ToElapsedTimeDescriptiveFormat()}]."
             );
+            
+            //Store all updated results back into the Outbox!
+            await UpdateProcessedItemsInternal(results, options);
+            
+        }
 
-            return processedItems;
+        protected virtual async Task UpdateProcessedItemsInternal(
+            OutboxProcessingResults<TUniqueIdentifier> results, 
+            OutboxProcessingOptions options
+        )
+        {
+            //Update & store the state for all Items Processed (e.g. Successful, Attempted, Failed, etc.)!
+            var processedItems = results.GetAllProcessedItems();
+
+            options.LogDebugCallback?.Invoke($"Starting to update the Outbox for [{processedItems.Count}] items...");
+
+            if (processedItems.Count > 0)
+            {
+                results.ProcessingTimer.Start();
+                await OutboxRepository.UpdateOutboxItemsAsync(processedItems, options.ItemUpdatingBatchSize).ConfigureAwait(false);
+                results.ProcessingTimer.Stop();
+            }
+
+            options.LogDebugCallback?.Invoke(
+                $"Finished updating the Outbox for [{processedItems.Count}] items in" +
+                $" [{results.ProcessingTimer.Elapsed.ToElapsedTimeDescriptiveFormat()}]!"
+            );
+        }
+
+        protected virtual async Task ProcessOutboxItemFromQueueInternal(
+            ISqlTransactionalOutboxItem<TUniqueIdentifier> item,
+            OutboxProcessingOptions options,
+            OutboxProcessingResults<TUniqueIdentifier> results
+        )
+        {
+            options.LogDebugCallback?.Invoke($"Processing Item [{item.UniqueIdentifier}]...");
+
+            //Validate the Item hasn't exceeded the Max Retry Attempts if enabled in the options...
+            if (options.MaxPublishingAttempts > 0 && item.PublishingAttempts >= options.MaxPublishingAttempts)
+            {
+                options.LogDebugCallback?.Invoke(
+                    $"Item [{item.UniqueIdentifier}] has failed due to exceeding the max number of" +
+                        $" publishing attempts [{options.MaxPublishingAttempts}] with current PublishingAttempts=[{item.PublishingAttempts}]."
+                );
+
+                item.Status = OutboxItemStatus.FailedAttemptsExceeded;
+                results.FailedItems.Add(item);
+            }
+            //Validate the Item hasn't expired if enabled in the options...
+            else if (options.TimeSpanToLive > TimeSpan.Zero && DateTime.UtcNow.Subtract(item.CreatedDateTimeUtc) >= options.TimeSpanToLive)
+            {
+                options.LogDebugCallback?.Invoke(
+                    $"Item [{item.UniqueIdentifier}] has failed due to exceeding the maximum time-to-live" +
+                        $" [{options.TimeSpanToLive.ToElapsedTimeDescriptiveFormat()}] because it was created at [{item.CreatedDateTimeUtc}] UTC."
+                );
+
+                item.Status = OutboxItemStatus.FailedExpired;
+                results.FailedItems.Add(item);
+            }
+            //Finally attempt to publish the item...
+            else
+            {
+                item.PublishingAttempts++;
+                await OutboxPublisher.PublishOutboxItemAsync(item).ConfigureAwait(false);
+
+                options.LogDebugCallback?.Invoke(
+                    $"Item [{item.UniqueIdentifier}] published successfully after [{item.PublishingAttempts}] publishing attempt(s)!"
+                );
+
+                //Update the Status only AFTER successful Publishing!
+                item.Status = OutboxItemStatus.Successful;
+                results.SuccessfullyPublishedItems.Add(item);
+
+                options.LogDebugCallback?.Invoke(
+                    $"Item [{item.UniqueIdentifier}] outbox status will be updated to [{item.Status}]."
+                );
+            }
+        }
+
+        public async Task HandleExceptionForOutboxItemFromQueueInternal(
+            Queue<ISqlTransactionalOutboxItem<TUniqueIdentifier>> processingQueue,
+            ISqlTransactionalOutboxItem<TUniqueIdentifier> item,
+            Exception itemException,
+            OutboxProcessingOptions options,
+            OutboxProcessingResults<TUniqueIdentifier> results,
+            bool throwExceptionOnFailure
+        )
+        {
+            var processingException = new Exception(
+                message: $"An Unexpected Exception occurred while processing outbox item [{item.UniqueIdentifier}].",
+                innerException: itemException
+            );
+
+            //Add Failed Item to the results
+            results.FailedItems.Add(item);
+
+            //Short circuit if we are configured to Throw the Error or if Enforce FIFO processing is enabled!
+            if (throwExceptionOnFailure)
+            {
+                options.LogErrorCallback?.Invoke(processingException);
+
+                //If configured to throw an error then we Attempt to update the item before throwing exception
+                // because normally it would have been updated in bulk if exceptions were suppressed.
+                //NOTE: NO need to process results since we are throwing an Exception...
+                await UpdateProcessedItemsInternal(results, options);
+
+                throw processingException;
+            }
+
+            //If Enforce Fifo processing is enabled then we also need to halt processing and drain the current queue to preserve 
+            //  the current order of processing; if we allow it to proceed we might publish the next item out of order.
+            //NOTE: This may create a block in the Queue if the issue isn't fixed but it's necessary to preserve
+            //      the publishing order until the erroneous blocking item is resolved automatically (via connections restored,
+            //      or item fails due to re-attempts), or manually (item is failed and/or removed manually).
+            if (options.EnableDistributedMutexLockForFifoPublishingOrder)
+            {
+                processingException = new Exception(
+                    $"The processing must be stopped because [{nameof(options.EnableDistributedMutexLockForFifoPublishingOrder)}]"
+                    + $" configuration option is enabled; therefore to preserve the publishing order the remaining"
+                    + $" [{processingQueue.Count}] items will be delayed until the current item [{item.UniqueIdentifier}]"
+                    + " can be processed successfully or is failed out of the outbox queue.",
+                    processingException
+                );
+
+                //Drain the Queue to halt current process...
+                while (processingQueue.Count > 0)
+                {
+                    results.SkippedItems.Add(processingQueue.Dequeue());
+                }
+            }
+
+            //Log the latest initialized exception with details...
+            options.LogErrorCallback?.Invoke(processingException);
         }
     }
 }

@@ -27,7 +27,7 @@ namespace SqlTransactionalOutboxHelpers
                 FROM
                     {BuildTableName()}
                 WHERE
-                   {OutboxTableConfig.StatusFieldName} = {ToSqlParamName(statusParamName)}
+                   {ToSqlFieldName(OutboxTableConfig.StatusFieldName)} = {ToSqlParamName(statusParamName)}
                 ORDER BY
                     --Order by Created DateTime, and break any collisions using the PKey field (IDENTITY).
                     {ToSqlFieldName(OutboxTableConfig.CreatedDateTimeUtcFieldName)},

@@ -9,15 +9,15 @@ using SqlTransactionalOutboxHelpers.CustomExtensions;
 
 namespace SqlTransactionalOutboxHelpers.SqlServer.SystemDataNS
 {
-    public class SqlServerTransactionalOutboxRepository<TPayload> : BaseSqlServerTransactionalOutboxRepository<Guid, TPayload>, ISqlTransactionalOutboxRepository<Guid, TPayload>
+    public class SqlServerGenericsTransactionalOutboxRepository<TUniqueIdentifier, TPayload> : BaseSqlServerTransactionalOutboxRepository<TUniqueIdentifier, TPayload>, ISqlTransactionalOutboxRepository<TUniqueIdentifier, TPayload>
     {
         protected SqlTransaction SqlTransaction { get; set; }
         protected SqlConnection SqlConnection { get; set; }
 
-        public SqlServerTransactionalOutboxRepository(
+        public SqlServerGenericsTransactionalOutboxRepository(
             SqlTransaction sqlTransaction, 
             ISqlTransactionalOutboxTableConfig outboxTableConfig = null,
-            ISqlTransactionalOutboxItemFactory<Guid, TPayload> outboxItemFactory = null,
+            ISqlTransactionalOutboxItemFactory<TUniqueIdentifier, TPayload> outboxItemFactory = null,
             int distributedMutexAcquisitionTimeoutSeconds = 5
         )
         {
@@ -28,27 +28,30 @@ namespace SqlTransactionalOutboxHelpers.SqlServer.SystemDataNS
                 throw new ArgumentNullException(nameof(SqlConnection), "The SqlTransaction specified must have a valid SqlConnection.");
 
             base.Init(
-                outboxTableConfig: outboxTableConfig ?? new DefaultOutboxTableConfig(), 
-                outboxItemFactory: outboxItemFactory ?? new OutboxItemFactory<TPayload>(), 
+                outboxTableConfig: outboxTableConfig.AssertNotNull(nameof(outboxTableConfig)), 
+                outboxItemFactory: outboxItemFactory.AssertNotNull(nameof(outboxItemFactory)), 
                 distributedMutexAcquisitionTimeoutSeconds
             );
         }
 
-        public virtual async Task<List<ISqlTransactionalOutboxItem<Guid>>> RetrieveOutboxItemsAsync(OutboxItemStatus status, int maxBatchSize = -1)
+        public virtual async Task<List<ISqlTransactionalOutboxItem<TUniqueIdentifier>>> RetrieveOutboxItemsAsync(
+            OutboxItemStatus status, 
+            int maxBatchSize = -1
+        )
         {
-            var statusParamName = "status";
+            var statusParamName = OutboxTableConfig.StatusFieldName;
             var sql = QueryBuilder.BuildSqlForRetrieveOutboxItemsByStatus(status, maxBatchSize, statusParamName);
             
             await using var sqlCmd = CreateSqlCommand(sql);
             AddParam(sqlCmd, statusParamName, status.ToString());
 
-            var results = new List<ISqlTransactionalOutboxItem<Guid>>();
+            var results = new List<ISqlTransactionalOutboxItem<TUniqueIdentifier>>();
 
             await using var sqlReader = await sqlCmd.ExecuteReaderAsync().ConfigureAwait(false);
             while (await sqlReader.ReadAsync().ConfigureAwait(false))
             {
                 var outboxItem = OutboxItemFactory.CreateExistingOutboxItem(
-                    uniqueIdentifier: (Guid)sqlReader[OutboxTableConfig.UniqueIdentifierFieldName],
+                    uniqueIdentifier: ConvertUniqueIdentifierFromDb(sqlReader),
                     status:(string)sqlReader[OutboxTableConfig.StatusFieldName],
                     publishingAttempts:(int)sqlReader[OutboxTableConfig.PublishingAttemptsFieldName],
                     createdDateTimeUtc:(DateTime)sqlReader[OutboxTableConfig.CreatedDateTimeUtcFieldName],
@@ -75,7 +78,7 @@ namespace SqlTransactionalOutboxHelpers.SqlServer.SystemDataNS
             await sqlCmd.ExecuteNonQueryAsync().ConfigureAwait(false);
         }
 
-        public virtual async Task<List<ISqlTransactionalOutboxItem<Guid>>> InsertNewOutboxItemsAsync(
+        public virtual async Task<List<ISqlTransactionalOutboxItem<TUniqueIdentifier>>> InsertNewOutboxItemsAsync(
             IEnumerable<ISqlTransactionalOutboxInsertionItem<TPayload>> outboxItems, 
             int insertBatchSize = 20
         )
@@ -101,7 +104,9 @@ namespace SqlTransactionalOutboxHelpers.SqlServer.SystemDataNS
                 {
                     var outboxItem = batch[batchIndex];
 
-                    AddParam(sqlCmd, OutboxTableConfig.UniqueIdentifierFieldName, outboxItem.UniqueIdentifier, batchIndex);
+                    var uniqueIdentifierForDb = ConvertUniqueIdentifierForDb(outboxItem.UniqueIdentifier);
+                    AddParam(sqlCmd, OutboxTableConfig.UniqueIdentifierFieldName, uniqueIdentifierForDb, batchIndex);
+
                     //NOTE: The for Sql Server, the CreatedDateTimeUtcField is automatically populated by Sql Server.
                     //      this helps eliminate risks of datetime sequencing across servers or server-less environments.
                     //AddParam(sqlCmd, OutboxTableConfig.CreatedDateTimeUtcFieldName, outboxItem.CreatedDateTimeUtc, batchIndex);
@@ -121,8 +126,8 @@ namespace SqlTransactionalOutboxHelpers.SqlServer.SystemDataNS
                 {
                     //The First field is always our UniqueIdentifier (as defined by the Output clause of the Sql)
                     // and the Second field is always the UTC Created DateTime returned from the Database.
-                    var uniqueIdentifier = sqlReader.GetGuid(0);
-                    var createdDateUtcFromDb = sqlReader.GetDateTime(1);
+                    var uniqueIdentifier = ConvertUniqueIdentifierFromDb(sqlReader);
+                    var createdDateUtcFromDb = (DateTime)sqlReader[OutboxTableConfig.CreatedDateTimeUtcFieldName];
 
                     var outboxItem = outboxBatchLookup[uniqueIdentifier].First();
                     outboxItem.CreatedDateTimeUtc = createdDateUtcFromDb;
@@ -132,8 +137,9 @@ namespace SqlTransactionalOutboxHelpers.SqlServer.SystemDataNS
             return outboxItemsList;
         }
 
-        public virtual async Task<List<ISqlTransactionalOutboxItem<Guid>>> UpdateOutboxItemsAsync(
-            IEnumerable<ISqlTransactionalOutboxItem<Guid>> outboxItems, int updateBatchSize = 20
+        public virtual async Task<List<ISqlTransactionalOutboxItem<TUniqueIdentifier>>> UpdateOutboxItemsAsync(
+            IEnumerable<ISqlTransactionalOutboxItem<TUniqueIdentifier>> outboxItems, 
+            int updateBatchSize = 20
         )
         {
             await using var sqlCmd = CreateSqlCommand("");
@@ -144,15 +150,20 @@ namespace SqlTransactionalOutboxHelpers.SqlServer.SystemDataNS
             foreach (var batch in batches)
             {
                 sqlCmd.CommandText = QueryBuilder.BuildParameterizedSqlToUpdateExistingOutboxItem(batch);
+                sqlCmd.Parameters.Clear();
 
                 //Add the Parameters!
-                var batchIndex = 0;
-                foreach (var outboxItem in batch)
+                for (var batchIndex = 0; batchIndex < batch.Length; batchIndex++)
                 {
-                   //NOTE: The only Updateable Fields are Status & PublishingAttempts
-                    AddParam(sqlCmd, OutboxTableConfig.StatusFieldName, outboxItem.Status, batchIndex);
+                    var outboxItem = batch[batchIndex];
+
+                    //Unique Identifier is used for Identification Match!
+                    var uniqueIdentifierForDb = ConvertUniqueIdentifierForDb(outboxItem.UniqueIdentifier);
+                    AddParam(sqlCmd, OutboxTableConfig.UniqueIdentifierFieldName, uniqueIdentifierForDb, batchIndex);
+
+                    //NOTE: The only Updateable Fields are Status & PublishingAttempts
+                    AddParam(sqlCmd, OutboxTableConfig.StatusFieldName, outboxItem.Status.ToString(), batchIndex);
                     AddParam(sqlCmd, OutboxTableConfig.PublishingAttemptsFieldName, outboxItem.PublishingAttempts, batchIndex);
-                    batchIndex++;
                 }
 
                 //Execute the Batch and continue...
@@ -160,6 +171,32 @@ namespace SqlTransactionalOutboxHelpers.SqlServer.SystemDataNS
             }
 
             return outboxItemsList;
+        }
+
+        /// <summary>
+        /// Provide virtual converter functionality, that can be overridden as needed, to help isolate the conversion
+        /// of UniqueIdentifier values to the correct format from the Model to the Database Schema.  Default behavior
+        /// assumes that it's a type that can be intrinsically cast without special conversion (e.g. Guid, Int, etc.).
+        /// </summary>
+        /// <param name="sqlReader"></param>
+        /// <returns></returns>
+        public virtual TUniqueIdentifier ConvertUniqueIdentifierFromDb(SqlDataReader sqlReader)
+        {
+            TUniqueIdentifier uniqueIdentifier = (TUniqueIdentifier)sqlReader[OutboxTableConfig.UniqueIdentifierFieldName];
+            return uniqueIdentifier;
+        }
+
+        /// <summary>
+        /// Provide virtual converter functionality, that can be overridden as needed, to help isolate the conversion
+        /// of UniqueIdentifier values to the correct format from the Database Schema to the Model.  Default behavior
+        /// assumes that it's a type that can be intrinsically cast without special conversion (e.g. Guid, Int, etc.).
+        /// </summary>
+        /// <param name="uniqueIdentifier"></param>
+        /// <returns></returns>
+        public virtual object ConvertUniqueIdentifierForDb(TUniqueIdentifier uniqueIdentifier)
+        {
+            object uniqueIdentifierForDb = (object)uniqueIdentifier;
+            return uniqueIdentifierForDb;
         }
 
         public virtual async Task<IAsyncDisposable> AcquireDistributedProcessingMutexAsync()

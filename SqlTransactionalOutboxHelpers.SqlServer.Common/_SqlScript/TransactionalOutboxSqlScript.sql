@@ -24,7 +24,7 @@ GO
 CREATE TABLE [notifications].[TransactionalOutboxQueue] (
 	[Id] INT IDENTITY NOT NULL PRIMARY KEY,
 	[UniqueIdentifier] UNIQUEIDENTIFIER NOT NULL,
-	[Status] VARCHAR(10) NOT NULL,
+	[Status] VARCHAR(50) NOT NULL,
 	[CreatedDateTimeUtc] DATETIME2 NOT NULL DEFAULT SysUtcDateTime(),
 	[PublishingAttempts] INT NOT NULL DEFAULT 0,
 	[PublishingTarget] VARCHAR(200) NOT NULL, -- Topic and/or Queue name

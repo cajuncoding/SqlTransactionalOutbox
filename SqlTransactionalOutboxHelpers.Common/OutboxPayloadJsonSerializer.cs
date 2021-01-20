@@ -4,7 +4,7 @@ using Newtonsoft.Json.Linq;
 
 namespace SqlTransactionalOutboxHelpers
 {
-    public class JsonOutboxPayloadSerializer : ISqlTransactionalOutboxSerializer
+    public class OutboxPayloadJsonSerializer : ISqlTransactionalOutboxSerializer
     {
         public string SerializePayload<TPayload>(TPayload payload)
         {

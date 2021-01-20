@@ -12,7 +12,7 @@ using SqlTransactionalOutboxHelpers.Tests;
 namespace SqlTransactionalOutboxHelpers.IntegrationTests
 {
     [TestClass]
-    public class OutboxDataInsertionTests
+    public class OutboxItemInsertionTests
     {
         public TestContext TestContext { get; set; }
 
@@ -21,12 +21,12 @@ namespace SqlTransactionalOutboxHelpers.IntegrationTests
         {
             //Organize
             await using var sqlConnection = await SqlConnectionHelper.CreateSystemDataSqlConnectionAsync();
-            var noOpPublisher = new NoOpSqlTransactionalOutboxPublisher();
+            var testPublisher = new TestHarnessSqlTransactionalOutboxPublisher();
 
             //WARM UP...
             var warmupTestItems = TestHelper.CreateTestStringOutboxItemData(1);
             await using var warmupTransaction = (SqlTransaction)await sqlConnection.BeginTransactionAsync().ConfigureAwait(false);
-            var outboxProcessor = new SqlServerTransactionalOutboxProcessor<string>(warmupTransaction, noOpPublisher);
+            var outboxProcessor = new SqlServerGuidTransactionalOutboxProcessor<string>(warmupTransaction, testPublisher);
 
             var warmupTimer = Stopwatch.StartNew();
             var warmupResults = await outboxProcessor.InsertNewPendingOutboxItemsAsync(warmupTestItems).ConfigureAwait(false);
@@ -38,7 +38,7 @@ namespace SqlTransactionalOutboxHelpers.IntegrationTests
             //Execute... Full Test...
             var executionTestItems = TestHelper.CreateTestStringOutboxItemData(1000);
             await using var sqlTransaction2 = (SqlTransaction)await sqlConnection.BeginTransactionAsync().ConfigureAwait(false);
-            outboxProcessor = new SqlServerTransactionalOutboxProcessor<string>(sqlTransaction2, noOpPublisher);
+            outboxProcessor = new SqlServerGuidTransactionalOutboxProcessor<string>(sqlTransaction2, testPublisher);
 
             var timer = Stopwatch.StartNew();
             var executionResults = await outboxProcessor.InsertNewPendingOutboxItemsAsync(executionTestItems).ConfigureAwait(false);
@@ -54,18 +54,14 @@ namespace SqlTransactionalOutboxHelpers.IntegrationTests
             //Organize
             await using var sqlConnection = await SqlConnectionHelper.CreateSystemDataSqlConnectionAsync();
 
-            //CLEAR the Table for Integration Tests to validate:
-            await using var sqlCmd = new SqlCommand(
-                $"TRUNCATE TABLE [{DefaultOutboxTableConfig.DefaultTransactionalOutboxSchemaName}].[{DefaultOutboxTableConfig.DefaultTransactionalOutboxTableName}]", 
-                sqlConnection
-            );
-            await sqlCmd.ExecuteNonQueryAsync();
+            //Clear the Table data for the test...
+            await sqlConnection.TruncateTransactionalOutboxTableAsync();
 
             //Initialize Transaction and Outbox Processor
             await using var sqlTransaction = (SqlTransaction)await sqlConnection.BeginTransactionAsync().ConfigureAwait(false);
 
-            var noOpPublisher = new NoOpSqlTransactionalOutboxPublisher();
-            var outboxProcessor = new SqlServerTransactionalOutboxProcessor<string>(sqlTransaction, noOpPublisher);
+            var testPublisher = new TestHarnessSqlTransactionalOutboxPublisher();
+            var outboxProcessor = new SqlServerGuidTransactionalOutboxProcessor<string>(sqlTransaction, testPublisher);
 
             var outboxTestItems = TestHelper.CreateTestStringOutboxItemData(100);
 
@@ -83,7 +79,6 @@ namespace SqlTransactionalOutboxHelpers.IntegrationTests
 
             //Assert
             Assert.AreEqual(insertedResults.Count, outboxTestItems.Count);
-            var utcNow = DateTime.UtcNow;
             foreach (var result in insertedResults)
             {
                 //Validate Created Date Time (can't match precisely but can validate it was populated as expected...
@@ -102,18 +97,14 @@ namespace SqlTransactionalOutboxHelpers.IntegrationTests
             //Organize
             await using var sqlConnection = await SqlConnectionHelper.CreateSystemDataSqlConnectionAsync();
 
-            //CLEAR the Table for Integration Tests to validate:
-            await using var sqlCmd = new SqlCommand(
-                $"TRUNCATE TABLE [{DefaultOutboxTableConfig.DefaultTransactionalOutboxSchemaName}].[{DefaultOutboxTableConfig.DefaultTransactionalOutboxTableName}]",
-                sqlConnection
-            );
-            await sqlCmd.ExecuteNonQueryAsync();
+            //Clear the Table data for the test...
+            await sqlConnection.TruncateTransactionalOutboxTableAsync();
 
             //Initialize Transaction and Outbox Processor
             await using var sqlTransaction = (SqlTransaction)await sqlConnection.BeginTransactionAsync().ConfigureAwait(false);
 
-            var noOpPublisher = new NoOpSqlTransactionalOutboxPublisher();
-            var outboxProcessor = new SqlServerTransactionalOutboxProcessor<string>(sqlTransaction, noOpPublisher);
+            var testPublisher = new TestHarnessSqlTransactionalOutboxPublisher();
+            var outboxProcessor = new SqlServerGuidTransactionalOutboxProcessor<string>(sqlTransaction, testPublisher);
 
             var outboxTestItems = TestHelper.CreateTestStringOutboxItemData(100);
 
@@ -130,19 +121,7 @@ namespace SqlTransactionalOutboxHelpers.IntegrationTests
             );
 
             //Assert
-            Assert.AreEqual(insertedResults.Count, outboxTestItems.Count);
-
-            var insertedItemsLookup = insertedResults.ToLookup(i => i.UniqueIdentifier);
-            foreach (var pendingItem in pendingResults)
-            {
-                var insertedItem = insertedItemsLookup[pendingItem.UniqueIdentifier].FirstOrDefault();
-                Assert.IsNotNull(pendingItem);
-                Assert.AreEqual(pendingItem.Status, OutboxItemStatus.Pending);
-                Assert.AreEqual(pendingItem.CreatedDateTimeUtc, insertedItem.CreatedDateTimeUtc);
-                Assert.AreEqual(pendingItem.PublishingAttempts, insertedItem.PublishingAttempts);
-                Assert.AreEqual(pendingItem.PublishingTarget, insertedItem.PublishingTarget);
-                Assert.AreEqual(pendingItem.PublishingPayload, insertedItem.PublishingPayload);
-            }
+            TestHelper.AssertOutboxItemResultsMatch(insertedResults, pendingResults);
         }
     }
 }

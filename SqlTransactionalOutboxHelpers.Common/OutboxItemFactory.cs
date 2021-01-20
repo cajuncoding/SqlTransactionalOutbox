@@ -7,21 +7,23 @@ using SqlTransactionalOutboxHelpers.CustomExtensions;
 
 namespace SqlTransactionalOutboxHelpers
 {
-    public class OutboxItemFactory<TPayload> : ISqlTransactionalOutboxItemFactory<Guid, TPayload>
+    public class OutboxItemFactory<TUniqueIdentifier, TPayload> : ISqlTransactionalOutboxItemFactory<TUniqueIdentifier, TPayload>
     {
-        protected ISqlTransactionalOutboxUniqueIdFactory<Guid> UniqueIdentifierFactory { get; }
+        protected ISqlTransactionalOutboxUniqueIdFactory<TUniqueIdentifier> UniqueIdentifierFactory { get; }
         protected ISqlTransactionalOutboxSerializer PayloadSerializer { get; }
 
         public OutboxItemFactory(
-            ISqlTransactionalOutboxUniqueIdFactory<Guid>? uniqueIdFactory = null,
-            ISqlTransactionalOutboxSerializer? payloadSerializer = null
+            ISqlTransactionalOutboxUniqueIdFactory<TUniqueIdentifier>? uniqueIdFactory,
+            ISqlTransactionalOutboxSerializer? payloadSerializer
         )
         {
-            this.UniqueIdentifierFactory = uniqueIdFactory ?? new OutboxItemUniqueIdentifierGuidFactory();
-            this.PayloadSerializer = payloadSerializer ?? new JsonOutboxPayloadSerializer();
+            #pragma warning disable 8601
+            this.UniqueIdentifierFactory = uniqueIdFactory.AssertNotNull(nameof(uniqueIdFactory));
+            this.PayloadSerializer = payloadSerializer.AssertNotNull(nameof(payloadSerializer));
+            #pragma warning restore 8601
         }
 
-        public virtual ISqlTransactionalOutboxItem<Guid> CreateNewOutboxItem(
+        public virtual ISqlTransactionalOutboxItem<TUniqueIdentifier> CreateNewOutboxItem(
             string publishingTarget,
             TPayload publishingPayload
         )
@@ -34,7 +36,7 @@ namespace SqlTransactionalOutboxHelpers
             var serializedPayload = PayloadSerializer.SerializePayload(publishingPayload);
 
             //Now we can create the fully validated Outbox Item
-            var outboxItem = new OutboxItem()
+            var outboxItem = new OutboxProcessingItem<TUniqueIdentifier>()
             {
                 //Initialize Internal Variables
                 UniqueIdentifier = UniqueIdentifierFactory.CreateUniqueIdentifier(),
@@ -49,8 +51,8 @@ namespace SqlTransactionalOutboxHelpers
             return outboxItem;
         }
 
-        public virtual ISqlTransactionalOutboxItem<Guid> CreateExistingOutboxItem(
-            Guid uniqueIdentifier,
+        public virtual ISqlTransactionalOutboxItem<TUniqueIdentifier> CreateExistingOutboxItem(
+            TUniqueIdentifier uniqueIdentifier,
             string status,
             int publishingAttempts,
             DateTime createdDateTimeUtc,
@@ -58,10 +60,10 @@ namespace SqlTransactionalOutboxHelpers
             string serializedPayload
         )
         {
-            if (uniqueIdentifier == Guid.Empty)
-                AssertInvalidArgument(nameof(uniqueIdentifier), uniqueIdentifier.ToString());
+            if (uniqueIdentifier == null)
+                AssertInvalidArgument(nameof(uniqueIdentifier), uniqueIdentifier?.ToString() ?? "null");
 
-            if(createdDateTimeUtc == DateTime.MinValue)
+            if(createdDateTimeUtc == default)
                 AssertInvalidArgument(nameof(createdDateTimeUtc), createdDateTimeUtc.ToString(CultureInfo.InvariantCulture));
 
             if (publishingAttempts < 0)
@@ -73,7 +75,7 @@ namespace SqlTransactionalOutboxHelpers
             serializedPayload.AssertNotNullOrWhiteSpace(nameof(serializedPayload));
 
             //Now we can create the fully validated Outbox Item
-            var outboxItem = new OutboxItem()
+            var outboxItem = new OutboxProcessingItem<TUniqueIdentifier>()
             {
                 //Initialize Internal Variables
                 UniqueIdentifier = uniqueIdentifier,
@@ -88,7 +90,7 @@ namespace SqlTransactionalOutboxHelpers
             return outboxItem;
         }
 
-        private void AssertInvalidArgument(string argName, string value)
+        protected virtual void AssertInvalidArgument(string argName, string value)
         {
             throw new ArgumentException(argName, $"Invalid value of [{value}] specified.");
         }
