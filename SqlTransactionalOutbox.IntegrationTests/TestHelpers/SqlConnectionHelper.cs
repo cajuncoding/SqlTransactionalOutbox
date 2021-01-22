@@ -48,7 +48,7 @@ namespace SqlTransactionalOutbox.Tests
 
     public static class SystemDataSqlTestHelpers
     {
-        public static async Task<List<ISqlTransactionalOutboxItem<Guid>>> ClearAndPopulateTransactionalOutboxTestDataAsync(int testDataSize, TestHarnessSqlTransactionalOutboxPublisher testPublisher = null)
+        public static async Task<List<ISqlTransactionalOutboxItem<Guid>>> PopulateTransactionalOutboxTestDataAsync(int testDataSize, TestHarnessSqlTransactionalOutboxPublisher testPublisher = null, bool clearExistingOutbox = true)
         {
             //Organize
             await using var sqlConnection = await SqlConnectionHelper.CreateSystemDataSqlConnectionAsync();
@@ -57,7 +57,8 @@ namespace SqlTransactionalOutbox.Tests
             //* STEP 1 - Prepare/Clear the Queue Table
             //*****************************************************************************************
             //Clear the Table data for the test...
-            await sqlConnection.TruncateTransactionalOutboxTableAsync();
+            if(clearExistingOutbox)
+                await sqlConnection.TruncateTransactionalOutboxTableAsync();
 
             //*****************************************************************************************
             //* STEP 2 - Insert New Outbox Items to process with TestHarness for Publishing...

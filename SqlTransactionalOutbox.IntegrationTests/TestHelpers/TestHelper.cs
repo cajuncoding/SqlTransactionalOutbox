@@ -29,7 +29,15 @@ namespace SqlTransactionalOutbox.Tests
             return list;
         }
 
- public static void AssertOutboxItemResultsMatch(
+        public static void ForEach(List<ISqlTransactionalOutboxItem<Guid>> itemsList, Action<ISqlTransactionalOutboxItem<Guid>> matchAction)
+        {
+            foreach (var item in itemsList)
+            {
+                matchAction.Invoke(item);
+            }
+        }
+
+        public static void AssertOutboxItemResultsMatch(
             List<ISqlTransactionalOutboxItem<Guid>> leftResults,
             List<ISqlTransactionalOutboxItem<Guid>> rightResults
         )

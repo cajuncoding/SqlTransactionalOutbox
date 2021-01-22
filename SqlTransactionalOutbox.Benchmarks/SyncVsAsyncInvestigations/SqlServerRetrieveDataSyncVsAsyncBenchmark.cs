@@ -28,7 +28,7 @@
 //                //* STEP 1 - Prepare/Clear the Queue Table
 //                //*****************************************************************************************
 //                await using var sqlConnection = await SqlConnectionHelper.CreateSystemDataSqlConnectionAsync();
-//                await SystemDataSqlTestHelpers.ClearAndPopulateTransactionalOutboxTestDataAsync(DataSize);
+//                await SystemDataSqlTestHelpers.PopulateTransactionalOutboxTestDataAsync(DataSize);
 //            }).GetAwaiter().GetResult();
 //        }
 
