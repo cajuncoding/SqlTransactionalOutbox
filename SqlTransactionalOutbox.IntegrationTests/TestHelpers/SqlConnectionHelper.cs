@@ -29,7 +29,7 @@ namespace SqlTransactionalOutbox.Tests
     public static class SqlCommands
     {
         public static readonly string TruncateTransactionalOutbox =
-            $"TRUNCATE TABLE [{DefaultOutboxTableConfig.DefaultTransactionalOutboxSchemaName}].[{DefaultOutboxTableConfig.DefaultTransactionalOutboxTableName}]";
+            $"TRUNCATE TABLE [{OutboxTableConfig.DefaultTransactionalOutboxSchemaName}].[{OutboxTableConfig.DefaultTransactionalOutboxTableName}]";
 
     }
 
@@ -72,9 +72,9 @@ namespace SqlTransactionalOutbox.Tests
             var outboxTestItems = TestHelper.CreateTestStringOutboxItemData(testDataSize);
 
             //Execute Insert of New Items!
-            var insertedResults = await outboxProcessor.InsertNewPendingOutboxItemsAsync(
-                outboxTestItems
-            ).ConfigureAwait(false);
+            var insertedResults = await outboxProcessor
+                .InsertNewPendingOutboxItemsAsync(outboxTestItems)
+                .ConfigureAwait(false);
 
             await sqlTransaction.CommitAsync();
 

@@ -1,13 +1,24 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>netcoreapp3.1</TargetFramework>
-    <StartupObject>SqlTransactionalOutbox.Benchmarks.Program</StartupObject>
+    <StartupObject>SqlTransactionalOutbox.Benchmarks.BenchmarkProgram</StartupObject>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="BenchmarkDotNet" Version="0.12.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\SqlTransactionalOutbox.IntegrationTests\SqlTransactionalOutbox.IntegrationTests.csproj" />
+    <ProjectReference Include="..\SqlTransactionalOutbox.SqlServer.SystemDataNS\SqlTransactionalOutbox.SqlServer.SystemDataNS.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="appsettings.json">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 
 </Project>

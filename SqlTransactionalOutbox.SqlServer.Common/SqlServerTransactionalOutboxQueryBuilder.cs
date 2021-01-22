@@ -11,7 +11,7 @@ namespace SqlTransactionalOutbox
 
         public SqlServerTransactionalOutboxQueryBuilder(ISqlTransactionalOutboxTableConfig outboxTableConfig)
         {
-            this.OutboxTableConfig = outboxTableConfig ?? new DefaultOutboxTableConfig();
+            this.OutboxTableConfig = outboxTableConfig ?? new OutboxTableConfig();
         }
 
         public virtual string BuildSqlForRetrieveOutboxItemsByStatus(OutboxItemStatus status, int maxBatchSize = -1, string statusParamName = "status")

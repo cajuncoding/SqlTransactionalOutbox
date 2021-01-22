@@ -13,14 +13,12 @@ namespace SqlTransactionalOutbox
         protected ISqlTransactionalOutboxSerializer PayloadSerializer { get; }
 
         public OutboxItemFactory(
-            ISqlTransactionalOutboxUniqueIdFactory<TUniqueIdentifier>? uniqueIdFactory,
-            ISqlTransactionalOutboxSerializer? payloadSerializer
+            ISqlTransactionalOutboxUniqueIdFactory<TUniqueIdentifier> uniqueIdFactory,
+            ISqlTransactionalOutboxSerializer? payloadSerializer = null
         )
         {
-            #pragma warning disable 8601
             this.UniqueIdentifierFactory = uniqueIdFactory.AssertNotNull(nameof(uniqueIdFactory));
-            this.PayloadSerializer = payloadSerializer.AssertNotNull(nameof(payloadSerializer));
-            #pragma warning restore 8601
+            this.PayloadSerializer = payloadSerializer ?? new OutboxPayloadJsonSerializer();
         }
 
         public virtual ISqlTransactionalOutboxItem<TUniqueIdentifier> CreateNewOutboxItem(
@@ -53,9 +51,9 @@ namespace SqlTransactionalOutbox
 
         public virtual ISqlTransactionalOutboxItem<TUniqueIdentifier> CreateExistingOutboxItem(
             TUniqueIdentifier uniqueIdentifier,
+            DateTime createdDateTimeUtc,
             string status,
             int publishingAttempts,
-            DateTime createdDateTimeUtc,
             string publishingTarget,
             string serializedPayload
         )

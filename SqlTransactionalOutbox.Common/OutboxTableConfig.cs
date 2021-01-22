@@ -4,7 +4,7 @@ using System.Text;
 
 namespace SqlTransactionalOutbox
 {
-    public class DefaultOutboxTableConfig : ISqlTransactionalOutboxTableConfig
+    public class OutboxTableConfig : ISqlTransactionalOutboxTableConfig
     {
         public const string DefaultTransactionalOutboxSchemaName = "notifications";
         public const string DefaultTransactionalOutboxTableName = "TransactionalOutboxQueue";

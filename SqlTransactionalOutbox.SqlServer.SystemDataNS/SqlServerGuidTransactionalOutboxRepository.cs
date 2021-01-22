@@ -14,11 +14,10 @@ namespace SqlTransactionalOutbox.SqlServer.SystemDataNS
             int distributedMutexAcquisitionTimeoutSeconds = 5
         ) : base (
             sqlTransaction: sqlTransaction,
-            outboxTableConfig: outboxTableConfig ?? new DefaultOutboxTableConfig(),
+            outboxTableConfig: outboxTableConfig ?? new OutboxTableConfig(),
             outboxItemFactory: outboxItemFactory ?? new OutboxItemFactory<Guid, TPayload>(
-                                   uniqueIdFactory: new OutboxItemUniqueIdentifierGuidFactory(),
-                                   payloadSerializer: new OutboxPayloadJsonSerializer()
-                               ), 
+                new OutboxItemUniqueIdentifierGuidFactory()
+            ), 
             distributedMutexAcquisitionTimeoutSeconds
         )
         {

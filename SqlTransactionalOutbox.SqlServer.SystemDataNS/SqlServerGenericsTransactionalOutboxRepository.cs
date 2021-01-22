@@ -1,15 +1,19 @@
 ﻿using System;
 using System.Linq;
 using System.Collections.Generic;
+using System.ComponentModel.Design;
 using System.Data;
 using System.Data.SqlClient;
+using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 using SqlAppLockHelper.SystemDataNS;
 using SqlTransactionalOutbox.CustomExtensions;
 
 namespace SqlTransactionalOutbox.SqlServer.SystemDataNS
 {
-    public class SqlServerGenericsTransactionalOutboxRepository<TUniqueIdentifier, TPayload> : BaseSqlServerTransactionalOutboxRepository<TUniqueIdentifier, TPayload>, ISqlTransactionalOutboxRepository<TUniqueIdentifier, TPayload>
+    public class SqlServerGenericsTransactionalOutboxRepository<TUniqueIdentifier, TPayload> 
+        : BaseSqlServerTransactionalOutboxRepository<TUniqueIdentifier, TPayload>, ISqlTransactionalOutboxRepository<TUniqueIdentifier, TPayload>
     {
         protected SqlTransaction SqlTransaction { get; set; }
         protected SqlConnection SqlConnection { get; set; }
@@ -43,7 +47,7 @@ namespace SqlTransactionalOutbox.SqlServer.SystemDataNS
             var sql = QueryBuilder.BuildSqlForRetrieveOutboxItemsByStatus(status, maxBatchSize, statusParamName);
             
             await using var sqlCmd = CreateSqlCommand(sql);
-            AddParam(sqlCmd, statusParamName, status.ToString());
+            AddParam(sqlCmd, statusParamName, status.ToString(), SqlDbType.VarChar);
 
             var results = new List<ISqlTransactionalOutboxItem<TUniqueIdentifier>>();
 
@@ -73,7 +77,7 @@ namespace SqlTransactionalOutbox.SqlServer.SystemDataNS
             var sql = QueryBuilder.BuildSqlForHistoricalOutboxCleanup(purgeHistoryParamName);
             
             await using var sqlCmd = CreateSqlCommand(sql);
-            AddParam(sqlCmd, purgeHistoryParamName, purgeHistoryBeforeDate);
+            AddParam(sqlCmd, purgeHistoryParamName, purgeHistoryBeforeDate, SqlDbType.DateTime2);
 
             await sqlCmd.ExecuteNonQueryAsync().ConfigureAwait(false);
         }
@@ -105,15 +109,15 @@ namespace SqlTransactionalOutbox.SqlServer.SystemDataNS
                     var outboxItem = batch[batchIndex];
 
                     var uniqueIdentifierForDb = ConvertUniqueIdentifierForDb(outboxItem.UniqueIdentifier);
-                    AddParam(sqlCmd, OutboxTableConfig.UniqueIdentifierFieldName, uniqueIdentifierForDb, batchIndex);
+                    AddParam(sqlCmd, OutboxTableConfig.UniqueIdentifierFieldName, uniqueIdentifierForDb, SqlDbType.UniqueIdentifier, batchIndex);
 
                     //NOTE: The for Sql Server, the CreatedDateTimeUtcField is automatically populated by Sql Server.
                     //      this helps eliminate risks of datetime sequencing across servers or server-less environments.
                     //AddParam(sqlCmd, OutboxTableConfig.CreatedDateTimeUtcFieldName, outboxItem.CreatedDateTimeUtc, batchIndex);
-                    AddParam(sqlCmd, OutboxTableConfig.StatusFieldName, outboxItem.Status.ToString(), batchIndex);
-                    AddParam(sqlCmd, OutboxTableConfig.PublishingAttemptsFieldName, outboxItem.PublishingAttempts, batchIndex);
-                    AddParam(sqlCmd, OutboxTableConfig.PublishingTargetFieldName, outboxItem.PublishingTarget, batchIndex);
-                    AddParam(sqlCmd, OutboxTableConfig.PublishingPayloadFieldName, outboxItem.PublishingPayload, batchIndex);
+                    AddParam(sqlCmd, OutboxTableConfig.StatusFieldName, outboxItem.Status.ToString(), SqlDbType.VarChar, batchIndex);
+                    AddParam(sqlCmd, OutboxTableConfig.PublishingAttemptsFieldName, outboxItem.PublishingAttempts, SqlDbType.Int, batchIndex);
+                    AddParam(sqlCmd, OutboxTableConfig.PublishingTargetFieldName, outboxItem.PublishingTarget, SqlDbType.VarChar, batchIndex);
+                    AddParam(sqlCmd, OutboxTableConfig.PublishingPayloadFieldName, outboxItem.PublishingPayload, SqlDbType.NVarChar, batchIndex);
                 }
 
                 //Execute the Batch and continue...
@@ -124,12 +128,10 @@ namespace SqlTransactionalOutbox.SqlServer.SystemDataNS
                 var outboxBatchLookup = batch.ToLookup(i => i.UniqueIdentifier);
                 while (await sqlReader.ReadAsync().ConfigureAwait(false))
                 {
-                    //The First field is always our UniqueIdentifier (as defined by the Output clause of the Sql)
-                    // and the Second field is always the UTC Created DateTime returned from the Database.
                     var uniqueIdentifier = ConvertUniqueIdentifierFromDb(sqlReader);
-                    var createdDateUtcFromDb = (DateTime)sqlReader[OutboxTableConfig.CreatedDateTimeUtcFieldName];
-
                     var outboxItem = outboxBatchLookup[uniqueIdentifier].First();
+
+                    var createdDateUtcFromDb = (DateTime)sqlReader[OutboxTableConfig.CreatedDateTimeUtcFieldName];
                     outboxItem.CreatedDateTimeUtc = createdDateUtcFromDb;
                 }
             }
@@ -159,11 +161,11 @@ namespace SqlTransactionalOutbox.SqlServer.SystemDataNS
 
                     //Unique Identifier is used for Identification Match!
                     var uniqueIdentifierForDb = ConvertUniqueIdentifierForDb(outboxItem.UniqueIdentifier);
-                    AddParam(sqlCmd, OutboxTableConfig.UniqueIdentifierFieldName, uniqueIdentifierForDb, batchIndex);
+                    AddParam(sqlCmd, OutboxTableConfig.UniqueIdentifierFieldName, uniqueIdentifierForDb, SqlDbType.UniqueIdentifier, batchIndex);
 
                     //NOTE: The only Updateable Fields are Status & PublishingAttempts
-                    AddParam(sqlCmd, OutboxTableConfig.StatusFieldName, outboxItem.Status.ToString(), batchIndex);
-                    AddParam(sqlCmd, OutboxTableConfig.PublishingAttemptsFieldName, outboxItem.PublishingAttempts, batchIndex);
+                    AddParam(sqlCmd, OutboxTableConfig.StatusFieldName, outboxItem.Status.ToString(), SqlDbType.VarChar, batchIndex);
+                    AddParam(sqlCmd, OutboxTableConfig.PublishingAttemptsFieldName, outboxItem.PublishingAttempts, SqlDbType.Int, batchIndex);
                 }
 
                 //Execute the Batch and continue...
@@ -213,7 +215,7 @@ namespace SqlTransactionalOutbox.SqlServer.SystemDataNS
 
         #region Helpers
         
-        protected SqlCommand CreateSqlCommand(string sqlCmdText)
+        protected virtual SqlCommand CreateSqlCommand(string sqlCmdText)
         {
             var sqlCmd = new SqlCommand(sqlCmdText, this.SqlConnection, this.SqlTransaction)
             {
@@ -222,21 +224,23 @@ namespace SqlTransactionalOutbox.SqlServer.SystemDataNS
             return sqlCmd;
         }
 
-        protected void AddParam(SqlCommand sqlCmd, string name, object value, int index = -1)
+        protected virtual void AddParam(SqlCommand sqlCmd, string name, object value, SqlDbType dbType, int index = -1)
         {
-            sqlCmd.Parameters.AddWithValue(
-                QueryBuilder.ToSqlParamName(name, index),
-                value
-            );
+            var paramName = QueryBuilder.ToSqlParamName(name, index);
+
+            //Attempt to optimize the details for NVarChar(MAX) field for payload inserts/updates by specifying
+            //the Size = -1 to force MAX size usage in the SqlClient parameter binding...
+            if (name.Equals(OutboxTableConfig.PublishingPayloadFieldName, StringComparison.OrdinalIgnoreCase))
+            {
+                sqlCmd.Parameters.Add(paramName, SqlDbType.NVarChar, -1).Value = value;
+            }
+            else
+            {
+                sqlCmd.Parameters.Add(paramName, dbType).Value = value;
+            }
         }
 
         #endregion
 
-    }
-
-    internal class SqlServerInsertedItem
-    {
-        public int Id { get; set; }
-        public Guid Guid { get; set; }
     }
 }
