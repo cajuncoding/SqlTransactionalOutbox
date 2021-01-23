@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using Microsoft.Azure.ServiceBus;
 using Microsoft.Azure.ServiceBus.Core;
 using Newtonsoft.Json.Linq;
+using SqlTransactionalOutbox.Publishing;
 
 
 namespace SqlTransactionalOutbox.AzureServiceBus
@@ -93,7 +94,10 @@ namespace SqlTransactionalOutbox.AzureServiceBus
                 {
                     foreach (JProperty prop in headers.Properties())
                     {
-                        message.UserProperties.Add(prop.Name, prop.Value<object>());
+                        message.UserProperties.Add(
+                            MessageHeaders.ToHeader(prop.Name.ToLower()), 
+                            prop.Value.ToString()
+                        );
                     }
                 }
 
@@ -115,12 +119,12 @@ namespace SqlTransactionalOutbox.AzureServiceBus
 
             //Add all default headers/user-properties...
             //TODO: Make these Header/Prop names constants...
-            message.UserProperties.Add("outbox-processor-type", nameof(SqlTransactionalOutbox));
-            message.UserProperties.Add("outbox-processor-sender", this.SenderApplicationName);
-            message.UserProperties.Add("outbox-item-unique-identifier", uniqueIdString);
-            message.UserProperties.Add("outbox-item-created-date-utc", outboxItem.CreatedDateTimeUtc);
-            message.UserProperties.Add("outbox-item-publishing-attempts", outboxItem.PublishingAttempts);
-            message.UserProperties.Add("outbox-item-publishing-target", outboxItem.PublishingTarget);
+            message.UserProperties.Add(MessageHeaders.ProcessorType, nameof(SqlTransactionalOutbox));
+            message.UserProperties.Add(MessageHeaders.ProcessorSender, this.SenderApplicationName);
+            message.UserProperties.Add(MessageHeaders.OutboxUniqueIdentifier, uniqueIdString);
+            message.UserProperties.Add(MessageHeaders.OutboxCreatedDateUtc, outboxItem.CreatedDateTimeUtc);
+            message.UserProperties.Add(MessageHeaders.OutboxPublishingAttempts, outboxItem.PublishingAttempts);
+            message.UserProperties.Add(MessageHeaders.OutboxPublishingTarget, outboxItem.PublishingTarget);
             
             return message;
         }

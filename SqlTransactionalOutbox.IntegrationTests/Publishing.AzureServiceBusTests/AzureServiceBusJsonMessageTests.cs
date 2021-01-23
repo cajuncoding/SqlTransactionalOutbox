@@ -4,6 +4,7 @@ using System.Text;
 using System.Threading.Tasks;
 using Microsoft.Azure.ServiceBus;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using SqlTransactionalOutbox.Tests;
 using SqlTransactionalOutbox.AzureServiceBus;
@@ -20,10 +21,17 @@ namespace SqlTransactionalOutbox.IntegrationTests
         [TestMethod]
         public async Task TestAzureServiceBusJsonPayloadPublishing()
         {
-            dynamic jsonPayload = new JObject();
-            jsonPayload.To = "CajunCoding";
-            jsonPayload.ContentType = MessageContentTypes.PlainText;
-            jsonPayload.Body = "Testing publishing of Json Payload with PlainText Body!";
+            var jsonPayload = JsonConvert.SerializeObject(new
+            {
+                To = "CajunCoding",
+                ContentType = MessageContentTypes.PlainText,
+                Body = "Testing publishing of Json Payload with PlainText Body!",
+                Headers = new
+                {
+                    IntegrationTestName = nameof(TestAzureServiceBusJsonPayloadPublishing),
+                    IntegrationTestExecutionDateTime = DateTime.UtcNow,
+                }
+            });
 
             var uniqueIdGuidFactory = new OutboxItemUniqueIdentifierGuidFactory();
             var outboxItemFactory = new OutboxItemFactory<Guid, string>(uniqueIdGuidFactory);
@@ -34,7 +42,7 @@ namespace SqlTransactionalOutbox.IntegrationTests
                 OutboxItemStatus.Pending.ToString(),
                 0,
                 IntegrationTestTopic,
-                jsonPayload.ToString()
+                jsonPayload
             );
 
             var options = new AzureServiceBusPublishingOptions()
