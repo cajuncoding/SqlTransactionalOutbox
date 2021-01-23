@@ -4,9 +4,9 @@ using System.Reflection;
 using System.Text;
 using Microsoft.Azure.ServiceBus;
 
-namespace SqlTransactionalOutbox.AzureEventBus
+namespace SqlTransactionalOutbox.AzureServiceBus
 {
-    public class AzureEventBusPublishingOptions
+    public class AzureServiceBusPublishingOptions
     {
         /// <summary>
         /// The Retry Policy to be used when publishing to Azure Event Bus
@@ -27,7 +27,8 @@ namespace SqlTransactionalOutbox.AzureEventBus
         /// is prepended to the Label to provide a systematic Label that helps denote what system
         /// published the message.
         /// </summary>
-        public string DefaultMessageLabelPrefix { get; set; } = Assembly.GetExecutingAssembly().GetName().Name;
+        public string SenderApplicationName { get; set; } 
+            = (Assembly.GetEntryAssembly() ?? Assembly.GetExecutingAssembly()).GetName().Name;
 
         /// <summary>
         /// An hook/callback for handling informational logging.

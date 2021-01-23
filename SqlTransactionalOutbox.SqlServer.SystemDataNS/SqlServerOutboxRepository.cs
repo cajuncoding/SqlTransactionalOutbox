@@ -12,13 +12,13 @@ using SqlTransactionalOutbox.CustomExtensions;
 
 namespace SqlTransactionalOutbox.SqlServer.SystemDataNS
 {
-    public class SqlServerGenericsTransactionalOutboxRepository<TUniqueIdentifier, TPayload> 
+    public class SqlServerOutboxRepository<TUniqueIdentifier, TPayload> 
         : BaseSqlServerTransactionalOutboxRepository<TUniqueIdentifier, TPayload>, ISqlTransactionalOutboxRepository<TUniqueIdentifier, TPayload>
     {
         protected SqlTransaction SqlTransaction { get; set; }
         protected SqlConnection SqlConnection { get; set; }
 
-        public SqlServerGenericsTransactionalOutboxRepository(
+        public SqlServerOutboxRepository(
             SqlTransaction sqlTransaction, 
             ISqlTransactionalOutboxTableConfig outboxTableConfig = null,
             ISqlTransactionalOutboxItemFactory<TUniqueIdentifier, TPayload> outboxItemFactory = null,

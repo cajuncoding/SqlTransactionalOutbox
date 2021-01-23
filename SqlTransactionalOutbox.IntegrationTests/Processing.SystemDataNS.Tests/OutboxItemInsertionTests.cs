@@ -26,7 +26,7 @@ namespace SqlTransactionalOutbox.IntegrationTests
             //WARM UP...
             var warmupTestItems = TestHelper.CreateTestStringOutboxItemData(2);
             await using var warmupTransaction = (SqlTransaction)await sqlConnection.BeginTransactionAsync().ConfigureAwait(false);
-            var outboxProcessor = new SqlServerGuidTransactionalOutboxProcessor<string>(warmupTransaction, testPublisher);
+            var outboxProcessor = new SqlServerGuidOutboxProcessor<string>(warmupTransaction, testPublisher);
 
             var warmupTimer = Stopwatch.StartNew();
             var warmupResults = await outboxProcessor.InsertNewPendingOutboxItemsAsync(warmupTestItems).ConfigureAwait(false);
@@ -38,7 +38,7 @@ namespace SqlTransactionalOutbox.IntegrationTests
             //Execute... Full Test...
             var executionTestItems = TestHelper.CreateTestStringOutboxItemData(1000);
             await using var sqlTransaction2 = (SqlTransaction)await sqlConnection.BeginTransactionAsync().ConfigureAwait(false);
-            outboxProcessor = new SqlServerGuidTransactionalOutboxProcessor<string>(sqlTransaction2, testPublisher);
+            outboxProcessor = new SqlServerGuidOutboxProcessor<string>(sqlTransaction2, testPublisher);
 
             var timer = Stopwatch.StartNew();
             var executionResults = await outboxProcessor.InsertNewPendingOutboxItemsAsync(executionTestItems).ConfigureAwait(false);
@@ -61,7 +61,7 @@ namespace SqlTransactionalOutbox.IntegrationTests
             await using var sqlTransaction = (SqlTransaction)await sqlConnection.BeginTransactionAsync().ConfigureAwait(false);
 
             var testPublisher = new TestHarnessSqlTransactionalOutboxPublisher();
-            var outboxProcessor = new SqlServerGuidTransactionalOutboxProcessor<string>(sqlTransaction, testPublisher);
+            var outboxProcessor = new SqlServerGuidOutboxProcessor<string>(sqlTransaction, testPublisher);
 
             var outboxTestItems = TestHelper.CreateTestStringOutboxItemData(100);
 
@@ -103,7 +103,7 @@ namespace SqlTransactionalOutbox.IntegrationTests
             await using var sqlConnection = await SqlConnectionHelper.CreateSystemDataSqlConnectionAsync();
             await using var sqlTransaction = (SqlTransaction)await sqlConnection.BeginTransactionAsync().ConfigureAwait(false);
 
-            var outboxProcessor = new SqlServerGuidTransactionalOutboxProcessor<string>(sqlTransaction, testPublisher);
+            var outboxProcessor = new SqlServerGuidOutboxProcessor<string>(sqlTransaction, testPublisher);
 
             //RETRIEVE ALL Pending Items from the Outbox to validate
             var pendingResults = await outboxProcessor.OutboxRepository

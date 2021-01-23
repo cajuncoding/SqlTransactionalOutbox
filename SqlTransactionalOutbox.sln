@@ -7,7 +7,7 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SqlTransactionalOutbox.Samp
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SqlTransactionalOutbox.Common", "SqlTransactionalOutbox.Common\SqlTransactionalOutbox.Common.csproj", "{2A13CF08-0572-4032-BA56-9361C1CCB257}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SqlTransactionalOutbox.AzureEventBus", "SqlTransactionalOutbox.AzureEventBus\SqlTransactionalOutbox.AzureEventBus.csproj", "{0CA4837D-FE64-48F4-BCC7-B71CB3171004}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SqlTransactionalOutbox.AzureServiceBus", "SqlTransactionalOutbox.AzureServiceBus\SqlTransactionalOutbox.AzureServiceBus.csproj", "{0CA4837D-FE64-48F4-BCC7-B71CB3171004}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SqlTransactionalOutbox.SqlServer.SystemDataNS", "SqlTransactionalOutbox.SqlServer.SystemDataNS\SqlTransactionalOutbox.SqlServer.SystemDataNS.csproj", "{64DAEA6E-E6F9-46F6-85CE-310D399DE0DE}"
 EndProject

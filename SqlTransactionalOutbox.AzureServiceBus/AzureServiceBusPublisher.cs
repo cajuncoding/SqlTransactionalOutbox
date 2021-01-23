@@ -2,6 +2,7 @@
 using System.Collections.Concurrent;
 using System.Data.Common;
 using System.Net.Http.Headers;
+using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
 using Microsoft.Azure.ServiceBus;
@@ -9,48 +10,42 @@ using Microsoft.Azure.ServiceBus.Core;
 using Newtonsoft.Json.Linq;
 
 
-namespace SqlTransactionalOutbox.AzureEventBus
+namespace SqlTransactionalOutbox.AzureServiceBus
 {
-    public class AzureEventBusPublisher<TUniqueIdentifier> : ISqlTransactionalOutboxPublisher<TUniqueIdentifier>
+    public class AzureServiceBusPublisher<TUniqueIdentifier> : ISqlTransactionalOutboxPublisher<TUniqueIdentifier>
     {
-        public string ConnectionString { get; protected set; }
-        public AzureEventBusPublishingOptions Options { get; protected set; }
+        public string ConnectionString { get; }
+        public AzureServiceBusPublishingOptions Options { get; }
+        protected AzureSenderClientCache SenderClientCache { get; }
+        public string SenderApplicationName { get; protected set; }
 
-        protected ConcurrentDictionary<string, Lazy<ISenderClient>> SenderClients { get; } = new ConcurrentDictionary<string, Lazy<ISenderClient>>();
-
-        public AzureEventBusPublisher(
-            string azureEventBusConnectionString,
-            AzureEventBusPublishingOptions options = null
+        public AzureServiceBusPublisher(
+            string azureServiceBusConnectionString,
+            AzureServiceBusPublishingOptions options = null
         )
         {
-            this.ConnectionString = azureEventBusConnectionString;
-            this.Options = options ?? new AzureEventBusPublishingOptions();
+            this.Options = options ?? new AzureServiceBusPublishingOptions();
+
+            this.ConnectionString = azureServiceBusConnectionString;
+            this.SenderClientCache = new AzureSenderClientCache(CreateSenderClient);
+            this.SenderApplicationName = Options.SenderApplicationName;
         }
 
         public async Task PublishOutboxItemAsync(ISqlTransactionalOutboxItem<TUniqueIdentifier> outboxItem)
         {
             var message = CreateEventBusMessage(outboxItem);
 
-            //Get the correct Sender Client (for Azure Service Bus that will be an ITopicClient)
-            //  and send the well-formed message...
-            var senderClient = InitializeSenderClient(outboxItem.PublishingTarget);
+            Options.LogDebugCallback?.Invoke($"Initializing Sender Client for Topic [{outboxItem.PublishingTarget}]...");
+            var senderClient = SenderClientCache.InitializeSenderClient(outboxItem.PublishingTarget);
+
+            var uniqueIdString = ConvertUniqueIdentifierToString(outboxItem.UniqueIdentifier);
+            Options.LogDebugCallback?.Invoke($"Sending the Message [{message.Label}] for outbox item [{uniqueIdString}]...");
+
             await senderClient.SendAsync(message);
 
-            Options.LogDebugCallback?.Invoke($"Azure Service Bus message [{message.Label}] has been published.");
+            Options.LogDebugCallback?.Invoke($"Azure Service Bus message [{message.Label}] has been published successfully.");
         }
 
-        protected virtual ISenderClient InitializeSenderClient(string topic)
-        {
-            var senderClientLazy = SenderClients.GetOrAdd(topic, new Lazy<ISenderClient>(() =>
-                {
-                    Options.LogDebugCallback?.Invoke($"New Sender Client has been created for Topic [{topic}]!");
-                    return CreateSenderClient(topic);
-                })
-            );
-
-            var senderClient = senderClientLazy.Value;
-            return senderClient;
-        }
 
         protected virtual ISenderClient CreateSenderClient(string publishingTarget)
         {
@@ -61,7 +56,7 @@ namespace SqlTransactionalOutbox.AzureEventBus
         protected virtual Message CreateEventBusMessage(ISqlTransactionalOutboxItem<TUniqueIdentifier> outboxItem)
         {
             var uniqueIdString = ConvertUniqueIdentifierToString(outboxItem.UniqueIdentifier);
-            var defaultLabel = $"[PublishedBy={Options.DefaultMessageLabelPrefix}][MessageId={uniqueIdString}]";
+            var defaultLabel = $"[PublishedBy={Options.SenderApplicationName}][MessageId={uniqueIdString}]";
             Message message = null;
 
             Options.LogDebugCallback?.Invoke($"Creating Azure Message Object from [{uniqueIdString}]...");
@@ -82,7 +77,7 @@ namespace SqlTransactionalOutbox.AzureEventBus
                     ReplyToSessionId = GetJsonValueSafely(json, "replyToSessionId", string.Empty),
                     PartitionKey = GetJsonValueSafely(json, "partitionKey", string.Empty),
                     ViaPartitionKey = GetJsonValueSafely(json, "viaPartitionKey", string.Empty),
-                    ContentType = GetJsonValueSafely(json, "contentType", "application/json;charset=utf-8"),
+                    ContentType = GetJsonValueSafely(json, "contentType", MessageContentTypes.Json),
                     Label = GetJsonValueSafely(json, "label", defaultLabel)
                 };
 
@@ -113,11 +108,20 @@ namespace SqlTransactionalOutbox.AzureEventBus
                     MessageId = uniqueIdString,
                     CorrelationId = string.Empty,
                     Label = defaultLabel,
-                    ContentType = "text/plain;charset=utf-8",
+                    ContentType = MessageContentTypes.PlainText,
                     Body = ConvertPublishingPayloadToBytes(outboxItem.PublishingPayload)
                 };
             }
 
+            //Add all default headers/user-properties...
+            //TODO: Make these Header/Prop names constants...
+            message.UserProperties.Add("outbox-processor-type", nameof(SqlTransactionalOutbox));
+            message.UserProperties.Add("outbox-processor-sender", this.SenderApplicationName);
+            message.UserProperties.Add("outbox-item-unique-identifier", uniqueIdString);
+            message.UserProperties.Add("outbox-item-created-date-utc", outboxItem.CreatedDateTimeUtc);
+            message.UserProperties.Add("outbox-item-publishing-attempts", outboxItem.PublishingAttempts);
+            message.UserProperties.Add("outbox-item-publishing-target", outboxItem.PublishingTarget);
+            
             return message;
         }
 

@@ -15,7 +15,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\SqlTransactionalOutbox.AzureEventBus\SqlTransactionalOutbox.AzureEventBus.csproj" />
+    <ProjectReference Include="..\SqlTransactionalOutbox.AzureServiceBus\SqlTransactionalOutbox.AzureServiceBus.csproj" />
     <ProjectReference Include="..\SqlTransactionalOutbox.Common\SqlTransactionalOutbox.Common.csproj" />
     <ProjectReference Include="..\SqlTransactionalOutbox.SqlServer.SystemDataNS\SqlTransactionalOutbox.SqlServer.SystemDataNS.csproj" />
   </ItemGroup>
@@ -27,7 +27,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="MicrosoftDataNS.Tests\" />
+    <Folder Include="Processing.MicrosoftDataNS.Tests\" />
   </ItemGroup>
 
 </Project>

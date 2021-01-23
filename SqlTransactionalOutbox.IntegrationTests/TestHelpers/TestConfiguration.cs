@@ -18,8 +18,10 @@ namespace SqlTransactionalOutbox.Tests
                 .Build();
 
             SqlConnectionString = ConfigurationRoot[nameof(SqlConnectionString)];
+            AzureServiceBusConnectionString = ConfigurationRoot[nameof(AzureServiceBusConnectionString)];
         }
 
         public static string SqlConnectionString { get; }
+        public static string AzureServiceBusConnectionString { get; }
     }
 }
