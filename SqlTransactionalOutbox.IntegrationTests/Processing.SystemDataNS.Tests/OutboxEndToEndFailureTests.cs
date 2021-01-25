@@ -42,7 +42,7 @@ namespace SqlTransactionalOutbox.IntegrationTests
             //*****************************************************************************************
             await using var sqlConnection = await SqlConnectionHelper.CreateSystemDataSqlConnectionAsync();
             await using var sqlTransaction = (SqlTransaction)await sqlConnection.BeginTransactionAsync().ConfigureAwait(false);
-            var outboxProcessor = new SqlServerGuidOutboxProcessor<string>(sqlTransaction, testHarnessPublisher);
+            var outboxProcessor = new SqlServerDefaultOutboxProcessor<string>(sqlTransaction, testHarnessPublisher);
 
             var outboxProcessingOptions = new OutboxProcessingOptions()
             {
@@ -77,7 +77,7 @@ namespace SqlTransactionalOutbox.IntegrationTests
             //* STEP 3 - Validate Results In the DB!
             //*****************************************************************************************
             await using var sqlTransaction2 = (SqlTransaction)await sqlConnection.BeginTransactionAsync().ConfigureAwait(false);
-            outboxProcessor = new SqlServerGuidOutboxProcessor<string>(sqlTransaction2, testHarnessPublisher);
+            outboxProcessor = new SqlServerDefaultOutboxProcessor<string>(sqlTransaction2, testHarnessPublisher);
 
             var outboxRepository = outboxProcessor.OutboxRepository;
             var successfulItems = await outboxRepository.RetrieveOutboxItemsAsync(OutboxItemStatus.Successful);
@@ -190,7 +190,7 @@ namespace SqlTransactionalOutbox.IntegrationTests
             {
                 await using var sqlConnection = await SqlConnectionHelper.CreateSystemDataSqlConnectionAsync();
                 await using var sqlTransaction = (SqlTransaction)await sqlConnection.BeginTransactionAsync().ConfigureAwait(false);
-                var outboxProcessor = new SqlServerGuidOutboxProcessor<string>(sqlTransaction, failingPublisher);
+                var outboxProcessor = new SqlServerDefaultOutboxProcessor<string>(sqlTransaction, failingPublisher);
 
                 handledExceptionSoItsOkToContinue = false;
                 try
@@ -232,7 +232,7 @@ namespace SqlTransactionalOutbox.IntegrationTests
             //Assert All Items in the DB are Successful!
             await using var sqlConnection2 = await SqlConnectionHelper.CreateSystemDataSqlConnectionAsync();
             await using var sqlTransaction2 = (SqlTransaction)await sqlConnection2.BeginTransactionAsync().ConfigureAwait(false);
-            var outboxProcessor2 = new SqlServerGuidOutboxProcessor<string>(sqlTransaction2, failingPublisher);
+            var outboxProcessor2 = new SqlServerDefaultOutboxProcessor<string>(sqlTransaction2, failingPublisher);
 
             var successfulResultsFromDb = await outboxProcessor2.OutboxRepository
                 .RetrieveOutboxItemsAsync(OutboxItemStatus.Pending)

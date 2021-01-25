@@ -33,6 +33,8 @@ namespace SqlTransactionalOutbox
             //Serialize the Payload for Storage with our Outbox Item...
             var serializedPayload = PayloadSerializer.SerializePayload(publishingPayload);
 
+            //TODO: Implement Logic for Compression Handling!
+
             //Now we can create the fully validated Outbox Item
             var outboxItem = new OutboxProcessingItem<TUniqueIdentifier>()
             {
@@ -50,7 +52,7 @@ namespace SqlTransactionalOutbox
         }
 
         public virtual ISqlTransactionalOutboxItem<TUniqueIdentifier> CreateExistingOutboxItem(
-            TUniqueIdentifier uniqueIdentifier,
+            string uniqueIdentifier,
             DateTime createdDateTimeUtc,
             string status,
             int publishingAttempts,
@@ -58,8 +60,7 @@ namespace SqlTransactionalOutbox
             string serializedPayload
         )
         {
-            if (uniqueIdentifier == null)
-                AssertInvalidArgument(nameof(uniqueIdentifier), uniqueIdentifier?.ToString() ?? "null");
+            uniqueIdentifier.AssertNotNullOrWhiteSpace(nameof(uniqueIdentifier));
 
             if(createdDateTimeUtc == default)
                 AssertInvalidArgument(nameof(createdDateTimeUtc), createdDateTimeUtc.ToString(CultureInfo.InvariantCulture));
@@ -76,7 +77,7 @@ namespace SqlTransactionalOutbox
             var outboxItem = new OutboxProcessingItem<TUniqueIdentifier>()
             {
                 //Initialize Internal Variables
-                UniqueIdentifier = uniqueIdentifier,
+                UniqueIdentifier = UniqueIdentifierFactory.ParseUniqueIdentifier(uniqueIdentifier),
                 Status = Enum.Parse<OutboxItemStatus>(status),
                 PublishingAttempts = publishingAttempts,
                 CreatedDateTimeUtc = createdDateTimeUtc,
@@ -86,6 +87,13 @@ namespace SqlTransactionalOutbox
             };
 
             return outboxItem;
+        }
+
+        public TPayload ParsePayload(ISqlTransactionalOutboxItem<TUniqueIdentifier> outboxItem)
+        {
+            //TODO: Implement Logic for Compression Handling!
+            var payload = PayloadSerializer.DeserializePayload<TPayload>(outboxItem.PublishingPayload);
+            return payload;
         }
 
         protected virtual void AssertInvalidArgument(string argName, string value)

@@ -17,8 +17,8 @@ namespace SqlTransactionalOutbox.AzureServiceBus
     {
         public string ConnectionString { get; }
         public AzureServiceBusPublishingOptions Options { get; }
-        protected AzureSenderClientCache SenderClientCache { get; }
         public string SenderApplicationName { get; protected set; }
+        protected AzureSenderClientCache SenderClientCache { get; }
 
         public AzureServiceBusPublisher(
             string azureServiceBusConnectionString,
@@ -28,8 +28,8 @@ namespace SqlTransactionalOutbox.AzureServiceBus
             this.Options = options ?? new AzureServiceBusPublishingOptions();
 
             this.ConnectionString = azureServiceBusConnectionString;
-            this.SenderClientCache = new AzureSenderClientCache(CreateSenderClient);
             this.SenderApplicationName = Options.SenderApplicationName;
+            this.SenderClientCache = new AzureSenderClientCache();
         }
 
         public async Task PublishOutboxItemAsync(ISqlTransactionalOutboxItem<TUniqueIdentifier> outboxItem)
@@ -37,7 +37,10 @@ namespace SqlTransactionalOutbox.AzureServiceBus
             var message = CreateEventBusMessage(outboxItem);
 
             Options.LogDebugCallback?.Invoke($"Initializing Sender Client for Topic [{outboxItem.PublishingTarget}]...");
-            var senderClient = SenderClientCache.InitializeSenderClient(outboxItem.PublishingTarget);
+            var senderClient = SenderClientCache.InitializeSenderClient(
+                publishingTarget: outboxItem.PublishingTarget, 
+                newSenderClientFactory: () => CreateSenderClient(outboxItem.PublishingTarget)
+            );
 
             var uniqueIdString = ConvertUniqueIdentifierToString(outboxItem.UniqueIdentifier);
             Options.LogDebugCallback?.Invoke($"Sending the Message [{message.Label}] for outbox item [{uniqueIdString}]...");
@@ -46,7 +49,6 @@ namespace SqlTransactionalOutbox.AzureServiceBus
 
             Options.LogDebugCallback?.Invoke($"Azure Service Bus message [{message.Label}] has been published successfully.");
         }
-
 
         protected virtual ISenderClient CreateSenderClient(string publishingTarget)
         {

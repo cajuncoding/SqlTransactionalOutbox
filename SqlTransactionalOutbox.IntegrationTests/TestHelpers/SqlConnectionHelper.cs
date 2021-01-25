@@ -68,7 +68,7 @@ namespace SqlTransactionalOutbox.Tests
 
             //Initialize the Test Harness for Publish tracking...
             var testHarnessPublisher = testPublisher ?? new TestHarnessSqlTransactionalOutboxPublisher();
-            var outboxProcessor = new SqlServerGuidOutboxProcessor<string>(sqlTransaction, testHarnessPublisher);
+            var outboxProcessor = new SqlServerDefaultOutboxProcessor<string>(sqlTransaction, testHarnessPublisher);
 
             var outboxTestItems = TestHelper.CreateTestStringOutboxItemData(testDataSize);
 

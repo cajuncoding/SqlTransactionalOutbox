@@ -48,14 +48,23 @@ namespace SqlTransactionalOutbox.Tests
             foreach (var rightItem in rightResults)
             {
                 var leftItem = leftItemsLookup[rightItem.UniqueIdentifier].FirstOrDefault();
-                Assert.IsNotNull(leftItem);
-
-                Assert.AreEqual(leftItem.Status, rightItem.Status);
-                Assert.AreEqual(leftItem.CreatedDateTimeUtc, rightItem.CreatedDateTimeUtc);
-                Assert.AreEqual(leftItem.PublishingAttempts, rightItem.PublishingAttempts);
-                Assert.AreEqual(leftItem.PublishingTarget, rightItem.PublishingTarget);
-                Assert.AreEqual(leftItem.PublishingPayload, rightItem.PublishingPayload);
+                AssertOutboxItemsMatch(leftItem, rightItem);
             }
+        }
+
+        public static void AssertOutboxItemsMatch(
+            ISqlTransactionalOutboxItem<Guid> leftItem,
+            ISqlTransactionalOutboxItem<Guid> rightItem
+        )
+        {
+            Assert.IsNotNull(leftItem);
+            Assert.IsNotNull(rightItem);
+
+            Assert.AreEqual(leftItem.Status, rightItem.Status);
+            Assert.AreEqual(leftItem.CreatedDateTimeUtc, rightItem.CreatedDateTimeUtc);
+            Assert.AreEqual(leftItem.PublishingAttempts, rightItem.PublishingAttempts);
+            Assert.AreEqual(leftItem.PublishingTarget, rightItem.PublishingTarget);
+            Assert.AreEqual(leftItem.PublishingPayload, rightItem.PublishingPayload);
         }
     }
 }

@@ -55,7 +55,7 @@ namespace SqlTransactionalOutbox.SqlServer.SystemDataNS
             while (await sqlReader.ReadAsync().ConfigureAwait(false))
             {
                 var outboxItem = OutboxItemFactory.CreateExistingOutboxItem(
-                    uniqueIdentifier: ConvertUniqueIdentifierFromDb(sqlReader),
+                    uniqueIdentifier: (string)sqlReader[OutboxTableConfig.UniqueIdentifierFieldName],
                     status:(string)sqlReader[OutboxTableConfig.StatusFieldName],
                     publishingAttempts:(int)sqlReader[OutboxTableConfig.PublishingAttemptsFieldName],
                     createdDateTimeUtc:(DateTime)sqlReader[OutboxTableConfig.CreatedDateTimeUtcFieldName],
