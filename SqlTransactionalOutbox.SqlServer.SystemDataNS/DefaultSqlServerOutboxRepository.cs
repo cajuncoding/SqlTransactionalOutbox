@@ -5,9 +5,9 @@ using System.Text;
 
 namespace SqlTransactionalOutbox.SqlServer.SystemDataNS
 {
-    public class SqlServerDefaultOutboxRepository<TPayload> : SqlServerOutboxRepository<Guid, TPayload>
+    public class DefaultSqlServerOutboxRepository<TPayload> : SqlServerOutboxRepository<Guid, TPayload>
     {
-        public SqlServerDefaultOutboxRepository(
+        public DefaultSqlServerOutboxRepository(
             SqlTransaction sqlTransaction,
             ISqlTransactionalOutboxTableConfig outboxTableConfig = null,
             ISqlTransactionalOutboxItemFactory<Guid, TPayload> outboxItemFactory = null,

@@ -4,9 +4,9 @@ using System.Text;
 
 namespace SqlTransactionalOutbox.AzureServiceBus
 {
-    public class AzureServiceBusDefaultReceiver<TPayload>: AzureServiceBusReceiver<Guid, TPayload>
+    public class DefaultAzureServiceBusReceiver<TPayload>: AzureServiceBusReceiver<Guid, TPayload>
     {
-        public AzureServiceBusDefaultReceiver(
+        public DefaultAzureServiceBusReceiver(
             string azureServiceBusConnectionString, 
             ISqlTransactionalOutboxItemFactory<Guid, TPayload> outboxItemFactory = null) 
         : base(

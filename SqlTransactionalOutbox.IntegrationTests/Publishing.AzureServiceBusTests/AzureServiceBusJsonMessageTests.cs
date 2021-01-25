@@ -54,7 +54,7 @@ namespace SqlTransactionalOutbox.IntegrationTests
             //*****************************************************************************************
             //* STEP 2 - Publish the item to Azure Service Bus!
             //*****************************************************************************************
-            var azureServiceBusPublisher = new AzureServiceBusDefaultOutboxPublisher(
+            var azureServiceBusPublisher = new DefaultAzureServiceBusOutboxPublisher(
                 TestConfiguration.AzureServiceBusConnectionString,
                 new AzureServiceBusPublishingOptions()
                 {
@@ -69,7 +69,7 @@ namespace SqlTransactionalOutbox.IntegrationTests
             //*****************************************************************************************
             //* STEP 2 - Initialize Callback Receiver and attempt to Wait for the Message to Arrive!
             //*****************************************************************************************
-            var azureServiceBusReceiver = new AzureServiceBusDefaultReceiver<string>(TestConfiguration.AzureServiceBusConnectionString);
+            var azureServiceBusReceiver = new DefaultAzureServiceBusReceiver<string>(TestConfiguration.AzureServiceBusConnectionString);
 
             bool messageReceivedSuccessfully = false;
 
@@ -77,7 +77,7 @@ namespace SqlTransactionalOutbox.IntegrationTests
             azureServiceBusReceiver.RegisterReceiverHandler(
                 IntegrationTestTopic, 
                 IntegrationTestSubscriptionName,
-                receivedItemHandlerAsyncFunc: async (receivedMessage) =>
+                receivedItemHandlerAsyncFunc: (receivedMessage) =>
                 {
                     var receivedOutboxItem = receivedMessage.ReceivedItem;
                     TestHelper.AssertOutboxItemsMatch(outboxItem, receivedOutboxItem);
@@ -87,7 +87,7 @@ namespace SqlTransactionalOutbox.IntegrationTests
                     messageReceivedSuccessfully = true;
 
                     //Finally once ready we acknowledge and complete the Task so that it will not be re-sent again!
-                    await receivedMessage.AcknowledgeReceiptAsync();
+                    return Task.FromResult(OutboxReceivedItemProcessingStatus.AcknowledgeSuccessfulReceipt);
                 }
             );
 
