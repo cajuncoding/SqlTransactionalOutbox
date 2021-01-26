@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Microsoft.Azure.ServiceBus;
@@ -12,65 +13,115 @@ namespace SqlTransactionalOutbox.AzureServiceBus
 {
     public class AzureServiceBusMessageHandler<TUniqueIdentifier, TPayload>
     {
+        private const string AzureServiceBusClientIsClosedErrorMessage = 
+            "Unable to explicitly reject/abandon receipt of the message because the AzureServiceBusClient" +
+            " is closed; the message will be automatically abandoned after the lock timeout is exceeded.";
+
         protected ISqlTransactionalOutboxItemFactory<TUniqueIdentifier, TPayload> OutboxItemFactory { get; }
 
-        protected IReceiverClient AzureReceiverClient { get; }
+        protected IReceiverClient AzureServiceBusClient { get; }
 
         protected Message AzureServiceBusMessage { get; }
 
+        protected bool IsMessageStatusFinalized { get; set; } = false;
+
         public AzureServiceBusMessageHandler(
             Message azureServiceBusMessage,
-            IReceiverClient azureServiceBusReceiverClient,
+            IReceiverClient azureServiceBusClient,
             ISqlTransactionalOutboxItemFactory<TUniqueIdentifier, TPayload> outboxItemFactory
         )
         {
             AzureServiceBusMessage = azureServiceBusMessage.AssertNotNull(nameof(Message));
-            AzureReceiverClient = azureServiceBusReceiverClient.AssertNotNull(nameof(azureServiceBusReceiverClient));
+            AzureServiceBusClient = azureServiceBusClient.AssertNotNull(nameof(azureServiceBusClient));
             OutboxItemFactory = outboxItemFactory.AssertNotNull(nameof(outboxItemFactory));
         }
 
-        public virtual ISqlTransactionalOutboxReceivedMessage<TUniqueIdentifier, TPayload> CreateOutboxReceivedItem()
+        public virtual ISqlTransactionalOutboxPublishedItem<TUniqueIdentifier, TPayload> CreateOutboxPublishedItem()
         {
-            var outboxItem = CreateOutboxItemFromAzureServiceBusMessage(this.AzureServiceBusMessage);
+            var azureServiceBusMessage = this.AzureServiceBusMessage;
 
-            var outboxReceivedItem = new OutboxReceivedItem<TUniqueIdentifier, TPayload>(outboxItem, this.OutboxItemFactory);
-
-            return outboxReceivedItem;
-        }
-
-        protected virtual ISqlTransactionalOutboxItem<TUniqueIdentifier> CreateOutboxItemFromAzureServiceBusMessage(Message azureServiceBusMessage)
-        {
             var outboxItem = OutboxItemFactory.CreateExistingOutboxItem(
                 uniqueIdentifier: azureServiceBusMessage.MessageId,
                 createdDateTimeUtc: (DateTime)azureServiceBusMessage.UserProperties[MessageHeaders.OutboxCreatedDateUtc],
                 status: OutboxItemStatus.Successful.ToString(),
-                publishingAttempts: (int)azureServiceBusMessage.UserProperties[MessageHeaders.OutboxPublishingAttempts],
-                publishingTarget: (string)azureServiceBusMessage.UserProperties[MessageHeaders.OutboxPublishingTarget],
+                publishAttempts: (int)azureServiceBusMessage.UserProperties[MessageHeaders.OutboxPublishingAttempts],
+                publishTarget: (string)azureServiceBusMessage.UserProperties[MessageHeaders.OutboxPublishingTarget],
                 serializedPayload: Encoding.UTF8.GetString(azureServiceBusMessage.Body)
             );
 
-            return outboxItem;
+            var headersLookup = this.AzureServiceBusMessage.UserProperties.ToLookup(
+                k => k.Key,
+                v => v.ToString()
+            );
+
+            var outboxReceivedItem = new OutboxReceivedItem<TUniqueIdentifier, TPayload>(
+                outboxItem,
+                headersLookup,
+                acknowledgeReceiptAsyncFunc: AcknowledgeSuccessfulReceiptAsync,
+                rejectAbandonReceiptAsyncFunc: RejectReceiptAndAbandonAsync,
+                rejectDeadLetterReceiptAsyncFunc: RejectReceiptAsDeadLetterAsync,
+                parsePayloadFunc: (payloadItem) => OutboxItemFactory.ParsePayload(payloadItem),
+                enableFifoEnforcedReceiving: true,
+                fifoGroupingIdentifier: azureServiceBusMessage.SessionId
+            );
+
+            return outboxReceivedItem;
         }
-        public virtual async Task AcknowledgeSuccessfulReceiptAsync()
+
+        public virtual async Task SendFinalizedStatusToAzureServiceBusAsync(OutboxReceivedItemProcessingStatus status)
         {
-            if(this.AzureReceiverClient.IsClosedOrClosing)
-                throw new Exception("Unable to Acknowledge receipt of the message because the AzureReceiverClient is closed;" +
-                                    "the message will be automatically abandoned after the lock timeout is exceeded.");
+            //Finally, we must notify Azure Service Bus to Complete the item or to Abandon as defined by the status returned!
+            switch (status)
+            {
+                case OutboxReceivedItemProcessingStatus.AcknowledgeSuccessfulReceipt:
+                    await AcknowledgeSuccessfulReceiptAsync().ConfigureAwait(false);
+                    break;
+                case OutboxReceivedItemProcessingStatus.RejectAsDeadLetter:
+                    await RejectReceiptAsDeadLetterAsync().ConfigureAwait(false);
+                    break;
+                case OutboxReceivedItemProcessingStatus.RejectAndAbandon:
+                default:
+                    await RejectReceiptAndAbandonAsync().ConfigureAwait(false);
+                    break;
+            }
+        }
+
+        protected virtual async Task AcknowledgeSuccessfulReceiptAsync()
+        {
+            await ProcessAzureServiceBusStatusAsync(
+                (lockToken) => this.AzureServiceBusClient.CompleteAsync(lockToken)
+            ).ConfigureAwait(false);
+        }
+
+        protected virtual async Task RejectReceiptAndAbandonAsync()
+        {
+            await ProcessAzureServiceBusStatusAsync(
+                (lockToken) => this.AzureServiceBusClient.AbandonAsync(lockToken)
+            ).ConfigureAwait(false);
+        }
+
+        protected virtual async Task RejectReceiptAsDeadLetterAsync()
+        {
+            await ProcessAzureServiceBusStatusAsync(
+                (lockToken) => this.AzureServiceBusClient.DeadLetterAsync(lockToken)
+            ).ConfigureAwait(false);
+        }
+
+        protected virtual async Task ProcessAzureServiceBusStatusAsync(Func<string, Task> sendStatusFunc)
+        {
+            //Ensure that we are re-entrant and don't attempt to finalize again...
+            if (IsMessageStatusFinalized)
+                return;
+
+            if (this.AzureServiceBusClient.IsClosedOrClosing)
+                throw new Exception(AzureServiceBusClientIsClosedErrorMessage);
 
             //Acknowledge & Complete the Receipt of the Message!
             var lockToken = this.AzureServiceBusMessage.SystemProperties.LockToken;
-            await this.AzureReceiverClient.CompleteAsync(lockToken).ConfigureAwait(false);
-        }
+            await sendStatusFunc(lockToken).ConfigureAwait(false);
 
-        public virtual async Task RejectReceiptAndAbandonAsync()
-        {
-            if (this.AzureReceiverClient.IsClosedOrClosing)
-                throw new Exception("Unable to explicitly reject/abandon receipt of the message because the AzureReceiverClient" +
-                                    " is closed; the message will be automatically abandoned after the lock timeout is exceeded.");
-
-            //Acknowledge & Complete the Receipt of the Message!
-            var lockToken = this.AzureServiceBusMessage.SystemProperties.LockToken;
-            await this.AzureReceiverClient.AbandonAsync(lockToken).ConfigureAwait(false);
+            //Ensure that we are re-entrant and don't attempt to finalize again...
+            IsMessageStatusFinalized = true;
         }
     }
 }

@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using Microsoft.Azure.ServiceBus;
 using Microsoft.Azure.ServiceBus.Core;
 using Newtonsoft.Json.Linq;
+using SqlTransactionalOutbox.Interfaces;
 using SqlTransactionalOutbox.Publishing;
 
 
@@ -36,10 +37,10 @@ namespace SqlTransactionalOutbox.AzureServiceBus
         {
             var message = CreateEventBusMessage(outboxItem);
 
-            Options.LogDebugCallback?.Invoke($"Initializing Sender Client for Topic [{outboxItem.PublishingTarget}]...");
-            var senderClient = SenderClientCache.InitializeSenderClient(
-                publishingTarget: outboxItem.PublishingTarget, 
-                newSenderClientFactory: () => CreateSenderClient(outboxItem.PublishingTarget)
+            Options.LogDebugCallback?.Invoke($"Initializing Sender Client for Topic [{outboxItem.PublishTarget}]...");
+            var senderClient = SenderClientCache.InitializeClient(
+                publishingTarget: outboxItem.PublishTarget, 
+                newSenderClientFactory: () => CreateSenderClient(outboxItem.PublishTarget)
             );
 
             var uniqueIdString = ConvertUniqueIdentifierToString(outboxItem.UniqueIdentifier);
@@ -69,26 +70,35 @@ namespace SqlTransactionalOutbox.AzureServiceBus
             var json = ParsePayloadAsJsonSafely(outboxItem);
             if (json != null)
             {
-                Options.LogDebugCallback?.Invoke($"PublishingPayload for [{uniqueIdString}] is valid Json; initializing dynamic Message Parameters from the Json root properties...");
+                Options.LogDebugCallback?.Invoke($"Payload for [{uniqueIdString}] is valid Json; initializing dynamic Message Parameters from the Json root properties...");
+
+                //Get the session id; because it is needed to determine PartitionKey when defined...
+                var sessionId = 
+                    GetJsonValueSafely(json, "FifoGroupingId", (string) null)
+                    ?? GetJsonValueSafely(json, nameof(ISqlTransactionalOutboxPublishedItem<Guid, string>.FifoGroupingIdentifier), (string)null)
+                    ?? GetJsonValueSafely(json, "SessionId", (string) null);
 
                 message = new Message
                 {
                     MessageId = uniqueIdString,
-                    CorrelationId = string.Empty,
+                    SessionId = sessionId,
+                    CorrelationId = GetJsonValueSafely(json, "CorrelationId", string.Empty),
                     To = GetJsonValueSafely(json, "to", string.Empty),
                     ReplyTo = GetJsonValueSafely(json, "replyTo", string.Empty),
                     ReplyToSessionId = GetJsonValueSafely(json, "replyToSessionId", string.Empty),
-                    PartitionKey = GetJsonValueSafely(json, "partitionKey", string.Empty),
-                    ViaPartitionKey = GetJsonValueSafely(json, "viaPartitionKey", string.Empty),
+                    //NOTE: IF SessionId is Defined then the Partition Key MUST MATCH the SessionId...
+                    PartitionKey = sessionId ?? GetJsonValueSafely(json, "partitionKey", string.Empty),
+                    //Transaction related Partition Key... unused so disabling this to minimize risk.
+                    //ViaPartitionKey = sessionId ?? GetJsonValueSafely(json, "viaPartitionKey", string.Empty),
                     ContentType = GetJsonValueSafely(json, "contentType", MessageContentTypes.Json),
                     Label = GetJsonValueSafely(json, "label", defaultLabel)
                 };
 
                 //Initialize the Body from dynamic Json if defined, or fallback to the entire body...
-                var messageBody = GetJsonValueSafely(json, "body", outboxItem.PublishingPayload);
+                var messageBody = GetJsonValueSafely(json, "body", outboxItem.Payload);
                 message.Body = ConvertPublishingPayloadToBytes(messageBody);
 
-                //Populate Headers/User Properties if defined dynamically...
+                //Populate HeadersLookup/User Properties if defined dynamically...
                 var headers = GetJsonValueSafely<JObject>(json, "headers", null)
                               ?? GetJsonValueSafely<JObject>(json, "userProperties", null);
 
@@ -107,7 +117,7 @@ namespace SqlTransactionalOutbox.AzureServiceBus
             else
             //Process as a string with no additional dynamic fields...
             {
-                Options.LogDebugCallback?.Invoke($"PublishingPayload for [{uniqueIdString}] is is plain text.");
+                Options.LogDebugCallback?.Invoke($"Payload for [{uniqueIdString}] is is plain text.");
 
                 message = new Message
                 {
@@ -115,7 +125,7 @@ namespace SqlTransactionalOutbox.AzureServiceBus
                     CorrelationId = string.Empty,
                     Label = defaultLabel,
                     ContentType = MessageContentTypes.PlainText,
-                    Body = ConvertPublishingPayloadToBytes(outboxItem.PublishingPayload)
+                    Body = ConvertPublishingPayloadToBytes(outboxItem.Payload)
                 };
             }
 
@@ -125,8 +135,8 @@ namespace SqlTransactionalOutbox.AzureServiceBus
             message.UserProperties.Add(MessageHeaders.ProcessorSender, this.SenderApplicationName);
             message.UserProperties.Add(MessageHeaders.OutboxUniqueIdentifier, uniqueIdString);
             message.UserProperties.Add(MessageHeaders.OutboxCreatedDateUtc, outboxItem.CreatedDateTimeUtc);
-            message.UserProperties.Add(MessageHeaders.OutboxPublishingAttempts, outboxItem.PublishingAttempts);
-            message.UserProperties.Add(MessageHeaders.OutboxPublishingTarget, outboxItem.PublishingTarget);
+            message.UserProperties.Add(MessageHeaders.OutboxPublishingAttempts, outboxItem.PublishAttempts);
+            message.UserProperties.Add(MessageHeaders.OutboxPublishingTarget, outboxItem.PublishTarget);
             
             return message;
         }
@@ -156,7 +166,7 @@ namespace SqlTransactionalOutbox.AzureServiceBus
         {
             try
             {
-                var json = JObject.Parse(outboxItem.PublishingPayload);
+                var json = JObject.Parse(outboxItem.Payload);
                 return json;
             }
             catch (Exception exc)

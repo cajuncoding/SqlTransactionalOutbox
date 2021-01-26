@@ -21,19 +21,19 @@ namespace SqlTransactionalOutbox
         /// but may also represent any other conceptual destination to be interpreted and handled by the
         /// ISqlTransactionalOutboxPublisher.
         /// </summary>
-        string PublishingTarget { get; set; }
+        string PublishTarget { get; set; }
+
+        /// <summary>
+        /// The number of Attempts that have been made to publish this item.
+        /// </summary>
+        int PublishAttempts { get; set; }
 
         /// <summary>
         /// The Serialized Payload for the ISqlTransactionalOutboxPublisher to handle; it can be any format, but
         /// generally a Json serialized payload containing the message content as well as additional metadata, headers, etc.
         /// will be serialized and stored as the payload
         /// </summary>
-        string PublishingPayload { get; set; }
-
-        /// <summary>
-        /// The number of Attempts that have been made to publish this item.
-        /// </summary>
-        int PublishingAttempts { get; set; }
+        string Payload { get; set; }
 
         /// <summary>
         /// Exact UTC Date & Time this Outbox Item was created; needs to be highly exact to help ensure FIFO ordered processing.

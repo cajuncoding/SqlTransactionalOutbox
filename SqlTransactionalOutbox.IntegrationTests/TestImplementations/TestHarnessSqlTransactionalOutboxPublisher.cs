@@ -13,7 +13,7 @@ namespace SqlTransactionalOutbox.IntegrationTests
         )
         : base(publishingAction ?? (i =>
             {
-                Debug.WriteLine($"[{nameof(TestHarnessSqlTransactionalOutboxPublisher)}] PUBLISHING: {i.PublishingPayload}");
+                Debug.WriteLine($"[{nameof(TestHarnessSqlTransactionalOutboxPublisher)}] PUBLISHING: {i.Payload}");
                 return Task.CompletedTask;
             })
         )

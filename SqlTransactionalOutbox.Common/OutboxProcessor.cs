@@ -198,11 +198,11 @@ namespace SqlTransactionalOutbox
             options.LogDebugCallback?.Invoke($"Processing Item [{item.UniqueIdentifier}]...");
 
             //Validate the Item hasn't exceeded the Max Retry Attempts if enabled in the options...
-            if (options.MaxPublishingAttempts > 0 && item.PublishingAttempts >= options.MaxPublishingAttempts)
+            if (options.MaxPublishingAttempts > 0 && item.PublishAttempts >= options.MaxPublishingAttempts)
             {
                 options.LogDebugCallback?.Invoke(
                     $"Item [{item.UniqueIdentifier}] has failed due to exceeding the max number of" +
-                        $" publishing attempts [{options.MaxPublishingAttempts}] with current PublishingAttempts=[{item.PublishingAttempts}]."
+                        $" publishing attempts [{options.MaxPublishingAttempts}] with current PublishAttempts=[{item.PublishAttempts}]."
                 );
 
                 item.Status = OutboxItemStatus.FailedAttemptsExceeded;
@@ -222,11 +222,11 @@ namespace SqlTransactionalOutbox
             //Finally attempt to publish the item...
             else
             {
-                item.PublishingAttempts++;
+                item.PublishAttempts++;
                 await OutboxPublisher.PublishOutboxItemAsync(item).ConfigureAwait(false);
 
                 options.LogDebugCallback?.Invoke(
-                    $"Item [{item.UniqueIdentifier}] published successfully after [{item.PublishingAttempts}] publishing attempt(s)!"
+                    $"Item [{item.UniqueIdentifier}] published successfully after [{item.PublishAttempts}] publishing attempt(s)!"
                 );
 
                 //Update the Status only AFTER successful Publishing!

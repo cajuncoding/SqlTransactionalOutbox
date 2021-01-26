@@ -84,9 +84,9 @@ namespace SqlTransactionalOutbox.IntegrationTests
                 //Validate Created Date Time (can't match precisely but can validate it was populated as expected...
                 Assert.AreEqual(OutboxItemStatus.Pending, i.Status);
                 Assert.AreNotEqual(DateTime.MinValue, i.CreatedDateTimeUtc);
-                Assert.AreEqual(0, i.PublishingAttempts);
-                Assert.IsFalse(string.IsNullOrWhiteSpace(i.PublishingTarget));
-                Assert.IsFalse(string.IsNullOrWhiteSpace(i.PublishingPayload));
+                Assert.AreEqual(0, i.PublishAttempts);
+                Assert.IsFalse(string.IsNullOrWhiteSpace(i.PublishTarget));
+                Assert.IsFalse(string.IsNullOrWhiteSpace(i.Payload));
                 Assert.AreNotEqual(Guid.Empty, i.UniqueIdentifier);
             });
         }

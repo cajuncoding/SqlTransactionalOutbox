@@ -17,6 +17,14 @@ namespace SqlTransactionalOutbox
         /// Rejects the item as it could not be handled as expected and/or needs to be abandoned so that
         /// the publishing mechanism will re-queue it to be processed again.
         /// </summary>
-        RejectAndAbandon
+        RejectAndAbandon,
+
+        /// <summary>
+        /// Rejects the item as something that cannot be handled at all, and therefore must be sent directly to the DeadLetter
+        /// Queue.  For FIFO processing, this is the only valid Rejection status as any time that is abandoned would either
+        /// a) create an infinite loop of processing because nothing after it could be received, or b) would allow processing
+        /// of items out of order.
+        /// </summary>
+        RejectAsDeadLetter
     }
 }

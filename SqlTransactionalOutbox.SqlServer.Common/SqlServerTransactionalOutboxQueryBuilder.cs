@@ -21,9 +21,9 @@ namespace SqlTransactionalOutbox
                     {ToSqlFieldName(OutboxTableConfig.UniqueIdentifierFieldName)},
                     {ToSqlFieldName(OutboxTableConfig.CreatedDateTimeUtcFieldName)},
                     {ToSqlFieldName(OutboxTableConfig.StatusFieldName)},
-                    {ToSqlFieldName(OutboxTableConfig.PublishingAttemptsFieldName)},
-                    {ToSqlFieldName(OutboxTableConfig.PublishingTargetFieldName)},
-                    {ToSqlFieldName(OutboxTableConfig.PublishingPayloadFieldName)}
+                    {ToSqlFieldName(OutboxTableConfig.PublishAttemptsFieldName)},
+                    {ToSqlFieldName(OutboxTableConfig.PublishTargetFieldName)},
+                    {ToSqlFieldName(OutboxTableConfig.PayloadFieldName)}
                 FROM
                     {BuildTableName()}
                 WHERE
@@ -74,9 +74,9 @@ namespace SqlTransactionalOutbox
                     {ToSqlFieldName(OutboxTableConfig.UniqueIdentifierFieldName)},
                     {ToSqlFieldName(OutboxTableConfig.StatusFieldName)},
                     {ToSqlFieldName(OutboxTableConfig.CreatedDateTimeUtcFieldName)},                    
-                    {ToSqlFieldName(OutboxTableConfig.PublishingAttemptsFieldName)},
-                    {ToSqlFieldName(OutboxTableConfig.PublishingTargetFieldName)},
-                    {ToSqlFieldName(OutboxTableConfig.PublishingPayloadFieldName)}
+                    {ToSqlFieldName(OutboxTableConfig.PublishAttemptsFieldName)},
+                    {ToSqlFieldName(OutboxTableConfig.PublishTargetFieldName)},
+                    {ToSqlFieldName(OutboxTableConfig.PayloadFieldName)}
             ";
 
             sqlStringBuilder.Append(@$"
@@ -100,9 +100,9 @@ namespace SqlTransactionalOutbox
                         {ToSqlParamName(OutboxTableConfig.UniqueIdentifierFieldName, index)},
                         {ToSqlParamName(OutboxTableConfig.StatusFieldName, index)},
                         SysUtcDateTime(),
-                        {ToSqlParamName(OutboxTableConfig.PublishingAttemptsFieldName, index)},
-                        {ToSqlParamName(OutboxTableConfig.PublishingTargetFieldName, index)},
-                        {ToSqlParamName(OutboxTableConfig.PublishingPayloadFieldName, index)},
+                        {ToSqlParamName(OutboxTableConfig.PublishAttemptsFieldName, index)},
+                        {ToSqlParamName(OutboxTableConfig.PublishTargetFieldName, index)},
+                        {ToSqlParamName(OutboxTableConfig.PayloadFieldName, index)},
                         {index}
                     )
                 ");
@@ -127,7 +127,7 @@ namespace SqlTransactionalOutbox
             var uniqueIdentifierFieldName = ToSqlFieldName(OutboxTableConfig.UniqueIdentifierFieldName);
             var tableName = BuildTableName();
             var statusFieldName = ToSqlFieldName(OutboxTableConfig.StatusFieldName);
-            var publishingAttemptsFieldName = ToSqlFieldName(OutboxTableConfig.PublishingAttemptsFieldName);
+            var publishingAttemptsFieldName = ToSqlFieldName(OutboxTableConfig.PublishAttemptsFieldName);
 
             var sqlStringBuilder = new StringBuilder();
             var itemCount = outboxItems.Count();
@@ -137,7 +137,7 @@ namespace SqlTransactionalOutbox
                 sqlStringBuilder.Append(@$"
                     UPDATE {tableName} SET
                         {statusFieldName} = {ToSqlParamName(OutboxTableConfig.StatusFieldName, index)},
-                        {publishingAttemptsFieldName} = {ToSqlParamName(OutboxTableConfig.PublishingAttemptsFieldName, index)}
+                        {publishingAttemptsFieldName} = {ToSqlParamName(OutboxTableConfig.PublishAttemptsFieldName, index)}
                     WHERE
                         {uniqueIdentifierFieldName} = {ToSqlParamName(OutboxTableConfig.UniqueIdentifierFieldName, index)};
                 ");

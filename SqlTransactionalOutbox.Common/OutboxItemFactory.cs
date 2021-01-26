@@ -41,11 +41,11 @@ namespace SqlTransactionalOutbox
                 //Initialize Internal Variables
                 UniqueIdentifier = UniqueIdentifierFactory.CreateUniqueIdentifier(),
                 Status = OutboxItemStatus.Pending,
-                PublishingAttempts = 0,
+                PublishAttempts = 0,
                 CreatedDateTimeUtc = DateTime.UtcNow,
                 //Initialize client provided details
-                PublishingTarget = publishingTarget,
-                PublishingPayload = serializedPayload
+                PublishTarget = publishingTarget,
+                Payload = serializedPayload
             };
 
             return outboxItem;
@@ -55,35 +55,56 @@ namespace SqlTransactionalOutbox
             string uniqueIdentifier,
             DateTime createdDateTimeUtc,
             string status,
-            int publishingAttempts,
-            string publishingTarget,
+            int publishAttempts,
+            string publishTarget,
             string serializedPayload
         )
         {
             uniqueIdentifier.AssertNotNullOrWhiteSpace(nameof(uniqueIdentifier));
 
-            if(createdDateTimeUtc == default)
+            return CreateExistingOutboxItem(
+                UniqueIdentifierFactory.ParseUniqueIdentifier(uniqueIdentifier),
+                createdDateTimeUtc,
+                status,
+                publishAttempts,
+                publishTarget,
+                serializedPayload
+            );
+        }
+
+        public virtual ISqlTransactionalOutboxItem<TUniqueIdentifier> CreateExistingOutboxItem(
+            TUniqueIdentifier uniqueIdentifier,
+            DateTime createdDateTimeUtc,
+            string status,
+            int publishAttempts,
+            string publishTarget,
+            string serializedPayload
+        )
+        {
+            uniqueIdentifier.AssertNotNull(nameof(uniqueIdentifier));
+
+            if (createdDateTimeUtc == default)
                 AssertInvalidArgument(nameof(createdDateTimeUtc), createdDateTimeUtc.ToString(CultureInfo.InvariantCulture));
 
-            if (publishingAttempts < 0)
-                AssertInvalidArgument(nameof(publishingAttempts), publishingAttempts.ToString());
+            if (publishAttempts < 0)
+                AssertInvalidArgument(nameof(publishAttempts), publishAttempts.ToString());
 
 
             //Validate key required values that are always user provided in this one place...
-            publishingTarget.AssertNotNullOrWhiteSpace(nameof(publishingTarget));
+            publishTarget.AssertNotNullOrWhiteSpace(nameof(publishTarget));
             serializedPayload.AssertNotNullOrWhiteSpace(nameof(serializedPayload));
 
             //Now we can create the fully validated Outbox Item
             var outboxItem = new OutboxProcessingItem<TUniqueIdentifier>()
             {
                 //Initialize Internal Variables
-                UniqueIdentifier = UniqueIdentifierFactory.ParseUniqueIdentifier(uniqueIdentifier),
+                UniqueIdentifier = uniqueIdentifier,
                 Status = Enum.Parse<OutboxItemStatus>(status),
-                PublishingAttempts = publishingAttempts,
+                PublishAttempts = publishAttempts,
                 CreatedDateTimeUtc = createdDateTimeUtc,
                 //Initialize client provided details
-                PublishingTarget = publishingTarget,
-                PublishingPayload = serializedPayload
+                PublishTarget = publishTarget,
+                Payload = serializedPayload
             };
 
             return outboxItem;
@@ -92,7 +113,7 @@ namespace SqlTransactionalOutbox
         public TPayload ParsePayload(ISqlTransactionalOutboxItem<TUniqueIdentifier> outboxItem)
         {
             //TODO: Implement Logic for Compression Handling!
-            var payload = PayloadSerializer.DeserializePayload<TPayload>(outboxItem.PublishingPayload);
+            var payload = PayloadSerializer.DeserializePayload<TPayload>(outboxItem.Payload);
             return payload;
         }
 

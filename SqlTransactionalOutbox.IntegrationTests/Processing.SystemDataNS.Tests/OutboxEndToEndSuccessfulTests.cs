@@ -73,7 +73,7 @@ namespace SqlTransactionalOutbox.IntegrationTests
             successfulResultsFromDb.ForEach(dbItem =>
             {
                 Assert.AreEqual(OutboxItemStatus.Successful, dbItem.Status);
-                Assert.AreEqual(1, dbItem.PublishingAttempts);
+                Assert.AreEqual(1, dbItem.PublishAttempts);
             });
         }
 

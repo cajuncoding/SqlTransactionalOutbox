@@ -62,9 +62,9 @@ namespace SqlTransactionalOutbox.Tests
 
             Assert.AreEqual(leftItem.Status, rightItem.Status);
             Assert.AreEqual(leftItem.CreatedDateTimeUtc, rightItem.CreatedDateTimeUtc);
-            Assert.AreEqual(leftItem.PublishingAttempts, rightItem.PublishingAttempts);
-            Assert.AreEqual(leftItem.PublishingTarget, rightItem.PublishingTarget);
-            Assert.AreEqual(leftItem.PublishingPayload, rightItem.PublishingPayload);
+            Assert.AreEqual(leftItem.PublishAttempts, rightItem.PublishAttempts);
+            Assert.AreEqual(leftItem.PublishTarget, rightItem.PublishTarget);
+            Assert.AreEqual(leftItem.Payload, rightItem.Payload);
         }
     }
 }

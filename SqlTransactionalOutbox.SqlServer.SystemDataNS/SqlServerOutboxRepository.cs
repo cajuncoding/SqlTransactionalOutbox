@@ -55,12 +55,12 @@ namespace SqlTransactionalOutbox.SqlServer.SystemDataNS
             while (await sqlReader.ReadAsync().ConfigureAwait(false))
             {
                 var outboxItem = OutboxItemFactory.CreateExistingOutboxItem(
-                    uniqueIdentifier: (string)sqlReader[OutboxTableConfig.UniqueIdentifierFieldName],
+                    uniqueIdentifier: ConvertUniqueIdentifierFromDb(sqlReader),
                     status:(string)sqlReader[OutboxTableConfig.StatusFieldName],
-                    publishingAttempts:(int)sqlReader[OutboxTableConfig.PublishingAttemptsFieldName],
+                    publishAttempts:(int)sqlReader[OutboxTableConfig.PublishAttemptsFieldName],
                     createdDateTimeUtc:(DateTime)sqlReader[OutboxTableConfig.CreatedDateTimeUtcFieldName],
-                    publishingTarget:(string)sqlReader[OutboxTableConfig.PublishingTargetFieldName],
-                    serializedPayload:(string)sqlReader[OutboxTableConfig.PublishingPayloadFieldName]
+                    publishTarget:(string)sqlReader[OutboxTableConfig.PublishTargetFieldName],
+                    serializedPayload:(string)sqlReader[OutboxTableConfig.PayloadFieldName]
                 );
 
                 results.Add(outboxItem);
@@ -115,9 +115,9 @@ namespace SqlTransactionalOutbox.SqlServer.SystemDataNS
                     //      this helps eliminate risks of datetime sequencing across servers or server-less environments.
                     //AddParam(sqlCmd, OutboxTableConfig.CreatedDateTimeUtcFieldName, outboxItem.CreatedDateTimeUtc, batchIndex);
                     AddParam(sqlCmd, OutboxTableConfig.StatusFieldName, outboxItem.Status.ToString(), SqlDbType.VarChar, batchIndex);
-                    AddParam(sqlCmd, OutboxTableConfig.PublishingAttemptsFieldName, outboxItem.PublishingAttempts, SqlDbType.Int, batchIndex);
-                    AddParam(sqlCmd, OutboxTableConfig.PublishingTargetFieldName, outboxItem.PublishingTarget, SqlDbType.VarChar, batchIndex);
-                    AddParam(sqlCmd, OutboxTableConfig.PublishingPayloadFieldName, outboxItem.PublishingPayload, SqlDbType.NVarChar, batchIndex);
+                    AddParam(sqlCmd, OutboxTableConfig.PublishAttemptsFieldName, outboxItem.PublishAttempts, SqlDbType.Int, batchIndex);
+                    AddParam(sqlCmd, OutboxTableConfig.PublishTargetFieldName, outboxItem.PublishTarget, SqlDbType.VarChar, batchIndex);
+                    AddParam(sqlCmd, OutboxTableConfig.PayloadFieldName, outboxItem.Payload, SqlDbType.NVarChar, batchIndex);
                 }
 
                 //Execute the Batch and continue...
@@ -163,9 +163,9 @@ namespace SqlTransactionalOutbox.SqlServer.SystemDataNS
                     var uniqueIdentifierForDb = ConvertUniqueIdentifierForDb(outboxItem.UniqueIdentifier);
                     AddParam(sqlCmd, OutboxTableConfig.UniqueIdentifierFieldName, uniqueIdentifierForDb, SqlDbType.UniqueIdentifier, batchIndex);
 
-                    //NOTE: The only Updateable Fields are Status & PublishingAttempts
+                    //NOTE: The only Updateable Fields are Status & PublishAttempts
                     AddParam(sqlCmd, OutboxTableConfig.StatusFieldName, outboxItem.Status.ToString(), SqlDbType.VarChar, batchIndex);
-                    AddParam(sqlCmd, OutboxTableConfig.PublishingAttemptsFieldName, outboxItem.PublishingAttempts, SqlDbType.Int, batchIndex);
+                    AddParam(sqlCmd, OutboxTableConfig.PublishAttemptsFieldName, outboxItem.PublishAttempts, SqlDbType.Int, batchIndex);
                 }
 
                 //Execute the Batch and continue...
@@ -230,7 +230,7 @@ namespace SqlTransactionalOutbox.SqlServer.SystemDataNS
 
             //Attempt to optimize the details for NVarChar(MAX) field for payload inserts/updates by specifying
             //the Size = -1 to force MAX size usage in the SqlClient parameter binding...
-            if (name.Equals(OutboxTableConfig.PublishingPayloadFieldName, StringComparison.OrdinalIgnoreCase))
+            if (name.Equals(OutboxTableConfig.PayloadFieldName, StringComparison.OrdinalIgnoreCase))
             {
                 sqlCmd.Parameters.Add(paramName, SqlDbType.NVarChar, -1).Value = value;
             }

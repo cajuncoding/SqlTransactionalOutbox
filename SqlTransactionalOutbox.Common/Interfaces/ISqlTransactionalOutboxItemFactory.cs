@@ -15,8 +15,18 @@ namespace SqlTransactionalOutbox
             string uniqueIdentifier,
             DateTime createdDateTimeUtc,
             string status,
-            int publishingAttempts,
-            string publishingTarget, 
+            int publishAttempts,
+            string publishTarget, 
+            //NOTE: When Creating an Existing Item we always take in the Serialized Payload
+            string serializedPayload
+        );
+
+        ISqlTransactionalOutboxItem<TUniqueIdentifier> CreateExistingOutboxItem(
+            TUniqueIdentifier uniqueIdentifier,
+            DateTime createdDateTimeUtc,
+            string status,
+            int publishAttempts,
+            string publishTarget,
             //NOTE: When Creating an Existing Item we always take in the Serialized Payload
             string serializedPayload
         );

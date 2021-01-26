@@ -16,11 +16,11 @@ namespace SqlTransactionalOutbox
         
         string StatusFieldName { get; }
         
-        string PublishingTargetFieldName { get; }
+        string PublishTargetFieldName { get; }
         
-        string PublishingPayloadFieldName { get; }
+        string PayloadFieldName { get; }
 
-        string PublishingAttemptsFieldName { get; }
+        string PublishAttemptsFieldName { get; }
 
         string CreatedDateTimeUtcFieldName { get; }
     }

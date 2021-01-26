@@ -18,9 +18,9 @@ namespace SqlTransactionalOutbox
         public string PKeyFieldName { get; } = DefaultPKeyFieldName;
         public string UniqueIdentifierFieldName { get; } = nameof(OutboxProcessingItem<Guid>.UniqueIdentifier);
         public string StatusFieldName { get; } = nameof(OutboxProcessingItem<Guid>.Status);
-        public string PublishingTargetFieldName { get; } = nameof(OutboxProcessingItem<Guid>.PublishingTarget);
-        public string PublishingPayloadFieldName { get; } = nameof(OutboxProcessingItem<Guid>.PublishingPayload);
-        public string PublishingAttemptsFieldName { get; } = nameof(OutboxProcessingItem<Guid>.PublishingAttempts);
+        public string PublishTargetFieldName { get; } = nameof(OutboxProcessingItem<Guid>.PublishTarget);
+        public string PayloadFieldName { get; } = nameof(OutboxProcessingItem<Guid>.Payload);
+        public string PublishAttemptsFieldName { get; } = nameof(OutboxProcessingItem<Guid>.PublishAttempts);
         public string CreatedDateTimeUtcFieldName { get; } = nameof(OutboxProcessingItem<Guid>.CreatedDateTimeUtc);
     }
 }

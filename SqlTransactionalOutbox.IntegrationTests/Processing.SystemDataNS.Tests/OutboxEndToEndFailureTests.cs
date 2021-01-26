@@ -250,7 +250,7 @@ namespace SqlTransactionalOutbox.IntegrationTests
             foreach (var dbItem in failedResultsFromDb)
             {
                 Assert.AreEqual(OutboxItemStatus.FailedAttemptsExceeded, dbItem.Status);
-                Assert.AreEqual(maxPublishingAttempts, dbItem.PublishingAttempts);
+                Assert.AreEqual(maxPublishingAttempts, dbItem.PublishAttempts);
             }
 
             //RETURN the Attempted Publishing list for additional validation based on the Pattern

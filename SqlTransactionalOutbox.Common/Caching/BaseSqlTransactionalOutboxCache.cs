@@ -12,13 +12,13 @@ namespace SqlTransactionalOutbox.AzureServiceBus
         {
             newItemFactory.AssertNotNull(nameof(newItemFactory));
 
-            var receiverClientLazy = GenericsItemCache.GetOrAdd(
+            var lazy = GenericsItemCache.GetOrAdd(
                 clientCacheKey.AssertNotNullOrWhiteSpace(nameof(clientCacheKey)), 
                 new Lazy<T>(newItemFactory)
             );
 
-            var senderClient = receiverClientLazy.Value;
-            return senderClient;
+            var item = lazy.Value;
+            return item;
         }
     }
 }

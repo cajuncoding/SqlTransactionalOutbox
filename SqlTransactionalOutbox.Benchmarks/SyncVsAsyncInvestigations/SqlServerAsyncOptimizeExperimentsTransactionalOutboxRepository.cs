@@ -45,10 +45,10 @@
 
 //            //var uniqueIdentifierCol = sqlReader.GetOrdinal(OutboxTableConfig.UniqueIdentifierFieldName);
 //            //var statusCol= sqlReader.GetOrdinal(OutboxTableConfig.StatusFieldName);
-//            //var publishingAttemptsCol = sqlReader.GetOrdinal(OutboxTableConfig.PublishingAttemptsFieldName);
+//            //var publishingAttemptsCol = sqlReader.GetOrdinal(OutboxTableConfig.PublishAttemptsFieldName);
 //            //var createdDateUtcCol= sqlReader.GetOrdinal(OutboxTableConfig.CreatedDateTimeUtcFieldName);
-//            //var publishingTargetCol = sqlReader.GetOrdinal(OutboxTableConfig.PublishingTargetFieldName);
-//            //var serializedPayloadCol = sqlReader.GetOrdinal(OutboxTableConfig.PublishingPayloadFieldName);
+//            //var publishingTargetCol = sqlReader.GetOrdinal(OutboxTableConfig.PublishTargetFieldName);
+//            //var serializedPayloadCol = sqlReader.GetOrdinal(OutboxTableConfig.PayloadFieldName);
 
 //            while (await sqlReader.ReadAsync().ConfigureAwait(false))
 //            {
@@ -78,8 +78,8 @@
 //            //Use the Outbox Item Factory to create a new Outbox Item with serialized payload.
 //            var outboxItemsList = outboxItems.Select(
 //                i => OutboxItemFactory.CreateNewOutboxItem(
-//                    i.PublishingTarget,
-//                    i.PublishingPayload
+//                    i.PublishTarget,
+//                    i.Payload
 //                )
 //            ).ToList();
 
@@ -101,9 +101,9 @@
 //                    //      this helps eliminate risks of datetime sequencing across servers or server-less environments.
 //                    //AddParam(sqlCmd, OutboxTableConfig.CreatedDateTimeUtcFieldName, outboxItem.CreatedDateTimeUtc, batchIndex);
 //                    AddParam(sqlCmd, OutboxTableConfig.StatusFieldName, outboxItem.Status.ToString(), batchIndex);
-//                    AddParam(sqlCmd, OutboxTableConfig.PublishingAttemptsFieldName, outboxItem.PublishingAttempts, batchIndex);
-//                    AddParam(sqlCmd, OutboxTableConfig.PublishingTargetFieldName, outboxItem.PublishingTarget, batchIndex);
-//                    AddParam(sqlCmd, OutboxTableConfig.PublishingPayloadFieldName, outboxItem.PublishingPayload, batchIndex);
+//                    AddParam(sqlCmd, OutboxTableConfig.PublishAttemptsFieldName, outboxItem.PublishAttempts, batchIndex);
+//                    AddParam(sqlCmd, OutboxTableConfig.PublishTargetFieldName, outboxItem.PublishTarget, batchIndex);
+//                    AddParam(sqlCmd, OutboxTableConfig.PayloadFieldName, outboxItem.Payload, batchIndex);
 //                }
 
 //                //Execute the Batch and continue...
@@ -151,9 +151,9 @@
 //                    var uniqueIdentifierForDb = ConvertUniqueIdentifierForDb(outboxItem.UniqueIdentifier);
 //                    AddParam(sqlCmd, OutboxTableConfig.UniqueIdentifierFieldName, uniqueIdentifierForDb, batchIndex);
 
-//                    //NOTE: The only Updateable Fields are Status & PublishingAttempts
+//                    //NOTE: The only Updateable Fields are Status & PublishAttempts
 //                    AddParam(sqlCmd, OutboxTableConfig.StatusFieldName, outboxItem.Status.ToString(), batchIndex);
-//                    AddParam(sqlCmd, OutboxTableConfig.PublishingAttemptsFieldName, outboxItem.PublishingAttempts, batchIndex);
+//                    AddParam(sqlCmd, OutboxTableConfig.PublishAttemptsFieldName, outboxItem.PublishAttempts, batchIndex);
 //                }
 
 //                //Execute the Batch and continue...
