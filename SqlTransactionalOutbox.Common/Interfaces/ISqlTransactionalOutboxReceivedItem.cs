@@ -3,10 +3,14 @@ using System.Collections.Generic;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace SqlTransactionalOutbox.Interfaces
+namespace SqlTransactionalOutbox
 {
-    public interface ISqlTransactionalOutboxPublishedItem<TUniqueIdentifier, out TPayload>
+    public interface ISqlTransactionalOutboxReceivedItem<TUniqueIdentifier, out TPayload>
     {
+        string ContentType { get; }
+
+        string CorrelationId { get; }
+
         bool IsStatusFinalized { get; }
         
         OutboxReceivedItemProcessingStatus Status { get; }

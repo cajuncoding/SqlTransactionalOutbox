@@ -4,9 +4,9 @@ using System.Text;
 
 namespace SqlTransactionalOutbox.AzureServiceBus
 {
-    public class DefaultAzureServiceBusOutboxPublisher : AzureServiceBusPublisher<Guid>
+    public class DefaultBaseAzureServiceBusOutboxPublisher : BaseAzureServiceBusPublisher<Guid>
     {
-        public DefaultAzureServiceBusOutboxPublisher(
+        public DefaultBaseAzureServiceBusOutboxPublisher(
         string azureServiceBusConnectionString,
             AzureServiceBusPublishingOptions options = null
         )

@@ -1,28 +1,23 @@
 ﻿using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Diagnostics;
-using System.Runtime.CompilerServices;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Threading.Tasks.Sources;
 using Microsoft.Azure.ServiceBus;
 using Microsoft.Azure.ServiceBus.Core;
-using Microsoft.Azure.ServiceBus.Primitives;
-using Newtonsoft.Json;
+using SqlTransactionalOutbox.AzureServiceBus.Common;
+using SqlTransactionalOutbox.AzureServiceBus.Receiving;
 using SqlTransactionalOutbox.CustomExtensions;
-using SqlTransactionalOutbox.Interfaces;
-using SqlTransactionalOutbox.Publishing;
 using SqlTransactionalOutbox.Receiving;
 
 namespace SqlTransactionalOutbox.AzureServiceBus
 {
-    public class AzureServiceBusReceiver<TUniqueIdentifier, TPayload>
+    public class AzureServiceBusReceiver<TUniqueIdentifier, TPayload> : BaseAzureServiceBusClient
     {
         public delegate Task ReceivedItemHandlerAsync(
-            ISqlTransactionalOutboxPublishedItem<TUniqueIdentifier, TPayload> outboxPublishedItem
+            ISqlTransactionalOutboxReceivedItem<TUniqueIdentifier, TPayload> outboxReceivedItem
         );
+
+        public AzureServiceBusReceivingOptions Options { get; }
 
         protected ServiceBusConnection AzureServiceBusConnection { get; }
 
@@ -30,14 +25,14 @@ namespace SqlTransactionalOutbox.AzureServiceBus
 
         protected ISqlTransactionalOutboxItemFactory<TUniqueIdentifier, TPayload> OutboxItemFactory { get; }
 
-        public bool IsFifoEnforcedReceivingEnabled { get; }
-
         public AzureServiceBusReceiver(
             string azureServiceBusConnectionString,
             ISqlTransactionalOutboxItemFactory<TUniqueIdentifier, TPayload> outboxItemFactory,
-            bool enableFifoEnforcedReceiving = false
+            AzureServiceBusReceivingOptions options = null
         )
         {
+            this.Options = options ?? new AzureServiceBusReceivingOptions();
+
             this.AzureServiceBusConnection = new ServiceBusConnection(
                 azureServiceBusConnectionString.AssertNotNullOrWhiteSpace(nameof(azureServiceBusConnectionString))
             );
@@ -45,15 +40,12 @@ namespace SqlTransactionalOutbox.AzureServiceBus
             this.SubscriptionClientCache = new AzureSubscriptionClientCache();
 
             this.OutboxItemFactory = outboxItemFactory.AssertNotNull(nameof(outboxItemFactory));
-
-            this.IsFifoEnforcedReceivingEnabled = enableFifoEnforcedReceiving;
         }
 
-        public virtual void RegisterPublishedOutboxItemHandler(
+        public virtual void RegisterReceivedItemHandler(
             string topicPath,
             string subscriptionName,
             ISqlTransactionalOutboxReceivedItemHandler<TUniqueIdentifier, TPayload> receivedItemHandler
-            //TODO: Add Options for dynamic configuration of RetryPolicy, MaxAutoRenewDuration, etc.
         )
         {
             //Validate handler and other references...
@@ -64,11 +56,10 @@ namespace SqlTransactionalOutbox.AzureServiceBus
             RegisterMessageHandlerInternal(topicPath, subscriptionName, receivedItemHandler.HandleReceivedItemAsync);
         }
 
-        public virtual void RegisterPublishedOutboxItemHandler(
+        public virtual void RegisterReceivedItemHandler(
             string topicPath,
             string subscriptionName,
             ReceivedItemHandlerAsync receivedItemHandlerAsyncFunc
-            //TODO: Add Options for dynamic configuration of RetryPolicy, MaxAutoRenewDuration, etc.
         )
         {
             RegisterMessageHandlerInternal(topicPath, subscriptionName, receivedItemHandlerAsyncFunc);
@@ -78,7 +69,6 @@ namespace SqlTransactionalOutbox.AzureServiceBus
             string topicPath,
             string subscriptionName,
             ReceivedItemHandlerAsync receivedItemHandlerAsyncFunc,
-            //TODO: Add Options for dynamic configuration of RetryPolicy, MaxAutoRenewDuration, etc.
             bool automaticFinalizationEnabled = true
         )
         {
@@ -91,7 +81,7 @@ namespace SqlTransactionalOutbox.AzureServiceBus
             );
 
             //Complete full Handler Registration with provided options, etc...
-            if (IsFifoEnforcedReceivingEnabled)
+            if (Options.FifoEnforcedReceivingEnabled)
             {
                 subscriptionClient.RegisterSessionHandler(
                     handler: (session, message, cancellationToken) => ExecuteRegisteredMessageHandlerAsync(message, (IReceiverClient)session, receivedItemHandlerAsyncFunc, automaticFinalizationEnabled),
@@ -99,9 +89,8 @@ namespace SqlTransactionalOutbox.AzureServiceBus
                     {
                         MaxConcurrentSessions = 1,
                         AutoComplete = false,
-                        //TODO: Add Support for Configuring MaxAutoRenewDuration via options...
                         //Good Detail Summary of this property is at: https://stackoverflow.com/a/60381046/7293142
-                        MaxAutoRenewDuration = TimeSpan.FromMinutes(10)
+                        MaxAutoRenewDuration = this.Options.MaxAutoRenewDuration
                     }
                 );
             }
@@ -113,46 +102,54 @@ namespace SqlTransactionalOutbox.AzureServiceBus
                     {
                         MaxConcurrentCalls = 1,
                         AutoComplete = false,
-                        //TODO: Add Support for Configuring MaxAutoRenewDuration via options...
                         //Good Detail Summary of this property is at: https://stackoverflow.com/a/60381046/7293142
-                        MaxAutoRenewDuration = TimeSpan.FromMinutes(10)
+                        MaxAutoRenewDuration = this.Options.MaxAutoRenewDuration
                     }
                 );
             }
 
         }
 
-        public virtual async IAsyncEnumerable<ISqlTransactionalOutboxPublishedItem<TUniqueIdentifier, TPayload>> RetrieveAsyncEnumerable(
+        public virtual async IAsyncEnumerable<ISqlTransactionalOutboxReceivedItem<TUniqueIdentifier, TPayload>> RetrieveAsyncEnumerable(
             string topicPath,
             string subscriptionName,
-            TimeSpan receiveWaitTimeout
+            TimeSpan receiveWaitPerItemTimeout,
+            bool throwExceptionOnCancellation = false
         )
         {
-            var cancellationSource = new CancellationTokenSource(receiveWaitTimeout);
-            await foreach (var item in RetrieveAsyncEnumerable(topicPath, subscriptionName, cancellationSource.Token))
+            if (receiveWaitPerItemTimeout == default)
             {
-                yield return item;
+                throw new ArgumentException("Wait time must be specified.", nameof(receiveWaitPerItemTimeout));
             }
 
-            //Flag completion & Ensure any other background/async processes are fully cancelled!
-            cancellationSource.Cancel();
-        }
-
-        public virtual async IAsyncEnumerable<ISqlTransactionalOutboxPublishedItem<TUniqueIdentifier, TPayload>> RetrieveAsyncEnumerable(
-            string topicPath,
-            string subscriptionName,
-            [EnumeratorCancellation] CancellationToken cancellationToken = default
-        )
-        {
             var dynamicReceiverQueue = CreateAsyncReceiverQueue(
                 topicPath.AssertNotNullOrWhiteSpace(nameof(topicPath)),
                 subscriptionName.AssertNotNullOrWhiteSpace(nameof(subscriptionName))
             );
 
-            await foreach (var item in dynamicReceiverQueue.AsEnumerableAsync(cancellationToken))
+            //Wait for Initial Data!
+            ISqlTransactionalOutboxReceivedItem<TUniqueIdentifier, TPayload> item = null;
+            do
             {
-                yield return item;
-            }
+                var cancellationSource = new CancellationTokenSource(receiveWaitPerItemTimeout);
+
+                try
+                {
+                    item = await dynamicReceiverQueue.TakeAsync(cancellationSource.Token);
+                }
+                catch (OperationCanceledException cancelExc) when (cancelExc.CancellationToken == cancellationSource.Token)
+                {
+                    //DO NOTHING as our operation should cancel gracefully unless otherwise specified!
+                    if (throwExceptionOnCancellation)
+                        throw;
+                }
+
+                //Return the item IF we have one...
+                if (item != null)
+                    yield return item;
+
+            } while (item != null);
+
         }
 
         /// <summary>
@@ -165,7 +162,6 @@ namespace SqlTransactionalOutbox.AzureServiceBus
         public virtual SqlTransactionalOutboxReceiverQueue<TUniqueIdentifier, TPayload> CreateAsyncReceiverQueue(
             string topicPath,
             string subscriptionName
-            //TODO: Add Options for dynamic configuration of RetryPolicy, MaxAutoRenewDuration, etc.
         )
         {
             topicPath.AssertNotNullOrWhiteSpace(nameof(topicPath));
@@ -173,8 +169,7 @@ namespace SqlTransactionalOutbox.AzureServiceBus
 
             //Initialize the producer/consumer queue for asynchronously & dynamically receiving items produced from the
             //  Azure Service Bus by being populated from our handler.
-            SqlTransactionalOutboxReceiverQueue<TUniqueIdentifier, TPayload> dynamicAsyncReceiverQueue 
-                = new SqlTransactionalOutboxReceiverQueue<TUniqueIdentifier, TPayload>();
+            var dynamicAsyncReceiverQueue = new SqlTransactionalOutboxReceiverQueue<TUniqueIdentifier, TPayload>();
 
             //Attempt to Receive & Handle the Messages just published for End-to-End Validation!
             this.RegisterMessageHandlerInternal(
@@ -202,7 +197,7 @@ namespace SqlTransactionalOutbox.AzureServiceBus
             var subscriptionClient = SubscriptionClientCache.InitializeClient(
                 topicPath.AssertNotNullOrWhiteSpace(nameof(topicPath)),
                 subscriptionName.AssertNotNullOrWhiteSpace(nameof(subscriptionName)),
-                newClientFactory:() => CreateNewAzureServiceBusClient(topicPath, subscriptionName)
+                newClientFactory:() => CreateNewAzureServiceBusReceiverClient(topicPath, subscriptionName)
             );
 
             return subscriptionClient;
@@ -220,7 +215,7 @@ namespace SqlTransactionalOutbox.AzureServiceBus
 
             //Initialize the Received Item wrapper for Azure Service Bus!
             //NOTE: Always ensure we properly dispose of the ISqlTransactionalOutboxReceivedItem<> after processing!
-            var outboxReceivedItem = messageHandler.CreateOutboxPublishedItem();
+            var outboxReceivedItem = messageHandler.CreateReceivedOutboxItem();
 
             try
             {
@@ -231,9 +226,9 @@ namespace SqlTransactionalOutbox.AzureServiceBus
                 if(automaticFinalizationEnabled && !outboxReceivedItem.IsStatusFinalized)
                     await messageHandler.SendFinalizedStatusToAzureServiceBusAsync(outboxReceivedItem.Status).ConfigureAwait(false);
             }
-            catch (Exception)
+            catch (Exception exc)
             {
-                //TODO: Add Logging of the Exception...
+                this.Options.LogErrorCallback?.Invoke(exc);
 
                 //Always Reject/Abandon the message if any unhandled exceptions are thrown...
                 //NOTE: We ALWAYS do this even if automaticFinalizationEnabled is false...
@@ -242,17 +237,19 @@ namespace SqlTransactionalOutbox.AzureServiceBus
             }
         }
 
-        protected virtual ISubscriptionClient CreateNewAzureServiceBusClient(string topicPath, string subscriptionName)
+        protected virtual ISubscriptionClient CreateNewAzureServiceBusReceiverClient(string topicPath, string subscriptionName)
         {
-            //TODO: Add Default Exponential Retry Policy as default!
             var newSubscriptionClient = new SubscriptionClient(
                 AzureServiceBusConnection,
                 topicPath,
                 subscriptionName,
                 ReceiveMode.PeekLock,
-                //TODO: Implement support for custom Retry Policies...
-                RetryPolicy.Default
+                //Use RetryPolicy provided by Options!
+                this.Options.RetryPolicy
             );
+
+            //Enable dynamic configuration if specified...
+            this.ClientConfigurationFunc?.Invoke(newSubscriptionClient);
 
             return newSubscriptionClient;
         }
@@ -281,9 +278,16 @@ namespace SqlTransactionalOutbox.AzureServiceBus
             var message = $"An unexpected exception occurred while attempting to receive messages from Azure Service Bus;" +
                           $" [Endpoint={context.Endpoint}], [EntityPath={context.EntityPath}], [ExecutingAction={context.Action}]";
 
-            //TODO: Implement actual Logging here via Options Logging Provider...
-            //_logger.LogError(exceptionReceivedEventArgs.Exception, $"Endpoint: {context.Endpoint} | Entity Path: {context.EntityPath} | Executing Action: {context.Action}");
-            throw new Exception(message, args.Exception);
+            var logException = new Exception(message, args.Exception);
+
+            //Throw the exception if we can't Log it...
+            if(this.Options.LogErrorCallback == null)
+                throw logException;
+
+            this.Options.LogErrorCallback(logException);
+
+            return Task.CompletedTask;
         }
+
     }
 }

@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
+using SqlTransactionalOutbox.AzureServiceBus.Receiving;
 
 namespace SqlTransactionalOutbox.AzureServiceBus
 {
@@ -8,12 +9,13 @@ namespace SqlTransactionalOutbox.AzureServiceBus
     {
         public DefaultFifoAzureServiceBusReceiver(
             string azureServiceBusConnectionString, 
-            ISqlTransactionalOutboxItemFactory<Guid, TPayload> outboxItemFactory = null
+            ISqlTransactionalOutboxItemFactory<Guid, TPayload> outboxItemFactory = null,
+            AzureServiceBusReceivingOptions options = null
         ) 
         : base(
             azureServiceBusConnectionString, 
             outboxItemFactory ?? new OutboxItemFactory<Guid, TPayload>(new OutboxGuidUniqueIdentifier()),
-            enableFifoEnforcedReceiving: true
+            options ?? new AzureServiceBusReceivingOptions() { FifoEnforcedReceivingEnabled = true }
         )
         {
         }

@@ -1,12 +1,10 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Microsoft.Azure.ServiceBus;
 using Microsoft.Azure.ServiceBus.Core;
 using SqlTransactionalOutbox.CustomExtensions;
-using SqlTransactionalOutbox.Interfaces;
 using SqlTransactionalOutbox.Publishing;
 
 namespace SqlTransactionalOutbox.AzureServiceBus
@@ -36,7 +34,7 @@ namespace SqlTransactionalOutbox.AzureServiceBus
             OutboxItemFactory = outboxItemFactory.AssertNotNull(nameof(outboxItemFactory));
         }
 
-        public virtual ISqlTransactionalOutboxPublishedItem<TUniqueIdentifier, TPayload> CreateOutboxPublishedItem()
+        public virtual ISqlTransactionalOutboxReceivedItem<TUniqueIdentifier, TPayload> CreateReceivedOutboxItem()
         {
             var azureServiceBusMessage = this.AzureServiceBusMessage;
 
@@ -51,18 +49,18 @@ namespace SqlTransactionalOutbox.AzureServiceBus
 
             var headersLookup = this.AzureServiceBusMessage.UserProperties.ToLookup(
                 k => k.Key,
-                v => v.ToString()
+                v => v.Value
             );
 
-            var outboxReceivedItem = new OutboxReceivedItem<TUniqueIdentifier, TPayload>(
+            var outboxReceivedItem = new AzureServiceBusReceivedItem<TUniqueIdentifier, TPayload>(
+                azureServiceBusMessage,
                 outboxItem,
                 headersLookup,
                 acknowledgeReceiptAsyncFunc: AcknowledgeSuccessfulReceiptAsync,
                 rejectAbandonReceiptAsyncFunc: RejectReceiptAndAbandonAsync,
                 rejectDeadLetterReceiptAsyncFunc: RejectReceiptAsDeadLetterAsync,
                 parsePayloadFunc: (payloadItem) => OutboxItemFactory.ParsePayload(payloadItem),
-                enableFifoEnforcedReceiving: true,
-                fifoGroupingIdentifier: azureServiceBusMessage.SessionId
+                enableFifoEnforcedReceiving: true
             );
 
             return outboxReceivedItem;

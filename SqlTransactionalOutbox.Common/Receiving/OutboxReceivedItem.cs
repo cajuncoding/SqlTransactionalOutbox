@@ -4,17 +4,19 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using SqlTransactionalOutbox.CustomExtensions;
-using SqlTransactionalOutbox.Interfaces;
 
-namespace SqlTransactionalOutbox.AzureServiceBus
+namespace SqlTransactionalOutbox
 {
-    public class OutboxReceivedItem<TUniqueIdentifier, TPayload> : ISqlTransactionalOutboxPublishedItem<TUniqueIdentifier, TPayload>
+    public class OutboxReceivedItem<TUniqueIdentifier, TPayload> : ISqlTransactionalOutboxReceivedItem<TUniqueIdentifier, TPayload>
     {
+        public string ContentType { get; protected set; }
+        public string CorrelationId { get; protected set; }
+
         public bool IsStatusFinalized { get; protected set; } = false;
         public OutboxReceivedItemProcessingStatus Status { get; protected set;  } = OutboxReceivedItemProcessingStatus.RejectAndAbandon;
         public ISqlTransactionalOutboxItem<TUniqueIdentifier> PublishedItem { get; }
 
-        protected ILookup<string, string> HeadersLookup = null;
+        protected ILookup<string, object> HeadersLookup = null;
         protected bool IsDisposed { get; set; } = false;
         protected Func<ISqlTransactionalOutboxItem<TUniqueIdentifier>, TPayload> ParsePayloadFunc { get; }
         protected Func<Task> AcknowledgeReceiptAsyncFunc { get; }
@@ -25,19 +27,24 @@ namespace SqlTransactionalOutbox.AzureServiceBus
         public string FifoGroupingIdentifier { get; }
 
         public OutboxReceivedItem(
-            ISqlTransactionalOutboxItem<TUniqueIdentifier> receivedOutboxItem,
-            ILookup<string, string> headersLookup,
+            ISqlTransactionalOutboxItem<TUniqueIdentifier> outboxItem,
+            ILookup<string, object> headersLookup,
+            string contentType,
             Func<Task> acknowledgeReceiptAsyncFunc,
             Func<Task> rejectAbandonReceiptAsyncFunc,
             Func<Task> rejectDeadLetterReceiptAsyncFunc,
             Func<ISqlTransactionalOutboxItem<TUniqueIdentifier>, TPayload> parsePayloadFunc,
-            bool enableFifoEnforcedReceiving,
-            string fifoGroupingIdentifier
-        )
+            bool enableFifoEnforcedReceiving = false,
+            string fifoGroupingIdentifier = null,
+            string correlationId = null
+            )
         {
+            CorrelationId = correlationId;
             IsFifoEnforcedReceivingEnabled = enableFifoEnforcedReceiving;
             FifoGroupingIdentifier = fifoGroupingIdentifier;
-            PublishedItem = receivedOutboxItem.AssertNotNull(nameof(receivedOutboxItem));
+            
+            ContentType = string.IsNullOrWhiteSpace(contentType) ? MessageContentTypes.PlainText : contentType;
+            PublishedItem = outboxItem.AssertNotNull(nameof(outboxItem));
             HeadersLookup = headersLookup.AssertNotNull(nameof(headersLookup));
 
             AcknowledgeReceiptAsyncFunc = acknowledgeReceiptAsyncFunc.AssertNotNull(nameof(acknowledgeReceiptAsyncFunc));
@@ -52,9 +59,9 @@ namespace SqlTransactionalOutbox.AzureServiceBus
             return payload;
         }
 
-        public string GetHeader(string headerKey, string defaultValue = null)
+        public T GetHeaderValue<T>(string headerKey, T defaultValue = default)
         {
-            return HeadersLookup[headerKey].FirstOrDefault() ?? defaultValue;
+            return (T)HeadersLookup[headerKey].FirstOrDefault() ?? defaultValue;
         }
 
         public virtual async Task AcknowledgeSuccessfulReceiptAsync()

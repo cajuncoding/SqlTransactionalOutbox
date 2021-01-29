@@ -1,18 +1,9 @@
 ﻿using System;
-using System.Collections.Concurrent;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.Text;
-using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.Azure.ServiceBus;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
 using SqlTransactionalOutbox.Tests;
 using SqlTransactionalOutbox.AzureServiceBus;
-using SqlTransactionalOutbox.CustomExtensions;
-using SqlTransactionalOutbox.Interfaces;
 
 namespace SqlTransactionalOutbox.IntegrationTests
 {
@@ -21,6 +12,7 @@ namespace SqlTransactionalOutbox.IntegrationTests
     {
         public const string IntegrationTestTopic = "SqlTransactionalOutbox/Integration-Tests";
         public const string IntegrationTestSubscriptionName = "dev-local";
+        public static TimeSpan IntegrationTestServiceBusDeliveryWaitTimeSpan = TimeSpan.FromSeconds(15);
 
         public TestContext TestContext { get; set; }
 
@@ -59,7 +51,7 @@ namespace SqlTransactionalOutbox.IntegrationTests
             //*****************************************************************************************
             //* STEP 2 - Publish the item to Azure Service Bus!
             //*****************************************************************************************
-            var azureServiceBusPublisher = new DefaultAzureServiceBusOutboxPublisher(
+            var azureServiceBusPublisher = new DefaultBaseAzureServiceBusOutboxPublisher(
                 TestConfiguration.AzureServiceBusConnectionString,
                 new AzureServiceBusPublishingOptions()
                 {
@@ -81,7 +73,7 @@ namespace SqlTransactionalOutbox.IntegrationTests
             try
             {
                 await foreach (var item in azureServiceBusReceiver.RetrieveAsyncEnumerable(
-                    IntegrationTestTopic, IntegrationTestSubscriptionName, TimeSpan.FromSeconds(60))
+                    IntegrationTestTopic, IntegrationTestSubscriptionName, IntegrationTestServiceBusDeliveryWaitTimeSpan)
                 )
                 {
                     Assert.IsNotNull(item, $"The received published outbox item is null! This should never happen!");

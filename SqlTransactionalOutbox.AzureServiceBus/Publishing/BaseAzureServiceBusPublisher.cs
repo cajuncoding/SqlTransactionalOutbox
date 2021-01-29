@@ -1,27 +1,25 @@
 ﻿using System;
-using System.Collections.Concurrent;
-using System.Data.Common;
-using System.Net.Http.Headers;
-using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
 using Microsoft.Azure.ServiceBus;
 using Microsoft.Azure.ServiceBus.Core;
 using Newtonsoft.Json.Linq;
-using SqlTransactionalOutbox.Interfaces;
+using SqlTransactionalOutbox.AzureServiceBus.Common;
+using SqlTransactionalOutbox.CustomExtensions;
 using SqlTransactionalOutbox.Publishing;
 
 
 namespace SqlTransactionalOutbox.AzureServiceBus
 {
-    public class AzureServiceBusPublisher<TUniqueIdentifier> : ISqlTransactionalOutboxPublisher<TUniqueIdentifier>
+    public class BaseAzureServiceBusPublisher<TUniqueIdentifier> : 
+        BaseAzureServiceBusClient, ISqlTransactionalOutboxPublisher<TUniqueIdentifier>
     {
         public string ConnectionString { get; }
         public AzureServiceBusPublishingOptions Options { get; }
         public string SenderApplicationName { get; protected set; }
         protected AzureSenderClientCache SenderClientCache { get; }
 
-        public AzureServiceBusPublisher(
+        public BaseAzureServiceBusPublisher(
             string azureServiceBusConnectionString,
             AzureServiceBusPublishingOptions options = null
         )
@@ -40,7 +38,7 @@ namespace SqlTransactionalOutbox.AzureServiceBus
             Options.LogDebugCallback?.Invoke($"Initializing Sender Client for Topic [{outboxItem.PublishTarget}]...");
             var senderClient = SenderClientCache.InitializeClient(
                 publishingTarget: outboxItem.PublishTarget, 
-                newSenderClientFactory: () => CreateSenderClient(outboxItem.PublishTarget)
+                newSenderClientFactory: () => CreateNewAzureServiceBusSenderClient(outboxItem.PublishTarget)
             );
 
             var uniqueIdString = ConvertUniqueIdentifierToString(outboxItem.UniqueIdentifier);
@@ -51,9 +49,13 @@ namespace SqlTransactionalOutbox.AzureServiceBus
             Options.LogDebugCallback?.Invoke($"Azure Service Bus message [{message.Label}] has been published successfully.");
         }
 
-        protected virtual ISenderClient CreateSenderClient(string publishingTarget)
+        protected virtual ISenderClient CreateNewAzureServiceBusSenderClient(string publishingTarget)
         {
             var senderClient = new TopicClient(this.ConnectionString, publishingTarget, Options.RetryPolicy);
+            
+            //Enable dynamic configuration if specified...
+            this.ClientConfigurationFunc?.Invoke(senderClient);
+
             return senderClient;
         }
 
@@ -75,7 +77,7 @@ namespace SqlTransactionalOutbox.AzureServiceBus
                 //Get the session id; because it is needed to determine PartitionKey when defined...
                 var sessionId = 
                     GetJsonValueSafely(json, "FifoGroupingId", (string) null)
-                    ?? GetJsonValueSafely(json, nameof(ISqlTransactionalOutboxPublishedItem<Guid, string>.FifoGroupingIdentifier), (string)null)
+                    ?? GetJsonValueSafely(json, nameof(ISqlTransactionalOutboxReceivedItem<Guid, string>.FifoGroupingIdentifier), (string)null)
                     ?? GetJsonValueSafely(json, "SessionId", (string) null);
 
                 message = new Message
