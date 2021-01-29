@@ -264,8 +264,8 @@ namespace SqlTransactionalOutbox.AzureServiceBus
             //  Acknowledging/Rejecting the message on the service bus.
             var messageHandler = new AzureServiceBusMessageHandler<TUniqueIdentifier, TPayload>(
                 message,
-                azureServiceBusClient,
-                this.OutboxItemFactory
+                this.OutboxItemFactory,
+                azureServiceBusClient
             );
          
             return messageHandler;

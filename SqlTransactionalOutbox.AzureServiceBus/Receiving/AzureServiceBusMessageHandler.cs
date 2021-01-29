@@ -9,13 +9,14 @@ using SqlTransactionalOutbox.Publishing;
 
 namespace SqlTransactionalOutbox.AzureServiceBus
 {
-    public class AzureServiceBusMessageHandler<TUniqueIdentifier, TPayload>
+    public class AzureServiceBusMessageHandler<TUniqueIdentifier, TPayload> 
+        : ISqlTransactionalOutboxReceivedItemFactory<TUniqueIdentifier, TPayload>
     {
         private const string AzureServiceBusClientIsClosedErrorMessage = 
             "Unable to explicitly reject/abandon receipt of the message because the AzureServiceBusClient" +
             " is closed; the message will be automatically abandoned after the lock timeout is exceeded.";
 
-        protected ISqlTransactionalOutboxItemFactory<TUniqueIdentifier, TPayload> OutboxItemFactory { get; }
+        public ISqlTransactionalOutboxItemFactory<TUniqueIdentifier, TPayload> OutboxItemFactory { get; }
 
         protected IReceiverClient AzureServiceBusClient { get; }
 
@@ -23,15 +24,28 @@ namespace SqlTransactionalOutbox.AzureServiceBus
 
         protected bool IsMessageStatusFinalized { get; set; } = false;
 
+        /// <summary>
+        /// The Handler that enables working with Azure Service Bus Messages and converting to OutboxReceivedItems with
+        ///     parsing/processing of SqlTransactionalOutbox conventions, etc.
+        /// This handler is compatible with both IClientEntity using AzureServiceBust subscription client as well as
+        ///     with AzureFunctions which will automatically handle the Message through the function bindings when returned
+        ///     from the Azure Function; in this case the Acknowledge/Reject methods will be safe, but will have no effect.
+        /// </summary>
+        /// <param name="azureServiceBusMessage"></param>
+        /// <param name="outboxItemFactory"></param>
+        /// <param name="azureServiceBusClient">Optional for use with AzureFunctions; otherwise required for Acknowledge/Reject methods to have any affect.</param>
         public AzureServiceBusMessageHandler(
             Message azureServiceBusMessage,
-            IReceiverClient azureServiceBusClient,
-            ISqlTransactionalOutboxItemFactory<TUniqueIdentifier, TPayload> outboxItemFactory
+            ISqlTransactionalOutboxItemFactory<TUniqueIdentifier, TPayload> outboxItemFactory,
+            IReceiverClient azureServiceBusClient = null
         )
         {
             AzureServiceBusMessage = azureServiceBusMessage.AssertNotNull(nameof(Message));
-            AzureServiceBusClient = azureServiceBusClient.AssertNotNull(nameof(azureServiceBusClient));
             OutboxItemFactory = outboxItemFactory.AssertNotNull(nameof(outboxItemFactory));
+
+            //NOTE: With Azure Functions there is no client when used with Function Bindings because this is handled
+            //      by the Azure Functions framework when the Message is returned, so this should be a No-op if null/not-specified!
+            AzureServiceBusClient = azureServiceBusClient;
         }
 
         public virtual ISqlTransactionalOutboxReceivedItem<TUniqueIdentifier, TPayload> CreateReceivedOutboxItem()
@@ -108,7 +122,9 @@ namespace SqlTransactionalOutbox.AzureServiceBus
         protected virtual async Task ProcessAzureServiceBusStatusAsync(Func<string, Task> sendStatusFunc)
         {
             //Ensure that we are re-entrant and don't attempt to finalize again...
-            if (IsMessageStatusFinalized)
+            //NOTE: With Azure Functions there is no client when used with Function Bindings because this is handled
+            //      by the Azure Functions framework when the Message is returned, so this should be a No-op if null/not-specified!
+            if (IsMessageStatusFinalized || this.AzureServiceBusClient == null)
                 return;
 
             if (this.AzureServiceBusClient.IsClosedOrClosing)

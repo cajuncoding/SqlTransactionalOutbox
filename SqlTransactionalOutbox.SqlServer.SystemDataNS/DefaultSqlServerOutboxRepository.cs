@@ -15,9 +15,7 @@ namespace SqlTransactionalOutbox.SqlServer.SystemDataNS
         ) : base (
             sqlTransaction: sqlTransaction,
             outboxTableConfig: outboxTableConfig ?? new OutboxTableConfig(),
-            outboxItemFactory: outboxItemFactory ?? new OutboxItemFactory<Guid, TPayload>(
-                new OutboxGuidUniqueIdentifier()
-            ), 
+            outboxItemFactory: outboxItemFactory ?? new DefaultOutboxItemFactory<TPayload>(), 
             distributedMutexAcquisitionTimeoutSeconds
         )
         {

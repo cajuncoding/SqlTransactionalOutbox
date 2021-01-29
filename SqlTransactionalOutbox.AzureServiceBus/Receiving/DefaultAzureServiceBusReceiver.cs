@@ -14,7 +14,7 @@ namespace SqlTransactionalOutbox.AzureServiceBus
         )
         : base(
             azureServiceBusConnectionString, 
-            outboxItemFactory ?? new OutboxItemFactory<Guid, TPayload>(new OutboxGuidUniqueIdentifier()),
+            outboxItemFactory ?? new DefaultOutboxItemFactory<TPayload>(),
             options
         )
         {
