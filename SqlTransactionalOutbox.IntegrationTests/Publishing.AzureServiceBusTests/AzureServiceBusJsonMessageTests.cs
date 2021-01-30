@@ -36,8 +36,8 @@ namespace SqlTransactionalOutbox.IntegrationTests
             };
 
             var jsonPayload = JsonConvert.SerializeObject(testPayload);
-            var uniqueIdGuidFactory = new OutboxGuidUniqueIdentifier();
             var outboxItemFactory = new DefaultOutboxItemFactory<string>();
+            var uniqueIdGuidFactory = outboxItemFactory.UniqueIdentifierFactory;
 
             var outboxItem = outboxItemFactory.CreateExistingOutboxItem(
                 uniqueIdGuidFactory.CreateUniqueIdentifier().ToString(),

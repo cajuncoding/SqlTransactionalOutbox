@@ -9,8 +9,8 @@ namespace SqlTransactionalOutbox
 {
     public class OutboxItemFactory<TUniqueIdentifier, TPayload> : ISqlTransactionalOutboxItemFactory<TUniqueIdentifier, TPayload>
     {
-        protected ISqlTransactionalOutboxUniqueIdFactory<TUniqueIdentifier> UniqueIdentifierFactory { get; }
-        protected ISqlTransactionalOutboxSerializer PayloadSerializer { get; }
+        public ISqlTransactionalOutboxUniqueIdFactory<TUniqueIdentifier> UniqueIdentifierFactory { get; }
+        public ISqlTransactionalOutboxSerializer PayloadSerializer { get; }
 
         public OutboxItemFactory(
             ISqlTransactionalOutboxUniqueIdFactory<TUniqueIdentifier> uniqueIdFactory,

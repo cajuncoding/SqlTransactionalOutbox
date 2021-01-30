@@ -6,6 +6,7 @@ using Microsoft.Azure.ServiceBus.Core;
 using Newtonsoft.Json.Linq;
 using SqlTransactionalOutbox.AzureServiceBus.Common;
 using SqlTransactionalOutbox.CustomExtensions;
+using SqlTransactionalOutbox.JsonExtensions;
 using SqlTransactionalOutbox.Publishing;
 
 
@@ -76,33 +77,32 @@ namespace SqlTransactionalOutbox.AzureServiceBus
 
                 //Get the session id; because it is needed to determine PartitionKey when defined...
                 var sessionId = 
-                    GetJsonValueSafely(json, "FifoGroupingId", (string) null)
-                    ?? GetJsonValueSafely(json, nameof(ISqlTransactionalOutboxReceivedItem<Guid, string>.FifoGroupingIdentifier), (string)null)
-                    ?? GetJsonValueSafely(json, "SessionId", (string) null);
+                    GetJsonValueSafely(json, JsonMessageFields.FifoGroupingId, (string)null)
+                    ?? GetJsonValueSafely(json, JsonMessageFields.SessionId, (string)null);
 
                 message = new Message
                 {
                     MessageId = uniqueIdString,
                     SessionId = sessionId,
-                    CorrelationId = GetJsonValueSafely(json, "CorrelationId", string.Empty),
-                    To = GetJsonValueSafely(json, "to", string.Empty),
-                    ReplyTo = GetJsonValueSafely(json, "replyTo", string.Empty),
-                    ReplyToSessionId = GetJsonValueSafely(json, "replyToSessionId", string.Empty),
+                    CorrelationId = GetJsonValueSafely(json, JsonMessageFields.CorrelationId, string.Empty),
+                    To = GetJsonValueSafely(json, JsonMessageFields.To, string.Empty),
+                    ReplyTo = GetJsonValueSafely(json, JsonMessageFields.ReplyTo, string.Empty),
+                    ReplyToSessionId = GetJsonValueSafely(json, JsonMessageFields.ReplyToSessionId, string.Empty),
                     //NOTE: IF SessionId is Defined then the Partition Key MUST MATCH the SessionId...
-                    PartitionKey = sessionId ?? GetJsonValueSafely(json, "partitionKey", string.Empty),
+                    PartitionKey = sessionId ?? GetJsonValueSafely(json, JsonMessageFields.PartitionKey, string.Empty),
                     //Transaction related Partition Key... unused so disabling this to minimize risk.
                     //ViaPartitionKey = sessionId ?? GetJsonValueSafely(json, "viaPartitionKey", string.Empty),
-                    ContentType = GetJsonValueSafely(json, "contentType", MessageContentTypes.Json),
-                    Label = GetJsonValueSafely(json, "label", defaultLabel)
+                    ContentType = GetJsonValueSafely(json, JsonMessageFields.ContentType, MessageContentTypes.Json),
+                    Label = GetJsonValueSafely(json, JsonMessageFields.Label, defaultLabel)
                 };
 
                 //Initialize the Body from dynamic Json if defined, or fallback to the entire body...
-                var messageBody = GetJsonValueSafely(json, "body", outboxItem.Payload);
+                var messageBody = GetJsonValueSafely(json, JsonMessageFields.Body, outboxItem.Payload);
                 message.Body = ConvertPublishingPayloadToBytes(messageBody);
 
                 //Populate HeadersLookup/User Properties if defined dynamically...
-                var headers = GetJsonValueSafely<JObject>(json, "headers", null)
-                              ?? GetJsonValueSafely<JObject>(json, "userProperties", null);
+                var headers = GetJsonValueSafely<JObject>(json, JsonMessageFields.Headers)
+                              ?? GetJsonValueSafely<JObject>(json, JsonMessageFields.UserProperties);
 
                 if (headers != null)
                 {
@@ -156,11 +156,7 @@ namespace SqlTransactionalOutbox.AzureServiceBus
 
         protected virtual TValue GetJsonValueSafely<TValue>(JObject json, string fieldName, TValue defaultValue = default)
         {
-            var jToken = json.GetValue(fieldName, StringComparison.OrdinalIgnoreCase);
-            var value = jToken == null
-                ? defaultValue
-                : jToken.Value<TValue>();
-
+            var value = json.ValueSafely(fieldName, defaultValue);
             return value;
         }
 

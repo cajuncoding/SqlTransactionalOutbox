@@ -4,6 +4,23 @@ using System.Text;
 
 namespace SqlTransactionalOutbox.Publishing
 {
+    public class JsonMessageFields
+    {
+        public const string To = "to";
+        public const string Body = "body";
+        public const string FifoGroupingId= "fifoGroupingId";
+        public const string SessionId = "sessionid";
+        public const string CorrelationId = "correlationId";
+        public const string ReplyTo = "replyTo";
+        public const string ReplyToSessionId = "replyToSessionId";
+        public const string PartitionKey = "partitionKey";
+        public const string ContentType = "contentType";
+        public const string Label = "label";
+        public const string Headers = "headers";
+        public const string UserProperties = "userProperties";
+
+    }
+
     public class MessageHeaders
     {
         public static string CustomHeaderPrefix = "outbox";

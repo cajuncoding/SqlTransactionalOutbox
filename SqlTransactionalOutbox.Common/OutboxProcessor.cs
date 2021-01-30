@@ -22,6 +22,7 @@ namespace SqlTransactionalOutbox
         )
         {
             this.OutboxRepository = outboxRepository ?? throw new ArgumentNullException(nameof(OutboxRepository));
+            //TODO: Make Publisher Optional and throw Exceptions ONLY when methods that require it are called!
             this.OutboxPublisher = outboxPublisher ?? throw new ArgumentNullException(nameof(OutboxPublisher));
         }
 
