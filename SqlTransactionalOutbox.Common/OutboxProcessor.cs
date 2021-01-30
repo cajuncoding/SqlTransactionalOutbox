@@ -11,6 +11,7 @@ namespace SqlTransactionalOutbox
     /// Process all pending items in the transactional outbox using the specified ISqlTransactionalOutboxRepository,
     /// ISqlTransactionalOutboxPublisher, & OutboxProcessingOptions
     /// </summary>
+    //TODO: SPLIT Delivery Agent From Processing Agent (Where Publisher is not required for Delivery)!
     public class OutboxProcessor<TUniqueIdentifier, TPayload> : ISqlTransactionalOutboxProcessor<TUniqueIdentifier, TPayload>
     {
         public ISqlTransactionalOutboxRepository<TUniqueIdentifier, TPayload> OutboxRepository { get; }

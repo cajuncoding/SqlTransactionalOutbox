@@ -51,7 +51,7 @@ namespace SqlTransactionalOutbox.IntegrationTests
             //*****************************************************************************************
             //* STEP 2 - Publish the item to Azure Service Bus!
             //*****************************************************************************************
-            var azureServiceBusPublisher = new DefaultBaseAzureServiceBusOutboxPublisher(
+            var azureServiceBusPublisher = new DefaultAzureServiceBusOutboxPublisher(
                 TestConfiguration.AzureServiceBusConnectionString,
                 new AzureServiceBusPublishingOptions()
                 {

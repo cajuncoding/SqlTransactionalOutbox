@@ -9,12 +9,13 @@ namespace SqlTransactionalOutbox
 {
     public class OutboxReceivedItem<TUniqueIdentifier, TPayload> : ISqlTransactionalOutboxReceivedItem<TUniqueIdentifier, TPayload>
     {
-        public string ContentType { get; protected set; }
-        public string CorrelationId { get; protected set; }
-
         public bool IsStatusFinalized { get; protected set; } = false;
         public OutboxReceivedItemProcessingStatus Status { get; protected set;  } = OutboxReceivedItemProcessingStatus.RejectAndAbandon;
         public ISqlTransactionalOutboxItem<TUniqueIdentifier> PublishedItem { get; }
+        public TUniqueIdentifier UniqueIdentifier { get; }
+        public string ContentType { get; protected set; }
+        public string CorrelationId { get; protected set; }
+
 
         protected ILookup<string, object> HeadersLookup = null;
         protected bool IsDisposed { get; set; } = false;
@@ -39,11 +40,6 @@ namespace SqlTransactionalOutbox
             string correlationId = null
             )
         {
-            CorrelationId = correlationId;
-            IsFifoEnforcedReceivingEnabled = enableFifoEnforcedReceiving;
-            FifoGroupingIdentifier = fifoGroupingIdentifier;
-            
-            ContentType = string.IsNullOrWhiteSpace(contentType) ? MessageContentTypes.PlainText : contentType;
             PublishedItem = outboxItem.AssertNotNull(nameof(outboxItem));
             HeadersLookup = headersLookup.AssertNotNull(nameof(headersLookup));
 
@@ -51,6 +47,14 @@ namespace SqlTransactionalOutbox
             RejectAndAbandonReceiptAsyncFunc = rejectAbandonReceiptAsyncFunc.AssertNotNull(nameof(rejectAbandonReceiptAsyncFunc));
             RejectAsDeadLetterReceiptAsyncFunc = rejectDeadLetterReceiptAsyncFunc.AssertNotNull(nameof(rejectDeadLetterReceiptAsyncFunc));
             ParsePayloadFunc = parsePayloadFunc.AssertNotNull(nameof(parsePayloadFunc));
+
+            UniqueIdentifier = outboxItem.UniqueIdentifier;
+            ContentType = string.IsNullOrWhiteSpace(contentType) ? MessageContentTypes.PlainText : contentType;
+
+            CorrelationId = correlationId;
+            IsFifoEnforcedReceivingEnabled = enableFifoEnforcedReceiving;
+            FifoGroupingIdentifier = fifoGroupingIdentifier;
+
         }
 
         public TPayload GetPayload()

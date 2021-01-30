@@ -55,10 +55,10 @@ namespace SqlTransactionalOutbox.SampleApp.AzureFunctions
             var sqlConnection = new SqlConnection(FunctionsConfiguration.SqlConnectionString);
             await sqlConnection.OpenAsync();
 
-            await using var sqlTransaction = (SqlTransaction)(await sqlConnection.BeginTransactionAsync());
+            await using var outboxDeliveryTransaction = (SqlTransaction)(await sqlConnection.BeginTransactionAsync());
 
             //SAVE the Item to the Outbox...
-            var azureServiceBusPublisher = new DefaultBaseAzureServiceBusOutboxPublisher(
+            var azureServiceBusPublisher = new DefaultAzureServiceBusOutboxPublisher(
                 FunctionsConfiguration.AzureServiceBusConnectionString,
                 new AzureServiceBusPublishingOptions()
                 {
@@ -67,18 +67,18 @@ namespace SqlTransactionalOutbox.SampleApp.AzureFunctions
                     LogErrorCallback = (e) => log.LogError(e, "Unexpected Exception occurred while attempting to store into the Transactional Outbox.")
                 });
             
-            var outboxProcessor = new DefaultSqlServerOutboxProcessor<object>(sqlTransaction, azureServiceBusPublisher);
+            var outboxProcessor = new DefaultSqlServerOutboxProcessor<object>(outboxDeliveryTransaction, azureServiceBusPublisher);
             
             //TODO: Take the Transaction as a Parameter and not a Constructor Injection for better re-use!
             var outboxItem = await outboxProcessor.InsertNewPendingOutboxItemAsync(outboxPayload.PublishTopic, outboxPayload);
 
-            await sqlTransaction.CommitAsync();
+            await outboxDeliveryTransaction.CommitAsync();
 
             //PROCESS Pending Items in the Outbox...
-            await using var sqlTransaction2 = (SqlTransaction)(await sqlConnection.BeginTransactionAsync());
+            await using var outboxProcessingTransaction = (SqlTransaction)(await sqlConnection.BeginTransactionAsync());
             
             //Wouldn't
-            outboxProcessor = new DefaultSqlServerOutboxProcessor<object>(sqlTransaction2, azureServiceBusPublisher);
+            outboxProcessor = new DefaultSqlServerOutboxProcessor<object>(outboxProcessingTransaction, azureServiceBusPublisher);
 
             var results = await outboxProcessor.ProcessPendingOutboxItemsAsync(
                 new OutboxProcessingOptions()
@@ -92,7 +92,7 @@ namespace SqlTransactionalOutbox.SampleApp.AzureFunctions
                 }
             );
 
-            await sqlTransaction2.CommitAsync();
+            await outboxProcessingTransaction.CommitAsync();
 
             //var outboxSerializer = new OutboxPayloadJsonSerializer();
             //var serializedPayload = outboxSerializer.SerializePayload(outboxPayload);

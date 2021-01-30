@@ -7,15 +7,17 @@ namespace SqlTransactionalOutbox
 {
     public interface ISqlTransactionalOutboxReceivedItem<TUniqueIdentifier, out TPayload>
     {
+        OutboxReceivedItemProcessingStatus Status { get; }
+
+        ISqlTransactionalOutboxItem<TUniqueIdentifier> PublishedItem { get; }
+
+        TUniqueIdentifier UniqueIdentifier { get; }
+
         string ContentType { get; }
 
         string CorrelationId { get; }
 
         bool IsStatusFinalized { get; }
-        
-        OutboxReceivedItemProcessingStatus Status { get; }
-
-        ISqlTransactionalOutboxItem<TUniqueIdentifier> PublishedItem { get; }
         
         public bool IsFifoEnforcedReceivingEnabled { get; }
         
