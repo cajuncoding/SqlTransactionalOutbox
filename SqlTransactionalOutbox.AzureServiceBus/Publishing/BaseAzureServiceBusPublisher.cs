@@ -4,13 +4,13 @@ using System.Threading.Tasks;
 using Microsoft.Azure.ServiceBus;
 using Microsoft.Azure.ServiceBus.Core;
 using Newtonsoft.Json.Linq;
+using SqlTransactionalOutbox.AzureServiceBus.Caching;
 using SqlTransactionalOutbox.AzureServiceBus.Common;
-using SqlTransactionalOutbox.CustomExtensions;
 using SqlTransactionalOutbox.JsonExtensions;
 using SqlTransactionalOutbox.Publishing;
 
 
-namespace SqlTransactionalOutbox.AzureServiceBus
+namespace SqlTransactionalOutbox.AzureServiceBus.Publishing
 {
     public class BaseAzureServiceBusPublisher<TUniqueIdentifier> : 
         BaseAzureServiceBusClient, ISqlTransactionalOutboxPublisher<TUniqueIdentifier>
@@ -32,9 +32,21 @@ namespace SqlTransactionalOutbox.AzureServiceBus
             this.SenderClientCache = new AzureSenderClientCache();
         }
 
-        public async Task PublishOutboxItemAsync(ISqlTransactionalOutboxItem<TUniqueIdentifier> outboxItem)
+        public async Task PublishOutboxItemAsync(
+            ISqlTransactionalOutboxItem<TUniqueIdentifier> outboxItem, 
+            bool isFifoEnforcedProcessingEnabled = false
+        )
         {
             var message = CreateEventBusMessage(outboxItem);
+
+            if (isFifoEnforcedProcessingEnabled && string.IsNullOrWhiteSpace(message.SessionId))
+            {
+                var sessionGuid = Guid.NewGuid();
+                Options.LogDebugCallback?.Invoke($"FIFO Processing is Enabled but the Message does not have a valid SessionId; " +
+                                                 $"a surrogate Session GUID [{sessionGuid}] as been assigned to ensure delivery.");
+                
+                message.SessionId = sessionGuid.ToString();
+            }
 
             Options.LogDebugCallback?.Invoke($"Initializing Sender Client for Topic [{outboxItem.PublishTarget}]...");
             var senderClient = SenderClientCache.InitializeClient(
@@ -132,7 +144,6 @@ namespace SqlTransactionalOutbox.AzureServiceBus
             }
 
             //Add all default headers/user-properties...
-            //TODO: Make these Header/Prop names constants...
             message.UserProperties.Add(MessageHeaders.ProcessorType, nameof(SqlTransactionalOutbox));
             message.UserProperties.Add(MessageHeaders.ProcessorSender, this.SenderApplicationName);
             message.UserProperties.Add(MessageHeaders.OutboxUniqueIdentifier, uniqueIdString);

@@ -164,18 +164,20 @@ namespace SqlTransactionalOutbox.IntegrationTests
             //* STEP 2 - Setup Custom Publisher & Processing Options...
             //*****************************************************************************************
             var publishedAttemptsList = new List<ISqlTransactionalOutboxItem<Guid>>();
-            var failingPublisher = new TestHarnessSqlTransactionalOutboxPublisher(i =>
-            {
-                publishedAttemptsList.Add(i);
-                TestContext.WriteLine($"Successful -- We have intentionally Failed to Publish Item: {i.UniqueIdentifier}");
-                //Force an Error on Failure... this should result in ALL Publishing attempts to fail...
-                throw new Exception("Failed to Publish!");
-            });
+            var failingPublisher = new TestHarnessSqlTransactionalOutboxPublisher(
+                (i, isFifoEnabled) =>
+                {
+                    publishedAttemptsList.Add(i);
+                    TestContext.WriteLine($"Successful -- We have intentionally Failed to Publish Item: {i.UniqueIdentifier}");
+                    //Force an Error on Failure... this should result in ALL Publishing attempts to fail...
+                    throw new Exception("Failed to Publish!");
+                }
+            );
 
             var outboxProcessingOptions = new OutboxProcessingOptions()
             {
                 MaxPublishingAttempts = maxPublishingAttempts,
-                EnableDistributedMutexLockForFifoPublishingOrder = enforceFifoProcessing
+                FifoEnforcedPublishingEnabled = enforceFifoProcessing
             };
 
             //*****************************************************************************************

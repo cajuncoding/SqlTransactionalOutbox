@@ -19,18 +19,20 @@ namespace SqlTransactionalOutbox.IntegrationTests
         public async Task TestTransactionalOutboxEndToEndSuccessfulProcessing()
         {
             //Organize
-            await using var sqlConnection = await SqlConnectionHelper.CreateSystemDataSqlConnectionAsync();
+            await using var sqlConnection = await SqlConnectionHelper.CreateSystemDataSqlConnectionAsync().ConfigureAwait(false);
 
             //*****************************************************************************************
             //* STEP 1 - Prepare/Clear the Queue Table
             //*****************************************************************************************
             var publishedItemList = new List<ISqlTransactionalOutboxItem<Guid>>();
-            var testPublisher = new TestHarnessSqlTransactionalOutboxPublisher(i =>
-            {
-                publishedItemList.Add(i);
-                TestContext.WriteLine($"Successfully Published Item: {i.UniqueIdentifier}");
-                return Task.CompletedTask;
-            });
+            var testPublisher = new TestHarnessSqlTransactionalOutboxPublisher(
+                (i, isFifoEnabled) =>
+                {
+                    publishedItemList.Add(i);
+                    TestContext.WriteLine($"Successfully Published Item: {i.UniqueIdentifier}");
+                    return Task.CompletedTask;
+                }
+            );
 
             await SystemDataSqlTestHelpers.PopulateTransactionalOutboxTestDataAsync(100, testPublisher);
 

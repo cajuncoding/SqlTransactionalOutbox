@@ -1,10 +1,8 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Text;
 using Microsoft.Azure.ServiceBus;
 using Microsoft.Azure.ServiceBus.Core;
 
-namespace SqlTransactionalOutbox.AzureServiceBus
+namespace SqlTransactionalOutbox.AzureServiceBus.Receiving
 {
     public class DefaultAzureServiceBusMessageHandler<TPayload> : AzureServiceBusMessageHandler<Guid, TPayload>
     {

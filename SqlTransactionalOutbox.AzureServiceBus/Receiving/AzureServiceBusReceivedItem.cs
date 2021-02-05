@@ -4,8 +4,9 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Microsoft.Azure.ServiceBus;
+using SqlTransactionalOutbox.Receiving;
 
-namespace SqlTransactionalOutbox.AzureServiceBus
+namespace SqlTransactionalOutbox.AzureServiceBus.Receiving
 {
     public class AzureServiceBusReceivedItem<TUniqueIdentifier, TPayload> : OutboxReceivedItem<TUniqueIdentifier, TPayload>
     {

@@ -37,7 +37,7 @@ namespace SqlTransactionalOutbox
         /// a distributed application mutex lock to ensure that only one processor can execute
         /// at any time -- eliminating risk of parallel and potential impacts to processing order.
         /// </summary>
-        public bool EnableDistributedMutexLockForFifoPublishingOrder { get; set; } = false;
+        public bool FifoEnforcedPublishingEnabled { get; set; } = false;
 
         /// <summary>
         /// An hook/callback for handling informational logging.

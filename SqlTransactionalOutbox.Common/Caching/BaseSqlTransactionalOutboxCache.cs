@@ -2,7 +2,7 @@
 using System.Collections.Concurrent;
 using SqlTransactionalOutbox.CustomExtensions;
 
-namespace SqlTransactionalOutbox.AzureServiceBus
+namespace SqlTransactionalOutbox.Caching
 {
     public abstract class BaseSqlTransactionalOutboxCache<T>
     {

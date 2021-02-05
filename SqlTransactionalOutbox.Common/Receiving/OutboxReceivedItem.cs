@@ -5,7 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 using SqlTransactionalOutbox.CustomExtensions;
 
-namespace SqlTransactionalOutbox
+namespace SqlTransactionalOutbox.Receiving
 {
     public class OutboxReceivedItem<TUniqueIdentifier, TPayload> : ISqlTransactionalOutboxReceivedItem<TUniqueIdentifier, TPayload>
     {
@@ -38,7 +38,7 @@ namespace SqlTransactionalOutbox
             bool enableFifoEnforcedReceiving = false,
             string fifoGroupingIdentifier = null,
             string correlationId = null
-            )
+        )
         {
             PublishedItem = outboxItem.AssertNotNull(nameof(outboxItem));
             HeadersLookup = headersLookup.AssertNotNull(nameof(headersLookup));
@@ -54,7 +54,6 @@ namespace SqlTransactionalOutbox
             CorrelationId = correlationId;
             IsFifoEnforcedReceivingEnabled = enableFifoEnforcedReceiving;
             FifoGroupingIdentifier = fifoGroupingIdentifier;
-
         }
 
         public TPayload GetPayload()

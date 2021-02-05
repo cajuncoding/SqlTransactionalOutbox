@@ -1,14 +1,12 @@
 ﻿using System;
 using System.Linq;
 using System.Collections.Generic;
-using System.ComponentModel.Design;
 using System.Data;
 using System.Data.SqlClient;
-using System.Diagnostics;
-using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 using SqlAppLockHelper.SystemDataNS;
 using SqlTransactionalOutbox.CustomExtensions;
+using SqlTransactionalOutbox.SqlServer.Common;
 
 namespace SqlTransactionalOutbox.SqlServer.SystemDataNS
 {

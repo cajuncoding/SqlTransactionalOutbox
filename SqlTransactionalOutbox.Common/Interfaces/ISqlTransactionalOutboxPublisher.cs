@@ -7,6 +7,10 @@ namespace SqlTransactionalOutbox
 {
     public interface ISqlTransactionalOutboxPublisher<TUniqueIdentifier>
     {
-        Task PublishOutboxItemAsync(ISqlTransactionalOutboxItem<TUniqueIdentifier> outboxItem);
+        Task PublishOutboxItemAsync(
+            ISqlTransactionalOutboxItem<TUniqueIdentifier> outboxItem, 
+            bool isFifoEnforcedProcessingEnabled = false
+        );
+
     }
 }

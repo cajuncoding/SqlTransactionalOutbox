@@ -5,12 +5,19 @@ using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
 
-namespace SqlTransactionalOutbox.AzureServiceBus
+namespace SqlTransactionalOutbox.AzureServiceBus.Receiving
 {
-    public class SqlTransactionalOutboxReceiverQueue<TUniqueIdentifier, TPayload>
+    public class SqlTransactionalOutboxReceiverQueue<TUniqueIdentifier, TPayload> : IAsyncDisposable
     {
-         protected Channel<ISqlTransactionalOutboxReceivedItem<TUniqueIdentifier, TPayload>> ChannelQueue { get; }
+        protected Channel<ISqlTransactionalOutboxReceivedItem<TUniqueIdentifier, TPayload>> ChannelQueue { get; }
              = Channel.CreateUnbounded<ISqlTransactionalOutboxReceivedItem<TUniqueIdentifier, TPayload>>();
+
+        protected Func<Task> DisposedCallbackAsyncHandler = null;
+
+        public SqlTransactionalOutboxReceiverQueue(Func<Task> disposedCallbackAsyncHandler = null)
+        {
+            DisposedCallbackAsyncHandler = disposedCallbackAsyncHandler;
+        }
 
         public virtual async Task AddAsync(
             ISqlTransactionalOutboxReceivedItem<TUniqueIdentifier, TPayload> item,
@@ -42,6 +49,12 @@ namespace SqlTransactionalOutbox.AzureServiceBus
             {
                 yield return item;
             }
+        }
+
+        public async ValueTask DisposeAsync()
+        {
+            if (DisposedCallbackAsyncHandler != null)
+                await DisposedCallbackAsyncHandler.Invoke().ConfigureAwait(false);
         }
     }
 }

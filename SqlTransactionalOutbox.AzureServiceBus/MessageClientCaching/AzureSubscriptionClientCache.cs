@@ -1,8 +1,9 @@
 ﻿using System;
 using Microsoft.Azure.ServiceBus;
 using Microsoft.Azure.ServiceBus.Core;
+using SqlTransactionalOutbox.Caching;
 
-namespace SqlTransactionalOutbox.AzureServiceBus
+namespace SqlTransactionalOutbox.AzureServiceBus.Caching
 {
     public class AzureSubscriptionClientCache : BaseSqlTransactionalOutboxCache<ISubscriptionClient>
     {

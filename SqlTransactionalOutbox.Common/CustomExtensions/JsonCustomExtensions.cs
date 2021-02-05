@@ -13,30 +13,44 @@ namespace SqlTransactionalOutbox.JsonExtensions
         {
             try
             {
-                var json = JObject.Parse(jsonText);
-                return json;
+                if (IsDuckTypedJson(jsonText))
+                {
+                    var json = JObject.Parse(jsonText);
+                    return json;
+                }
             }
             catch (Exception)
             {
                 //DO NOTHING
-                return null;
             }
+
+            return null;
+        }
+
+        public static bool IsDuckTypedJson(string jsonText)
+        {
+            if (string.IsNullOrWhiteSpace(jsonText))
+                return false;
+
+            var text = jsonText.Trim();
+            if ((text.StartsWith("{") && text.EndsWith("}")) //For object
+                || (text.StartsWith("[") && text.EndsWith("]"))) //For array
+            {
+                return true;
+            }
+
+            return false;
         }
 
         //Helpful method inspired from StackOverflow here:
         //  https://stackoverflow.com/a/14977915/7293142
-        public static bool IsValidJson(string text)
+        public static bool IsValidJson(string jsonText)
         {
-            if (string.IsNullOrWhiteSpace(text)) 
-                return false;
-            
-            text = text.Trim();
-            if ((text.StartsWith("{") && text.EndsWith("}")) //For object
-                || (text.StartsWith("[") && text.EndsWith("]"))) //For array
+            if (IsDuckTypedJson(jsonText))
             {
                 try
                 {
-                    var obj = JToken.Parse(text);
+                    var obj = JToken.Parse(jsonText);
                     return true;
                 }
                 catch (JsonReaderException jex)

@@ -2,9 +2,6 @@ using System;
 using System.Data.SqlClient;
 using System.Linq;
 using System.Net;
-using System.Net.Http;
-using System.Net.Http.Formatting;
-using System.Text;
 using System.Threading.Tasks;
 using Microsoft.Azure.WebJobs;
 using Microsoft.Azure.WebJobs.Extensions.Http;
@@ -84,7 +81,7 @@ namespace SqlTransactionalOutbox.SampleApp.AzureFunctions
                 new OutboxProcessingOptions()
                 {
                     ItemProcessingBatchSize = 10,  //Only process the top 10 items to keep this function responsive!
-                    EnableDistributedMutexLockForFifoPublishingOrder = true,
+                    FifoEnforcedPublishingEnabled = true,
                     LogDebugCallback = (s) => log.LogDebug(s),
                     LogErrorCallback = (e) => log.LogError(e, "Unexpected Exception occurred while Processing Items from the Transactional Outbox."),
                     MaxPublishingAttempts = 1,
@@ -109,9 +106,9 @@ namespace SqlTransactionalOutbox.SampleApp.AzureFunctions
         }
 
         //TODO: Move to Re-Useable Element for Http Azure Functions Proxying...
-        public string GetValueFromRequest(string field, JObject json, ILookup<string, string> query, string defaultValue = default, bool isRequired = false)
+        public string GetValueFromRequest(string field, JObject json, ILookup<string, string> query, string defaultValue = null, bool isRequired = false)
         {
-            var value = json.ValueSafely<string>(field) ?? query[field].FirstOrDefault();
+            var value = json.ValueSafely<string>(field) ?? query[field].FirstOrDefault() ?? defaultValue;
 
             if(value == null && isRequired)
                 throw new ArgumentNullException($"The field [{field}] is required but no value for [{field}] could be found on the request querystring or in the body payload.");

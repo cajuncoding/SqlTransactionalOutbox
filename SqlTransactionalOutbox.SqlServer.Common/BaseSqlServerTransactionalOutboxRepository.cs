@@ -1,11 +1,7 @@
 ﻿using System;
-using System.Linq;
-using System.Collections.Generic;
-using System.Data;
-using System.Threading.Tasks;
 using SqlTransactionalOutbox.CustomExtensions;
 
-namespace SqlTransactionalOutbox.SqlServer.SystemDataNS
+namespace SqlTransactionalOutbox.SqlServer.Common
 {
     public abstract class BaseSqlServerTransactionalOutboxRepository<TUniqueIdentifier, TPayload>
     {

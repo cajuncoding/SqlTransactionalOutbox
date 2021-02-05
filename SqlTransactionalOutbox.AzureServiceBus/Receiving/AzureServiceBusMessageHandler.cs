@@ -7,7 +7,7 @@ using Microsoft.Azure.ServiceBus.Core;
 using SqlTransactionalOutbox.CustomExtensions;
 using SqlTransactionalOutbox.Publishing;
 
-namespace SqlTransactionalOutbox.AzureServiceBus
+namespace SqlTransactionalOutbox.AzureServiceBus.Receiving
 {
     public class AzureServiceBusMessageHandler<TUniqueIdentifier, TPayload> 
         : ISqlTransactionalOutboxReceivedItemFactory<TUniqueIdentifier, TPayload>

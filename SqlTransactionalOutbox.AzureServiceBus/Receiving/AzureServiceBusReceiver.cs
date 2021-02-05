@@ -4,16 +4,16 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Azure.ServiceBus;
 using Microsoft.Azure.ServiceBus.Core;
+using SqlTransactionalOutbox.AzureServiceBus.Caching;
 using SqlTransactionalOutbox.AzureServiceBus.Common;
-using SqlTransactionalOutbox.AzureServiceBus.Receiving;
 using SqlTransactionalOutbox.CustomExtensions;
 using SqlTransactionalOutbox.Receiving;
 
-namespace SqlTransactionalOutbox.AzureServiceBus
+namespace SqlTransactionalOutbox.AzureServiceBus.Receiving
 {
     public class AzureServiceBusReceiver<TUniqueIdentifier, TPayload> : BaseAzureServiceBusClient
     {
-        public delegate Task ReceivedItemHandlerAsync(
+        public delegate Task ReceivedItemHandlerAsyncDelegate(
             ISqlTransactionalOutboxReceivedItem<TUniqueIdentifier, TPayload> outboxReceivedItem
         );
 
@@ -33,19 +33,34 @@ namespace SqlTransactionalOutbox.AzureServiceBus
         {
             this.Options = options ?? new AzureServiceBusReceivingOptions();
 
-            this.AzureServiceBusConnection = new ServiceBusConnection(
-                azureServiceBusConnectionString.AssertNotNullOrWhiteSpace(nameof(azureServiceBusConnectionString))
-            );
+            this.AzureServiceBusConnection = InitAzureServiceBusConnection(azureServiceBusConnectionString);
 
             this.SubscriptionClientCache = new AzureSubscriptionClientCache();
 
             this.OutboxItemFactory = outboxItemFactory.AssertNotNull(nameof(outboxItemFactory));
         }
 
+        protected ServiceBusConnection InitAzureServiceBusConnection(string azureServiceBusConnectionString)
+        {
+            azureServiceBusConnectionString.AssertNotNullOrWhiteSpace(nameof(azureServiceBusConnectionString));
+            var connectionStringBuilder = new ServiceBusConnectionStringBuilder(azureServiceBusConnectionString);
+
+            var options = this.Options;
+            if (options.ClientOperationTimeout != null)
+                connectionStringBuilder.OperationTimeout = (TimeSpan)options.ClientOperationTimeout;
+
+            if (options.ConnectionIdleTimeout != null)
+                connectionStringBuilder.ConnectionIdleTimeout = options.ConnectionIdleTimeout;
+
+            var serviceBusConnection = new ServiceBusConnection(connectionStringBuilder.ToString());
+            return serviceBusConnection;
+        }
+
         public virtual void RegisterReceivedItemHandler(
             string topicPath,
             string subscriptionName,
-            ISqlTransactionalOutboxReceivedItemHandler<TUniqueIdentifier, TPayload> receivedItemHandler
+            ISqlTransactionalOutboxReceivedItemHandler<TUniqueIdentifier, TPayload> receivedItemHandler,
+            Func<IMessageSession, Message, Task> fifoSessionEndAsyncHandler = null
         )
         {
             //Validate handler and other references...
@@ -53,27 +68,39 @@ namespace SqlTransactionalOutbox.AzureServiceBus
 
             //Our interface matches the Delegate signature as an alternative implementation (to help separate
             //  code responsibilities via class interface implementation...
-            RegisterMessageHandlerInternal(topicPath, subscriptionName, receivedItemHandler.HandleReceivedItemAsync);
+            RegisterMessageHandlerInternal(
+                topicPath, 
+                subscriptionName, 
+                receivedItemHandler.HandleReceivedItemAsync,
+                fifoSessionEndAsyncHandler: fifoSessionEndAsyncHandler
+            );
         }
 
         public virtual void RegisterReceivedItemHandler(
             string topicPath,
             string subscriptionName,
-            ReceivedItemHandlerAsync receivedItemHandlerAsyncFunc
+            ReceivedItemHandlerAsyncDelegate receivedItemHandlerAsyncDelegateFunc,
+            Func<IMessageSession, Message, Task> fifoSessionEndAsyncHandler = null
         )
         {
-            RegisterMessageHandlerInternal(topicPath, subscriptionName, receivedItemHandlerAsyncFunc);
+            RegisterMessageHandlerInternal(
+                topicPath, 
+                subscriptionName, 
+                receivedItemHandlerAsyncDelegateFunc, 
+                fifoSessionEndAsyncHandler: fifoSessionEndAsyncHandler
+            );
         }
 
         protected virtual void RegisterMessageHandlerInternal(
             string topicPath,
             string subscriptionName,
-            ReceivedItemHandlerAsync receivedItemHandlerAsyncFunc,
-            bool automaticFinalizationEnabled = true
+            ReceivedItemHandlerAsyncDelegate receivedItemHandlerAsyncDelegateFunc,
+            bool autoMessageFinalizationEnabled = true,
+            Func<IMessageSession, Message, Task> fifoSessionEndAsyncHandler = null
         )
         {
             //Validate handler and other references...
-            receivedItemHandlerAsyncFunc.AssertNotNull(nameof(receivedItemHandlerAsyncFunc));
+            receivedItemHandlerAsyncDelegateFunc.AssertNotNull(nameof(receivedItemHandlerAsyncDelegateFunc));
 
             var subscriptionClient = GetSubscriptionClient(
                 topicPath.AssertNotNullOrWhiteSpace(nameof(topicPath)),
@@ -84,10 +111,37 @@ namespace SqlTransactionalOutbox.AzureServiceBus
             if (Options.FifoEnforcedReceivingEnabled)
             {
                 subscriptionClient.RegisterSessionHandler(
-                    handler: (session, message, cancellationToken) => ExecuteRegisteredMessageHandlerAsync(message, (IReceiverClient)session, receivedItemHandlerAsyncFunc, automaticFinalizationEnabled),
+                    handler: async (sessionClient, message, cancellationToken) =>
+                    {
+
+                        try
+                        {
+                            await ExecuteRegisteredMessageHandlerAsync(
+                                //Note: We Must use the MessageSession as the Client for processing messages with the Locked Session!
+                                (IReceiverClient) sessionClient,
+                                message,
+                                receivedItemHandlerAsyncDelegateFunc,
+                                autoMessageFinalizationEnabled
+                            ).ConfigureAwait(false);
+                        }
+                        finally
+                        {
+                            if (sessionClient?.IsClosedOrClosing == false)
+                            {
+                                if (fifoSessionEndAsyncHandler == null && Options.ReleaseSessionWhenNoHandlerIsProvided)
+                                {
+                                    await sessionClient.CloseAsync().ConfigureAwait(false);
+                                }
+                                else if (fifoSessionEndAsyncHandler != null)
+                                {
+                                    await fifoSessionEndAsyncHandler.Invoke(sessionClient, message).ConfigureAwait(false);
+                                }
+                            }
+                        }
+                    },
                     sessionHandlerOptions: new SessionHandlerOptions(ExceptionReceivedHandlerAsync)
                     {
-                        MaxConcurrentSessions = 1,
+                        MaxConcurrentSessions = Options.MaxConcurrentReceiversOrSessions,
                         AutoComplete = false,
                         //Good Detail Summary of this property is at: https://stackoverflow.com/a/60381046/7293142
                         MaxAutoRenewDuration = this.Options.MaxAutoRenewDuration
@@ -97,17 +151,21 @@ namespace SqlTransactionalOutbox.AzureServiceBus
             else
             {
                 subscriptionClient.RegisterMessageHandler(
-                    handler: (message, cancellationToken) => ExecuteRegisteredMessageHandlerAsync(message, subscriptionClient, receivedItemHandlerAsyncFunc, automaticFinalizationEnabled),
+                    handler: (message, cancellationToken) => ExecuteRegisteredMessageHandlerAsync(
+                        subscriptionClient,
+                        message,
+                        receivedItemHandlerAsyncDelegateFunc, 
+                        autoMessageFinalizationEnabled
+                    ),
                     messageHandlerOptions: new MessageHandlerOptions(ExceptionReceivedHandlerAsync)
                     {
-                        MaxConcurrentCalls = 1,
+                        MaxConcurrentCalls = Options.MaxConcurrentReceiversOrSessions,
                         AutoComplete = false,
                         //Good Detail Summary of this property is at: https://stackoverflow.com/a/60381046/7293142
                         MaxAutoRenewDuration = this.Options.MaxAutoRenewDuration
                     }
                 );
             }
-
         }
 
         public virtual async IAsyncEnumerable<ISqlTransactionalOutboxReceivedItem<TUniqueIdentifier, TPayload>> RetrieveAsyncEnumerable(
@@ -122,7 +180,8 @@ namespace SqlTransactionalOutbox.AzureServiceBus
                 throw new ArgumentException("Wait time must be specified.", nameof(receiveWaitPerItemTimeout));
             }
 
-            var dynamicReceiverQueue = CreateAsyncReceiverQueue(
+            //ENSURE WE DISPOSE of the Queue when we are done!
+            await using var dynamicReceiverQueue = CreateAsyncReceiverQueue(
                 topicPath.AssertNotNullOrWhiteSpace(nameof(topicPath)),
                 subscriptionName.AssertNotNullOrWhiteSpace(nameof(subscriptionName))
             );
@@ -167,15 +226,27 @@ namespace SqlTransactionalOutbox.AzureServiceBus
             topicPath.AssertNotNullOrWhiteSpace(nameof(topicPath));
             subscriptionName.AssertNotNullOrWhiteSpace(nameof(subscriptionName));
 
+            //A SHARED CONTEXT SPECIFIC reference to be set by the Registered Handler and
+            //  Called Safely by the Disposal of the Receiver Queue when Disposed!
+            IMessageSession queueContextSessionClient = null;
+
             //Initialize the producer/consumer queue for asynchronously & dynamically receiving items produced from the
             //  Azure Service Bus by being populated from our handler.
-            var dynamicAsyncReceiverQueue = new SqlTransactionalOutboxReceiverQueue<TUniqueIdentifier, TPayload>();
+            var dynamicAsyncReceiverQueue = new SqlTransactionalOutboxReceiverQueue<TUniqueIdentifier, TPayload>(
+                disposedCallbackAsyncHandler: async () =>
+                {
+                    if (queueContextSessionClient?.IsClosedOrClosing == false)
+                    {
+                        await queueContextSessionClient.CloseAsync().ConfigureAwait(false);
+                    }
+                }
+            );
 
             //Attempt to Receive & Handle the Messages just published for End-to-End Validation!
             this.RegisterMessageHandlerInternal(
                 topicPath,
                 subscriptionName,
-                receivedItemHandlerAsyncFunc: async (outboxPublishedItem) =>
+                receivedItemHandlerAsyncDelegateFunc: async (outboxPublishedItem) =>
                 {
                     //Set the unit test reference to ENABLE/NOTIFY for Continuation to complete the TEST!
                     //NOTE: We do NOT perform the Assert Tests inside this handler, because we need the framework
@@ -183,7 +254,14 @@ namespace SqlTransactionalOutbox.AzureServiceBus
                     //      after the Test is able to proceed.
                     await dynamicAsyncReceiverQueue.AddAsync(outboxPublishedItem).ConfigureAwait(false);
                 },
-                automaticFinalizationEnabled: false
+                autoMessageFinalizationEnabled: false,
+                //Must specify a Session Handler so that it's not automatically closed on us...
+                fifoSessionEndAsyncHandler: ((sessionClient, message) =>
+                {
+                    //SET but only need to set ONE TIME!
+                    queueContextSessionClient ??= sessionClient;
+                    return Task.CompletedTask;
+                })
             );
 
             return dynamicAsyncReceiverQueue;
@@ -204,9 +282,9 @@ namespace SqlTransactionalOutbox.AzureServiceBus
         }
 
         protected virtual async Task ExecuteRegisteredMessageHandlerAsync(
-            Message message,
             IReceiverClient azureServiceBusClient,
-            ReceivedItemHandlerAsync receivedItemHandlerAsyncFunc,
+            Message message,
+            ReceivedItemHandlerAsyncDelegate receivedItemHandlerAsyncDelegateFunc,
             bool automaticFinalizationEnabled = true
         )
         {
@@ -220,18 +298,21 @@ namespace SqlTransactionalOutbox.AzureServiceBus
             try
             {
                 //Execute the delegate to handle/process the published item...
-                await receivedItemHandlerAsyncFunc(outboxReceivedItem).ConfigureAwait(false);
+                await receivedItemHandlerAsyncDelegateFunc(outboxReceivedItem).ConfigureAwait(false);
 
                 //If necessary, we need to Finalize the item with Azure Service Bus (Complete/Abandon) based on the Status returned on the item!
-                if(automaticFinalizationEnabled && !outboxReceivedItem.IsStatusFinalized)
+                if (automaticFinalizationEnabled && !outboxReceivedItem.IsStatusFinalized)
+                {
                     await messageHandler.SendFinalizedStatusToAzureServiceBusAsync(outboxReceivedItem.Status).ConfigureAwait(false);
+                }
+                
             }
             catch (Exception exc)
             {
                 this.Options.LogErrorCallback?.Invoke(exc);
 
                 //Always Reject/Abandon the message if any unhandled exceptions are thrown...
-                //NOTE: We ALWAYS do this even if automaticFinalizationEnabled is false...
+                //NOTE: We ALWAYS do this even if autoMessageFinalizationEnabled is false...
                 if (!outboxReceivedItem.IsStatusFinalized)
                     await messageHandler.SendFinalizedStatusToAzureServiceBusAsync(OutboxReceivedItemProcessingStatus.RejectAndAbandon);
             }
@@ -241,12 +322,19 @@ namespace SqlTransactionalOutbox.AzureServiceBus
         {
             var newSubscriptionClient = new SubscriptionClient(
                 AzureServiceBusConnection,
-                topicPath,
-                subscriptionName,
+                topicPath.AssertNotNullOrWhiteSpace(nameof(topicPath)),
+                subscriptionName.AssertNotNullOrWhiteSpace(nameof(subscriptionName)),
                 ReceiveMode.PeekLock,
                 //Use RetryPolicy provided by Options!
-                this.Options.RetryPolicy
+                this.Options.RetryPolicy ?? RetryPolicy.Default
             );
+
+            if (this.Options.PrefetchCount > 0)
+            {
+                newSubscriptionClient.PrefetchCount = this.Options.PrefetchCount;
+            }
+
+            //Configure additional options...
 
             //Enable dynamic configuration if specified...
             this.ClientConfigurationFunc?.Invoke(newSubscriptionClient);

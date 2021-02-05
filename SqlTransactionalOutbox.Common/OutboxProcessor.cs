@@ -92,11 +92,11 @@ namespace SqlTransactionalOutbox
             );
 
             //Attempt the acquire the Distributed Mutex Lock (if specified)!
-            options.LogDebugCallback?.Invoke($"{nameof(options.EnableDistributedMutexLockForFifoPublishingOrder)} = {options.EnableDistributedMutexLockForFifoPublishingOrder}");
+            options.LogDebugCallback?.Invoke($"{nameof(options.FifoEnforcedPublishingEnabled)} = {options.FifoEnforcedPublishingEnabled}");
 
             results.ProcessingTimer.Start();
 
-            await using var distributedMutex = options.EnableDistributedMutexLockForFifoPublishingOrder
+            await using var distributedMutex = options.FifoEnforcedPublishingEnabled
                 ? await OutboxRepository.AcquireDistributedProcessingMutexAsync().ConfigureAwait(false)
                 : new NoOpAsyncDisposable();
 
@@ -225,7 +225,7 @@ namespace SqlTransactionalOutbox
             else
             {
                 item.PublishAttempts++;
-                await OutboxPublisher.PublishOutboxItemAsync(item).ConfigureAwait(false);
+                await OutboxPublisher.PublishOutboxItemAsync(item, options.FifoEnforcedPublishingEnabled).ConfigureAwait(false);
 
                 options.LogDebugCallback?.Invoke(
                     $"Item [{item.UniqueIdentifier}] published successfully after [{item.PublishAttempts}] publishing attempt(s)!"
@@ -276,10 +276,10 @@ namespace SqlTransactionalOutbox
             //NOTE: This may create a block in the Queue if the issue isn't fixed but it's necessary to preserve
             //      the publishing order until the erroneous blocking item is resolved automatically (via connections restored,
             //      or item fails due to re-attempts), or manually (item is failed and/or removed manually).
-            if (options.EnableDistributedMutexLockForFifoPublishingOrder)
+            if (options.FifoEnforcedPublishingEnabled)
             {
                 processingException = new Exception(
-                    $"The processing must be stopped because [{nameof(options.EnableDistributedMutexLockForFifoPublishingOrder)}]"
+                    $"The processing must be stopped because [{nameof(options.FifoEnforcedPublishingEnabled)}]"
                     + $" configuration option is enabled; therefore to preserve the publishing order the remaining"
                     + $" [{processingQueue.Count}] items will be delayed until the current item [{item.UniqueIdentifier}]"
                     + " can be processed successfully or is failed out of the outbox queue.",

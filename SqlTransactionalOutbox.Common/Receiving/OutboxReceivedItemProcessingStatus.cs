@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Text;
 
-namespace SqlTransactionalOutbox
+namespace SqlTransactionalOutbox.Receiving
 {
     public enum OutboxReceivedItemProcessingStatus
     {

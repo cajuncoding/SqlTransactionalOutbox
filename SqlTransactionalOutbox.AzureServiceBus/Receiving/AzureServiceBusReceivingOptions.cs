@@ -1,7 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Security.Principal;
-using System.Text;
 using Microsoft.Azure.ServiceBus;
 
 namespace SqlTransactionalOutbox.AzureServiceBus.Receiving
@@ -16,6 +13,16 @@ namespace SqlTransactionalOutbox.AzureServiceBus.Receiving
         public TimeSpan MaxAutoRenewDuration { get; set; } = TimeSpan.FromMinutes(5);
 
         public RetryPolicy RetryPolicy { get; set; } = RetryPolicy.Default;
+
+        public int PrefetchCount { get; set; } = 0;
+
+        public int MaxConcurrentReceiversOrSessions { get; set; } = 1;
+
+        public TimeSpan? ClientOperationTimeout { get; set; } = null;
+
+        public TimeSpan? ConnectionIdleTimeout { get; set; } = null;
+
+        public bool ReleaseSessionWhenNoHandlerIsProvided { get; set; } = true;
 
         /// <summary>
         /// An hook/callback for handling informational logging.

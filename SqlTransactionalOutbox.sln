@@ -15,7 +15,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "SamplesAndTests", "SamplesA
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Common", "Common", "{AD13C055-B61F-45B1-95CB-F672F1EBAC00}"
 EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Implementations.Publishing", "Implementations.Publishing", "{1E89533A-10A9-4B7C-9416-2B84C3522FAC}"
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Implementations.Messaging", "Implementations.Messaging", "{1E89533A-10A9-4B7C-9416-2B84C3522FAC}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Implementation.Processing", "Implementation.Processing", "{D75A40EA-4ECE-46FF-93E7-64193AD078F7}"
 EndProject
@@ -23,7 +23,7 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SqlTransactionalOutbox.SqlS
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SqlTransactionalOutbox.IntegrationTests", "SqlTransactionalOutbox.IntegrationTests\SqlTransactionalOutbox.IntegrationTests.csproj", "{C427EC86-37B5-4176-8B72-7FC18D1EDB8C}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SqlTransactionalOutbox.Benchmarks", "SqlTransactionalOutbox.Benchmarks\SqlTransactionalOutbox.Benchmarks.csproj", "{70872DD3-86A6-4F34-885F-5F4768210D8B}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SqlTransactionalOutbox.Benchmarks", "SqlTransactionalOutbox.Benchmarks\SqlTransactionalOutbox.Benchmarks.csproj", "{70872DD3-86A6-4F34-885F-5F4768210D8B}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
