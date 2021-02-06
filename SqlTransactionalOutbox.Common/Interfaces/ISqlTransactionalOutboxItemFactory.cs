@@ -8,13 +8,15 @@ namespace SqlTransactionalOutbox
     {
         ISqlTransactionalOutboxItem<TUniqueIdentifier> CreateNewOutboxItem(
             string publishingTarget,
-            TPayload publishingPayload
+            TPayload publishingPayload,
+            string fifoGroupingIdentifier = null
         );
         
         ISqlTransactionalOutboxItem<TUniqueIdentifier> CreateExistingOutboxItem(
             string uniqueIdentifier,
             DateTime createdDateTimeUtc,
             string status,
+            string fifoGroupingIdentifier,
             int publishAttempts,
             string publishTarget, 
             //NOTE: When Creating an Existing Item we always take in the Serialized Payload
@@ -25,6 +27,7 @@ namespace SqlTransactionalOutbox
             TUniqueIdentifier uniqueIdentifier,
             DateTime createdDateTimeUtc,
             string status,
+            string fifoGroupingIdentifier,
             int publishAttempts,
             string publishTarget,
             //NOTE: When Creating an Existing Item we always take in the Serialized Payload

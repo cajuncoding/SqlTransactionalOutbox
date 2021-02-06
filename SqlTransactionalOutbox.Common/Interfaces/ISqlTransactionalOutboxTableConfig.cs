@@ -13,7 +13,9 @@ namespace SqlTransactionalOutbox
         string PKeyFieldName { get; }
         
         string UniqueIdentifierFieldName { get; }
-        
+
+        string FifoGroupingIdentifier { get; }
+
         string StatusFieldName { get; }
         
         string PublishTargetFieldName { get; }

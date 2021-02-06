@@ -5,11 +5,12 @@ using System.Threading.Tasks;
 
 namespace SqlTransactionalOutbox
 {
-    public interface ISqlTransactionalOutbox<TUniqueIdentifier, TPayload>
+    public interface ISqlTransactionalOutbox<TUniqueIdentifier, in TPayload>
     {
         Task<ISqlTransactionalOutboxItem<TUniqueIdentifier>> InsertNewPendingOutboxItemAsync(
             string publishingTarget, 
-            TPayload publishingPayload
+            TPayload publishingPayload,
+            string fifoGroupingIdentifier = null
         );
 
         Task<List<ISqlTransactionalOutboxItem<TUniqueIdentifier>>> InsertNewPendingOutboxItemsAsync(

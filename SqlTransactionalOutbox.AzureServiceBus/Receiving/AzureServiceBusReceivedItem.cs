@@ -39,6 +39,7 @@ namespace SqlTransactionalOutbox.AzureServiceBus.Receiving
                 uniqueIdentifier: azureServiceBusMessage.MessageId,
                 createdDateTimeUtc: (DateTime)azureServiceBusMessage.UserProperties[MessageHeaders.OutboxCreatedDateUtc],
                 status: OutboxItemStatus.Successful.ToString(),
+                fifoGroupingIdentifier: azureServiceBusMessage.SessionId,
                 publishAttempts: (int)azureServiceBusMessage.UserProperties[MessageHeaders.OutboxPublishingAttempts],
                 publishTarget: (string)azureServiceBusMessage.UserProperties[MessageHeaders.OutboxPublishingTarget],
                 serializedPayload: Encoding.UTF8.GetString(azureServiceBusMessage.Body)

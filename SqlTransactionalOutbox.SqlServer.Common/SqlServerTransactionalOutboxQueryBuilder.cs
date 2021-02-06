@@ -19,6 +19,7 @@ namespace SqlTransactionalOutbox.SqlServer.Common
             var sql = @$"
                 SELECT {(maxBatchSize > 0 ? string.Concat("TOP ", maxBatchSize) : "")}
                     {ToSqlFieldName(OutboxTableConfig.UniqueIdentifierFieldName)},
+                    {ToSqlFieldName(OutboxTableConfig.FifoGroupingIdentifier)},
                     {ToSqlFieldName(OutboxTableConfig.CreatedDateTimeUtcFieldName)},
                     {ToSqlFieldName(OutboxTableConfig.StatusFieldName)},
                     {ToSqlFieldName(OutboxTableConfig.PublishAttemptsFieldName)},
@@ -72,6 +73,7 @@ namespace SqlTransactionalOutbox.SqlServer.Common
 
             var sqlTransactionalOutboxTableFieldNames = @$"
                     {ToSqlFieldName(OutboxTableConfig.UniqueIdentifierFieldName)},
+                    {ToSqlFieldName(OutboxTableConfig.FifoGroupingIdentifier)},
                     {ToSqlFieldName(OutboxTableConfig.StatusFieldName)},
                     {ToSqlFieldName(OutboxTableConfig.CreatedDateTimeUtcFieldName)},                    
                     {ToSqlFieldName(OutboxTableConfig.PublishAttemptsFieldName)},
@@ -98,6 +100,7 @@ namespace SqlTransactionalOutbox.SqlServer.Common
                 sqlStringBuilder.Append(@$"
                     (
                         {ToSqlParamName(OutboxTableConfig.UniqueIdentifierFieldName, index)},
+                        {ToSqlParamName(OutboxTableConfig.FifoGroupingIdentifier, index)},
                         {ToSqlParamName(OutboxTableConfig.StatusFieldName, index)},
                         SysUtcDateTime(),
                         {ToSqlParamName(OutboxTableConfig.PublishAttemptsFieldName, index)},

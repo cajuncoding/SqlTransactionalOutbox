@@ -25,15 +25,16 @@ namespace SqlTransactionalOutbox
 
         public virtual async Task<ISqlTransactionalOutboxItem<TUniqueIdentifier>> InsertNewPendingOutboxItemAsync(
             string publishingTarget, 
-            TPayload publishingPayload
+            TPayload publishingPayload,
+            string fifoGroupingIdentifier = null
         )
         {
-            //Use the Outbox Item Factory to create a new Outbox Item (serialization of the Payload will be handled by the Factory).
-            var outboxInsertItem = new OutboxInsertionItem<TPayload>(publishingTarget, publishingPayload);
-
             //Store the outbox item using the Repository...
             var resultItems = await InsertNewPendingOutboxItemsAsync(
-                new List<ISqlTransactionalOutboxInsertionItem<TPayload>>() { outboxInsertItem }
+                new List<ISqlTransactionalOutboxInsertionItem<TPayload>>()
+                {
+                    new OutboxInsertionItem<TPayload>(publishingTarget, publishingPayload, fifoGroupingIdentifier)
+                }
             ).ConfigureAwait(false);
 
             return resultItems.FirstOrDefault();
@@ -45,7 +46,6 @@ namespace SqlTransactionalOutbox
         {
             //Store the outbox item using the Repository...
             var resultItems = await OutboxRepository.InsertNewOutboxItemsAsync(outboxInsertionItems).ConfigureAwait(false);
-
             return resultItems;
         }
     }

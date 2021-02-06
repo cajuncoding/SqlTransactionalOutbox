@@ -21,8 +21,9 @@ namespace SqlTransactionalOutbox.Tests
             for (var x = 1; x <= dataSize; x++)
             {
                 list.Add(new OutboxInsertionItem<string>(
-                    $"/publish/target_{(int)x % targetModulus}",
-                    $"Payload Message #{x:00000}"
+                    publishingTarget: $"/publish/target_{(int)x % targetModulus}",
+                    publishingPayload: $"Payload Message #{x:00000}",
+                    fifoGroupingIdentifier: $"IntegrationTests:{nameof(CreateTestStringOutboxItemData)}"
                 ));
             }
 

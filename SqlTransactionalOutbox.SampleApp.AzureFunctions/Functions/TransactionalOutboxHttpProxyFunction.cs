@@ -39,10 +39,12 @@ namespace SqlTransactionalOutbox.SampleApp.AzureFunctions
             //************************************************************
             //*** Add The Payload to our Outbox
             //************************************************************
-            var publishTopic = payloadBuilder.PublishTopic;
-            var jsonPayload = payloadBuilder.ToJObject();
-
-            var outboxItem = await AddPendingItemToOutboxAsync(sqlConnection, publishTopic, jsonPayload).ConfigureAwait(false);
+            var outboxItem = await AddPendingItemToOutboxAsync(
+                sqlConnection,
+                publishTopic: payloadBuilder.PublishTopic,
+                jsonPayload: payloadBuilder.ToJObject(),
+                fifoGroupingIdentifier: payloadBuilder.FifoGroupingId
+            ).ConfigureAwait(false);
 
             //************************************************************
             //*** Immediately attempt to process the Outbox...
@@ -50,6 +52,7 @@ namespace SqlTransactionalOutbox.SampleApp.AzureFunctions
             await ExecuteOutboxProcessingAsync(sqlConnection, log).ConfigureAwait(false);
 
             
+            //Log results and return response to the client...
             log.LogDebug($"Payload:{Environment.NewLine}{outboxItem.Payload}");
             
             return new ContentResult()
@@ -63,7 +66,8 @@ namespace SqlTransactionalOutbox.SampleApp.AzureFunctions
         public async Task<ISqlTransactionalOutboxItem<Guid>> AddPendingItemToOutboxAsync(
             SqlConnection sqlConnection, 
             string publishTopic,
-            JObject jsonPayload
+            JObject jsonPayload,
+            string fifoGroupingIdentifier = null
         )
         {
             await using var outboxTransaction = (SqlTransaction)(await sqlConnection.BeginTransactionAsync());
@@ -71,7 +75,11 @@ namespace SqlTransactionalOutbox.SampleApp.AzureFunctions
             {
                 //SAVE the Item to the Outbox...
                 var outbox = new DefaultSqlServerTransactionalOutbox<JObject>(outboxTransaction);
-                var outboxItem = await outbox.InsertNewPendingOutboxItemAsync(publishTopic, jsonPayload).ConfigureAwait(false);
+                var outboxItem = await outbox.InsertNewPendingOutboxItemAsync(
+                    publishingTarget: publishTopic, 
+                    publishingPayload: jsonPayload, 
+                    fifoGroupingIdentifier: fifoGroupingIdentifier
+                ).ConfigureAwait(false);
 
                 await outboxTransaction.CommitAsync().ConfigureAwait(false);
                 return outboxItem;

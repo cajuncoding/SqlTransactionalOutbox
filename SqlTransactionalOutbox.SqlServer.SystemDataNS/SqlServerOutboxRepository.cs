@@ -55,6 +55,7 @@ namespace SqlTransactionalOutbox.SqlServer.SystemDataNS
                 var outboxItem = OutboxItemFactory.CreateExistingOutboxItem(
                     uniqueIdentifier: ConvertUniqueIdentifierFromDb(sqlReader),
                     status:(string)sqlReader[OutboxTableConfig.StatusFieldName],
+                    fifoGroupingIdentifier: (string)sqlReader[OutboxTableConfig.FifoGroupingIdentifier],
                     publishAttempts:(int)sqlReader[OutboxTableConfig.PublishAttemptsFieldName],
                     createdDateTimeUtc:(DateTime)sqlReader[OutboxTableConfig.CreatedDateTimeUtcFieldName],
                     publishTarget:(string)sqlReader[OutboxTableConfig.PublishTargetFieldName],
@@ -91,7 +92,8 @@ namespace SqlTransactionalOutbox.SqlServer.SystemDataNS
             var outboxItemsList = outboxItems.Select(
                 i => OutboxItemFactory.CreateNewOutboxItem(
                     i.PublishingTarget, 
-                    i.PublishingPayload
+                    i.PublishingPayload,
+                    i.FifoGroupingIdentifier
                 )
             ).ToList();
 
@@ -108,10 +110,10 @@ namespace SqlTransactionalOutbox.SqlServer.SystemDataNS
 
                     var uniqueIdentifierForDb = ConvertUniqueIdentifierForDb(outboxItem.UniqueIdentifier);
                     AddParam(sqlCmd, OutboxTableConfig.UniqueIdentifierFieldName, uniqueIdentifierForDb, SqlDbType.UniqueIdentifier, batchIndex);
-
                     //NOTE: The for Sql Server, the CreatedDateTimeUtcField is automatically populated by Sql Server.
                     //      this helps eliminate risks of datetime sequencing across servers or server-less environments.
-                    //AddParam(sqlCmd, OutboxTableConfig.CreatedDateTimeUtcFieldName, outboxItem.CreatedDateTimeUtc, batchIndex);
+                    ////AddParam(sqlCmd, OutboxTableConfig.CreatedDateTimeUtcFieldName, outboxItem.CreatedDateTimeUtc, batchIndex);
+                    AddParam(sqlCmd, OutboxTableConfig.FifoGroupingIdentifier, outboxItem.FifoGroupingIdentifier, SqlDbType.VarChar, batchIndex);
                     AddParam(sqlCmd, OutboxTableConfig.StatusFieldName, outboxItem.Status.ToString(), SqlDbType.VarChar, batchIndex);
                     AddParam(sqlCmd, OutboxTableConfig.PublishAttemptsFieldName, outboxItem.PublishAttempts, SqlDbType.Int, batchIndex);
                     AddParam(sqlCmd, OutboxTableConfig.PublishTargetFieldName, outboxItem.PublishTarget, SqlDbType.VarChar, batchIndex);

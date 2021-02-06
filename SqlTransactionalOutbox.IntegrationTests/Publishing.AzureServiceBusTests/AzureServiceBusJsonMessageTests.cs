@@ -40,12 +40,13 @@ namespace SqlTransactionalOutbox.IntegrationTests
             var uniqueIdGuidFactory = outboxItemFactory.UniqueIdentifierFactory;
 
             var outboxItem = outboxItemFactory.CreateExistingOutboxItem(
-                uniqueIdGuidFactory.CreateUniqueIdentifier().ToString(),
-                DateTime.UtcNow,
-                OutboxItemStatus.Pending.ToString(),
-                0,
-                IntegrationTestTopic,
-                jsonPayload
+                uniqueIdentifier:uniqueIdGuidFactory.CreateUniqueIdentifier().ToString(),
+                createdDateTimeUtc:DateTime.UtcNow,
+                status: OutboxItemStatus.Pending.ToString(),
+                fifoGroupingIdentifier: testPayload.FifoGroupingId,
+                publishAttempts: 0,
+                publishTarget: IntegrationTestTopic,
+                serializedPayload: jsonPayload
             );
 
             //*****************************************************************************************

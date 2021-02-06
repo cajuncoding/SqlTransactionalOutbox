@@ -23,7 +23,8 @@ namespace SqlTransactionalOutbox
 
         public virtual ISqlTransactionalOutboxItem<TUniqueIdentifier> CreateNewOutboxItem(
             string publishingTarget,
-            TPayload publishingPayload
+            TPayload publishingPayload,
+            string? fifoGroupingIdentifier = null
         )
         {
             //Validate key required values that are always user provided in this one place...
@@ -41,6 +42,7 @@ namespace SqlTransactionalOutbox
                 //Initialize Internal Variables
                 UniqueIdentifier = UniqueIdentifierFactory.CreateUniqueIdentifier(),
                 Status = OutboxItemStatus.Pending,
+                FifoGroupingIdentifier = fifoGroupingIdentifier,
                 PublishAttempts = 0,
                 CreatedDateTimeUtc = DateTime.UtcNow,
                 //Initialize client provided details
@@ -55,6 +57,7 @@ namespace SqlTransactionalOutbox
             string uniqueIdentifier,
             DateTime createdDateTimeUtc,
             string status,
+            string fifoGroupingIdentifier,
             int publishAttempts,
             string publishTarget,
             string serializedPayload
@@ -66,6 +69,7 @@ namespace SqlTransactionalOutbox
                 UniqueIdentifierFactory.ParseUniqueIdentifier(uniqueIdentifier),
                 createdDateTimeUtc,
                 status,
+                fifoGroupingIdentifier,
                 publishAttempts,
                 publishTarget,
                 serializedPayload
@@ -76,6 +80,7 @@ namespace SqlTransactionalOutbox
             TUniqueIdentifier uniqueIdentifier,
             DateTime createdDateTimeUtc,
             string status,
+            string fifoGroupingIdentifier,
             int publishAttempts,
             string publishTarget,
             string serializedPayload
@@ -99,6 +104,7 @@ namespace SqlTransactionalOutbox
             {
                 //Initialize Internal Variables
                 UniqueIdentifier = uniqueIdentifier,
+                FifoGroupingIdentifier = fifoGroupingIdentifier,
                 Status = Enum.Parse<OutboxItemStatus>(status),
                 PublishAttempts = publishAttempts,
                 CreatedDateTimeUtc = createdDateTimeUtc,
