@@ -5,6 +5,8 @@ using System.Threading.Tasks;
 using Microsoft.Azure.WebJobs;
 using Microsoft.Azure.ServiceBus;
 using Microsoft.Extensions.Logging;
+using Newtonsoft.Json.Linq;
+using SqlTransactionalOutbox.AzureServiceBus;
 using SqlTransactionalOutbox.AzureServiceBus.Receiving;
 using SqlTransactionalOutbox.CustomExtensions;
 
@@ -31,10 +33,8 @@ namespace SqlTransactionalOutbox.SampleApp.AzureFunctions
 
             try
             {
-                //TODO: Make the Payload Type JObject for dynamic handling...
-                var outboxMessageHandler = new DefaultAzureServiceBusMessageHandler<string>(serviceBusMessage);
+                var receivedItem = new DefaultAzureServiceBusReceivedItem<JObject>(serviceBusMessage);
 
-                var receivedItem = outboxMessageHandler.CreateReceivedOutboxItem();
                 logger.LogInformation(
                     $"{Environment.NewLine}Azure Service Bus Payload Received:" +
                     $"{Environment.NewLine}UniqueIdentifier: [{receivedItem.UniqueIdentifier}]" +
@@ -44,7 +44,7 @@ namespace SqlTransactionalOutbox.SampleApp.AzureFunctions
                     $"{Environment.NewLine}Created Date UTC: [{receivedItem.PublishedItem.CreatedDateTimeUtc}]" +
                     $"{Environment.NewLine}Publish Target: [{receivedItem.PublishedItem.PublishTarget}]" +
                     $"{Environment.NewLine}Publish Attempts: [{receivedItem.PublishedItem.PublishAttempts}]" +
-                    $"{Environment.NewLine}Publish Status: [{receivedItem.PublishedItem.Status.ToString()}]" +
+                    $"{Environment.NewLine}Publish Status: [{receivedItem.PublishedItem.Status}]" +
                     $"{Environment.NewLine}Payload:{Environment.NewLine}{receivedItem.GetPayload()}" +
                     Environment.NewLine
                 );
@@ -61,7 +61,7 @@ namespace SqlTransactionalOutbox.SampleApp.AzureFunctions
                 //  retrying of Delivery again (until MaxDeliveryCount limit is reached)!
                 throw new Exception(
                     $"An unexpected error was encountered during processing of the Azure Service Bus Message -- " +
-                    $" [ID={serviceBusMessage.MessageId}] [Label={serviceBusMessage.Label}] -- " +
+                    $" [ID={serviceBusMessage.MessageId}] [Subject={serviceBusMessage.Label}] -- " +
                     $" after [{timer.Elapsed.ToElapsedTimeDescriptiveFormat()}] of processing time.",
                     exc
                 );

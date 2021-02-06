@@ -32,17 +32,17 @@ namespace SqlTransactionalOutbox.IntegrationTests
             //* STEP 2 - Add a Second & Third batch of items with different TTL
             //*****************************************************************************************
             await Task.Delay(timeToLiveTimeSpan + TimeSpan.FromMilliseconds(500));
-            await SystemDataSqlTestHelpers.PopulateTransactionalOutboxTestDataAsync(successfulItemTestDataSize, null, false);
+            await SystemDataSqlTestHelpers.PopulateTransactionalOutboxTestDataAsync(successfulItemTestDataSize, false);
 
             //Insert in a second batch to force different Creation Dates at the DB level...
-            await SystemDataSqlTestHelpers.PopulateTransactionalOutboxTestDataAsync(successfulItemTestDataSize, null, false);
+            await SystemDataSqlTestHelpers.PopulateTransactionalOutboxTestDataAsync(successfulItemTestDataSize, false);
 
             //*****************************************************************************************
             //* STEP 2 - Process Outbox and get Results
             //*****************************************************************************************
             await using var sqlConnection = await SqlConnectionHelper.CreateSystemDataSqlConnectionAsync();
             await using var sqlTransaction = (SqlTransaction)await sqlConnection.BeginTransactionAsync().ConfigureAwait(false);
-            var outboxProcessor = new DefaultSqlServerOutboxProcessor<string>(sqlTransaction, testHarnessPublisher);
+            var outboxProcessor = new DefaultSqlServerTransactionalOutboxProcessor<string>(sqlTransaction, testHarnessPublisher);
 
             var outboxProcessingOptions = new OutboxProcessingOptions()
             {
@@ -77,7 +77,7 @@ namespace SqlTransactionalOutbox.IntegrationTests
             //* STEP 3 - Validate Results In the DB!
             //*****************************************************************************************
             await using var sqlTransaction2 = (SqlTransaction)await sqlConnection.BeginTransactionAsync().ConfigureAwait(false);
-            outboxProcessor = new DefaultSqlServerOutboxProcessor<string>(sqlTransaction2, testHarnessPublisher);
+            outboxProcessor = new DefaultSqlServerTransactionalOutboxProcessor<string>(sqlTransaction2, testHarnessPublisher);
 
             var outboxRepository = outboxProcessor.OutboxRepository;
             var successfulItems = await outboxRepository.RetrieveOutboxItemsAsync(OutboxItemStatus.Successful);
@@ -192,7 +192,7 @@ namespace SqlTransactionalOutbox.IntegrationTests
             {
                 await using var sqlConnection = await SqlConnectionHelper.CreateSystemDataSqlConnectionAsync();
                 await using var sqlTransaction = (SqlTransaction)await sqlConnection.BeginTransactionAsync().ConfigureAwait(false);
-                var outboxProcessor = new DefaultSqlServerOutboxProcessor<string>(sqlTransaction, failingPublisher);
+                var outboxProcessor = new DefaultSqlServerTransactionalOutboxProcessor<string>(sqlTransaction, failingPublisher);
 
                 handledExceptionSoItsOkToContinue = false;
                 try
@@ -234,7 +234,7 @@ namespace SqlTransactionalOutbox.IntegrationTests
             //Assert All Items in the DB are Successful!
             await using var sqlConnection2 = await SqlConnectionHelper.CreateSystemDataSqlConnectionAsync();
             await using var sqlTransaction2 = (SqlTransaction)await sqlConnection2.BeginTransactionAsync().ConfigureAwait(false);
-            var outboxProcessor2 = new DefaultSqlServerOutboxProcessor<string>(sqlTransaction2, failingPublisher);
+            var outboxProcessor2 = new DefaultSqlServerTransactionalOutboxProcessor<string>(sqlTransaction2, failingPublisher);
 
             var successfulResultsFromDb = await outboxProcessor2.OutboxRepository
                 .RetrieveOutboxItemsAsync(OutboxItemStatus.Pending)

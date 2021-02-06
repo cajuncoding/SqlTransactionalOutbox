@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using SqlTransactionalOutbox.CustomExtensions;
+using SqlTransactionalOutbox.Utilities;
 
 namespace SqlTransactionalOutbox
 {
@@ -11,19 +12,17 @@ namespace SqlTransactionalOutbox
     /// Process all pending items in the transactional outbox using the specified ISqlTransactionalOutboxRepository,
     /// ISqlTransactionalOutboxPublisher, & OutboxProcessingOptions
     /// </summary>
-    //TODO: SPLIT Delivery Agent From Processing Agent (Where Publisher is not required for Delivery)!
-    public class OutboxProcessor<TUniqueIdentifier, TPayload> : ISqlTransactionalOutboxProcessor<TUniqueIdentifier, TPayload>
+    public class TransactionalOutboxProcessor<TUniqueIdentifier, TPayload> : ISqlTransactionalOutboxProcessor<TUniqueIdentifier>
     {
         public ISqlTransactionalOutboxRepository<TUniqueIdentifier, TPayload> OutboxRepository { get; }
         public ISqlTransactionalOutboxPublisher<TUniqueIdentifier> OutboxPublisher { get; }
 
-        public OutboxProcessor(
+        public TransactionalOutboxProcessor(
             ISqlTransactionalOutboxRepository<TUniqueIdentifier, TPayload> outboxRepository,
             ISqlTransactionalOutboxPublisher<TUniqueIdentifier> outboxPublisher
         )
         {
             this.OutboxRepository = outboxRepository ?? throw new ArgumentNullException(nameof(OutboxRepository));
-            //TODO: Make Publisher Optional and throw Exceptions ONLY when methods that require it are called!
             this.OutboxPublisher = outboxPublisher ?? throw new ArgumentNullException(nameof(OutboxPublisher));
         }
 
@@ -33,32 +32,6 @@ namespace SqlTransactionalOutbox
             await OutboxRepository.CleanupOutboxHistoricalItemsAsync(historyTimeToKeepTimeSpan).ConfigureAwait(false);
         }
         
-        public virtual async Task<ISqlTransactionalOutboxItem<TUniqueIdentifier>> InsertNewPendingOutboxItemAsync(
-            string publishingTarget, 
-            TPayload publishingPayload
-        )
-        {
-            //Use the Outbox Item Factory to create a new Outbox Item (serialization of the Payload will be handled by the Factory).
-            var outboxInsertItem = new OutboxInsertionItem<TPayload>(publishingTarget, publishingPayload);
-
-            //Store the outbox item using the Repository...
-            var resultItems = await InsertNewPendingOutboxItemsAsync(
-                new List<ISqlTransactionalOutboxInsertionItem<TPayload>>() { outboxInsertItem }
-            ).ConfigureAwait(false);
-
-            return resultItems.FirstOrDefault();
-        }
-
-        public virtual async Task<List<ISqlTransactionalOutboxItem<TUniqueIdentifier>>> InsertNewPendingOutboxItemsAsync(
-            IEnumerable<ISqlTransactionalOutboxInsertionItem<TPayload>> outboxInsertionItems
-        )
-        {
-            //Store the outbox item using the Repository...
-            var resultItems = await OutboxRepository.InsertNewOutboxItemsAsync(outboxInsertionItems).ConfigureAwait(false);
-
-            return resultItems;
-        }
-
         public virtual async Task<ISqlTransactionalOutboxProcessingResults<TUniqueIdentifier>> ProcessPendingOutboxItemsAsync(
             OutboxProcessingOptions processingOptions = null,
             bool throwExceptionOnFailure = false
@@ -80,9 +53,7 @@ namespace SqlTransactionalOutbox
             //Short Circuit if there is nothing to process!
             if (outboxItems.Count <= 0)
             {
-                options.LogDebugCallback?.Invoke(
-                    $"There are no outbox items to process; processing completed at [{DateTime.Now}]."
-                );
+                options.LogDebugCallback?.Invoke($"There are no outbox items to process; processing completed at [{DateTime.Now}].");
                 return results;
             }
 

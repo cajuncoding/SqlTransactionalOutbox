@@ -10,8 +10,8 @@ namespace SqlTransactionalOutbox
             ISqlTransactionalOutboxSerializer payloadSerializer = null
         ) 
         : base(
-            new OutboxGuidUniqueIdentifier(), 
-            new OutboxPayloadJsonSerializer()
+            new OutboxGuidUniqueIdentifier(),
+            payloadSerializer ?? new OutboxPayloadJsonSerializer()
         )
         {
         }

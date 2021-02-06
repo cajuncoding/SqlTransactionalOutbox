@@ -14,7 +14,7 @@ namespace SqlTransactionalOutbox.SqlServer.Common
         protected void Init(
             ISqlTransactionalOutboxTableConfig outboxTableConfig,
             ISqlTransactionalOutboxItemFactory<TUniqueIdentifier, TPayload> outboxItemFactory,
-            int distributedMutexAcquisitionTimeoutSeconds = 5
+            int distributedMutexAcquisitionTimeoutSeconds = Defaults.DistributedMutexAcquisitionTimeoutSeconds
         )
         {
             //Possible Dependencies

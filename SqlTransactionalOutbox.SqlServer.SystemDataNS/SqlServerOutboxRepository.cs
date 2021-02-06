@@ -20,7 +20,7 @@ namespace SqlTransactionalOutbox.SqlServer.SystemDataNS
             SqlTransaction sqlTransaction, 
             ISqlTransactionalOutboxTableConfig outboxTableConfig = null,
             ISqlTransactionalOutboxItemFactory<TUniqueIdentifier, TPayload> outboxItemFactory = null,
-            int distributedMutexAcquisitionTimeoutSeconds = 5
+            int distributedMutexAcquisitionTimeoutSeconds = Defaults.DistributedMutexAcquisitionTimeoutSeconds
         )
         {
             SqlTransaction = sqlTransaction ?? 

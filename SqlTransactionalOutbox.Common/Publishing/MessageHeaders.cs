@@ -6,15 +6,18 @@ namespace SqlTransactionalOutbox.Publishing
 {
     public class JsonMessageFields
     {
+        public const string Topic = "topic"; // Convenience Alias for PublishTopic
+        public const string PublishTopic = "publishTopic";
         public const string To = "to";
         public const string Body = "body";
-        public const string FifoGroupingId= "fifoGroupingId";
+        public const string FifoGroupingId = "fifoGroupingId"; // Convenience Alias for SessionId
         public const string SessionId = "sessionid";
         public const string CorrelationId = "correlationId";
         public const string ReplyTo = "replyTo";
         public const string ReplyToSessionId = "replyToSessionId";
         public const string PartitionKey = "partitionKey";
         public const string ContentType = "contentType";
+        public const string Subject = "subject"; // Convenience Alias for Label
         public const string Label = "label";
         public const string Headers = "headers";
         public const string UserProperties = "userProperties";
@@ -32,9 +35,12 @@ namespace SqlTransactionalOutbox.Publishing
         public static string OutboxPublishingAttempts = $"{CustomHeaderPrefix}-item-publishing-attempts";
         public static string OutboxPublishingTarget = $"{CustomHeaderPrefix}-item-publishing-target";
 
+        private static readonly string ToHeaderPrefix = string.Concat(MessageHeaders.CustomHeaderPrefix, MessageHeaders.CustomHeaderSeparator);
+
         public static string ToHeader(string name)
         {
-            return string.Concat(MessageHeaders.CustomHeaderPrefix, MessageHeaders.CustomHeaderSeparator, name.ToLower());
+            var result = name.StartsWith(ToHeaderPrefix) ? name : string.Concat(ToHeaderPrefix, name.ToLower());
+            return result;
         }
     }
 }

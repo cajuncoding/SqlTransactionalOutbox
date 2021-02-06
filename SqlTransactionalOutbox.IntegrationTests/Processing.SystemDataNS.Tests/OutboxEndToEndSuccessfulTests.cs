@@ -24,17 +24,7 @@ namespace SqlTransactionalOutbox.IntegrationTests
             //*****************************************************************************************
             //* STEP 1 - Prepare/Clear the Queue Table
             //*****************************************************************************************
-            var publishedItemList = new List<ISqlTransactionalOutboxItem<Guid>>();
-            var testPublisher = new TestHarnessSqlTransactionalOutboxPublisher(
-                (i, isFifoEnabled) =>
-                {
-                    publishedItemList.Add(i);
-                    TestContext.WriteLine($"Successfully Published Item: {i.UniqueIdentifier}");
-                    return Task.CompletedTask;
-                }
-            );
-
-            await SystemDataSqlTestHelpers.PopulateTransactionalOutboxTestDataAsync(100, testPublisher);
+            await SystemDataSqlTestHelpers.PopulateTransactionalOutboxTestDataAsync(100);
 
             //*****************************************************************************************
             //* STEP 3 - Executing processing of the Pending Items in the Queue...
@@ -42,7 +32,17 @@ namespace SqlTransactionalOutbox.IntegrationTests
             //Execute Processing of Items just inserted!
             //NOTE: We need to re-initialize a NEW Transaction and Processor to correctly simulate this running separately!
             await using var sqlTransaction2 = (SqlTransaction) await sqlConnection.BeginTransactionAsync().ConfigureAwait(false);
-            var outboxProcessor = new DefaultSqlServerOutboxProcessor<string>(sqlTransaction2, testPublisher);
+
+            var publishedItemList = new List<ISqlTransactionalOutboxItem<Guid>>();
+            var testPublisher = new TestHarnessSqlTransactionalOutboxPublisher((item, isFifoEnabled) =>
+                {
+                    publishedItemList.Add(item);
+                    TestContext.WriteLine($"Successfully Published Item: {item.UniqueIdentifier}");
+                    return Task.CompletedTask;
+                }
+            );
+
+            var outboxProcessor = new DefaultSqlServerTransactionalOutboxProcessor<string>(sqlTransaction2, testPublisher);
 
             var publishedResults = await outboxProcessor.ProcessPendingOutboxItemsAsync().ConfigureAwait(false);
 
@@ -64,7 +64,7 @@ namespace SqlTransactionalOutbox.IntegrationTests
             //*****************************************************************************************
             //Assert All Items in the DB are Successful!
             await using var sqlTransaction3 = (SqlTransaction) await sqlConnection.BeginTransactionAsync().ConfigureAwait(false);
-            outboxProcessor = new DefaultSqlServerOutboxProcessor<string>(sqlTransaction3, testPublisher);
+            outboxProcessor = new DefaultSqlServerTransactionalOutboxProcessor<string>(sqlTransaction3, testPublisher);
 
             var successfulResultsFromDb = await outboxProcessor.OutboxRepository
                 .RetrieveOutboxItemsAsync(OutboxItemStatus.Successful)

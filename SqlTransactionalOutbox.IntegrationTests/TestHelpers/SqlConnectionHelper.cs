@@ -48,7 +48,7 @@ namespace SqlTransactionalOutbox.Tests
 
     public static class SystemDataSqlTestHelpers
     {
-        public static async Task<List<ISqlTransactionalOutboxItem<Guid>>> PopulateTransactionalOutboxTestDataAsync(int testDataSize, TestHarnessSqlTransactionalOutboxPublisher testPublisher = null, bool clearExistingOutbox = true)
+        public static async Task<List<ISqlTransactionalOutboxItem<Guid>>> PopulateTransactionalOutboxTestDataAsync(int testDataSize, bool clearExistingOutbox = true)
         {
             //Organize
             await using var sqlConnection = await SqlConnectionHelper.CreateSystemDataSqlConnectionAsync();
@@ -67,13 +67,12 @@ namespace SqlTransactionalOutbox.Tests
             await using var sqlTransaction = (SystemData.SqlTransaction)await sqlConnection.BeginTransactionAsync().ConfigureAwait(false);
 
             //Initialize the Test Harness for Publish tracking...
-            var testHarnessPublisher = testPublisher ?? new TestHarnessSqlTransactionalOutboxPublisher();
-            var outboxProcessor = new DefaultSqlServerOutboxProcessor<string>(sqlTransaction, testHarnessPublisher);
+            var outbox = new DefaultSqlServerTransactionalOutbox<string>(sqlTransaction);
 
             var outboxTestItems = TestHelper.CreateTestStringOutboxItemData(testDataSize);
 
             //Execute Insert of New Items!
-            var insertedResults = await outboxProcessor
+            var insertedResults = await outbox
                 .InsertNewPendingOutboxItemsAsync(outboxTestItems)
                 .ConfigureAwait(false);
 

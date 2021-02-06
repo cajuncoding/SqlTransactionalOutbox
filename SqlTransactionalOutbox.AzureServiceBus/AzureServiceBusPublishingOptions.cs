@@ -23,8 +23,8 @@ namespace SqlTransactionalOutbox.AzureServiceBus
         public bool ThrowExceptionOnJsonPayloadParseFailure { get; set; } = false;
 
         /// <summary>
-        /// Default prefix for the Label if not dynamically defined by Json Payload; this prefix
-        /// is prepended to the Label to provide a systematic Label that helps denote what system
+        /// Default prefix for the Subject if not dynamically defined by Json Payload; this prefix
+        /// is prepended to the Subject to provide a systematic Subject that helps denote what system
         /// published the message.
         /// </summary>
         public string SenderApplicationName { get; set; } 

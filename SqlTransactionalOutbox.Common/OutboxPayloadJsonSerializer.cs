@@ -12,8 +12,8 @@ namespace SqlTransactionalOutbox
             {
                 case string stringPayload:
                     return stringPayload;
-                case JObject jsonObjectPayload:
-                    return jsonObjectPayload.ToString();
+                case JToken jsonPayload:
+                    return jsonPayload.ToString();
                 default:
                 {
                     //Use Json as Default Serialization for the vast majority (if not all) use cases...
@@ -30,9 +30,9 @@ namespace SqlTransactionalOutbox
             {
                 return (TPayload)(object)payload;
             }
-            else if (payloadType == typeof(JObject))
+            else if (payloadType == typeof(JToken))
             {
-                return (TPayload)(object)JObject.Parse(payload);
+                return (TPayload)(object)JToken.Parse(payload);
             }
             else
             {

@@ -289,21 +289,21 @@ namespace SqlTransactionalOutbox.AzureServiceBus.Receiving
         )
         {
             //Initialize the MessageHandler facade for processing the Azure Service Bus message...
-            var messageHandler = CreateMessageHandler(message, azureServiceBusClient);
-
-            //Initialize the Received Item wrapper for Azure Service Bus!
-            //NOTE: Always ensure we properly dispose of the ISqlTransactionalOutboxReceivedItem<> after processing!
-            var outboxReceivedItem = messageHandler.CreateReceivedOutboxItem();
+            var azureServiceBusReceivedItem = CreateReceivedItem(
+                message, 
+                azureServiceBusClient, 
+                Options.FifoEnforcedReceivingEnabled
+            );
 
             try
             {
                 //Execute the delegate to handle/process the published item...
-                await receivedItemHandlerAsyncDelegateFunc(outboxReceivedItem).ConfigureAwait(false);
+                await receivedItemHandlerAsyncDelegateFunc(azureServiceBusReceivedItem).ConfigureAwait(false);
 
                 //If necessary, we need to Finalize the item with Azure Service Bus (Complete/Abandon) based on the Status returned on the item!
-                if (automaticFinalizationEnabled && !outboxReceivedItem.IsStatusFinalized)
+                if (automaticFinalizationEnabled && !azureServiceBusReceivedItem.IsStatusFinalized)
                 {
-                    await messageHandler.SendFinalizedStatusToAzureServiceBusAsync(outboxReceivedItem.Status).ConfigureAwait(false);
+                    await azureServiceBusReceivedItem.SendFinalizedStatusToAzureServiceBusAsync().ConfigureAwait(false);
                 }
                 
             }
@@ -313,8 +313,8 @@ namespace SqlTransactionalOutbox.AzureServiceBus.Receiving
 
                 //Always Reject/Abandon the message if any unhandled exceptions are thrown...
                 //NOTE: We ALWAYS do this even if autoMessageFinalizationEnabled is false...
-                if (!outboxReceivedItem.IsStatusFinalized)
-                    await messageHandler.SendFinalizedStatusToAzureServiceBusAsync(OutboxReceivedItemProcessingStatus.RejectAndAbandon);
+                if (!azureServiceBusReceivedItem.IsStatusFinalized)
+                    await azureServiceBusReceivedItem.SendFinalizedStatusToAzureServiceBusAsync().ConfigureAwait(false);
             }
         }
 
@@ -342,21 +342,20 @@ namespace SqlTransactionalOutbox.AzureServiceBus.Receiving
             return newSubscriptionClient;
         }
 
-        protected virtual AzureServiceBusMessageHandler<TUniqueIdentifier, TPayload> CreateMessageHandler(
+        protected virtual AzureServiceBusReceivedItem<TUniqueIdentifier, TPayload> CreateReceivedItem(
             Message message,
-            IReceiverClient azureServiceBusClient
+            IReceiverClient azureServiceBusClient,
+            bool isFifoProcessingEnabled
         )
         {
-            //Initialize the Message Handler which provides capabilities for mapping
-            // the Azure Message to OutBox interfaces, and facade methods to simplify working
-            //  Acknowledging/Rejecting the message on the service bus.
-            var messageHandler = new AzureServiceBusMessageHandler<TUniqueIdentifier, TPayload>(
-                message,
-                this.OutboxItemFactory,
-                azureServiceBusClient
+            var azureServiceBusReceivedItem = new AzureServiceBusReceivedItem<TUniqueIdentifier, TPayload>(
+                azureServiceBusMessage: message,
+                outboxItemFactory: this.OutboxItemFactory,
+                azureServiceBusClient: azureServiceBusClient,
+                isFifoProcessingEnabled: isFifoProcessingEnabled
             );
-         
-            return messageHandler;
+
+            return azureServiceBusReceivedItem;
         }
 
         protected virtual Task ExceptionReceivedHandlerAsync(ExceptionReceivedEventArgs args)

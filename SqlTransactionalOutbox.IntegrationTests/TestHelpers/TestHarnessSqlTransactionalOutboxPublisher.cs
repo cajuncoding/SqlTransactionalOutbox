@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Text;
 using System.Threading.Tasks;
+using SqlTransactionalOutbox.Publishing;
 
 namespace SqlTransactionalOutbox.IntegrationTests
 {
@@ -11,9 +12,9 @@ namespace SqlTransactionalOutbox.IntegrationTests
         public TestHarnessSqlTransactionalOutboxPublisher(
             Func<ISqlTransactionalOutboxItem<Guid>, bool, Task> publishingAction = null
         )
-        : base(publishingAction ?? ((i, isFifoProcessingEnabled) =>
+        : base(publishingAction ?? ((item, isFifoProcessingEnabled) =>
             {
-                Debug.WriteLine($"[{nameof(TestHarnessSqlTransactionalOutboxPublisher)}] PUBLISHING: {i.Payload}");
+                Debug.WriteLine($"[{nameof(TestHarnessSqlTransactionalOutboxPublisher)}] PUBLISHING: {item.Payload}");
                 return Task.CompletedTask;
             })
         )

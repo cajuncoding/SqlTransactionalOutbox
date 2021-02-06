@@ -11,31 +11,48 @@ namespace SqlTransactionalOutbox.Receiving
     {
         public bool IsStatusFinalized { get; protected set; } = false;
         public OutboxReceivedItemProcessingStatus Status { get; protected set;  } = OutboxReceivedItemProcessingStatus.RejectAndAbandon;
-        public ISqlTransactionalOutboxItem<TUniqueIdentifier> PublishedItem { get; }
-        public TUniqueIdentifier UniqueIdentifier { get; }
+        public ISqlTransactionalOutboxItem<TUniqueIdentifier> PublishedItem { get; protected set; }
+        public TUniqueIdentifier UniqueIdentifier { get; protected set; }
         public string ContentType { get; protected set; }
         public string CorrelationId { get; protected set; }
 
 
         protected ILookup<string, object> HeadersLookup = null;
         protected bool IsDisposed { get; set; } = false;
-        protected Func<ISqlTransactionalOutboxItem<TUniqueIdentifier>, TPayload> ParsePayloadFunc { get; }
-        protected Func<Task> AcknowledgeReceiptAsyncFunc { get; }
-        protected Func<Task> RejectAndAbandonReceiptAsyncFunc { get; }
-        protected Func<Task> RejectAsDeadLetterReceiptAsyncFunc { get; }
+        protected Func<ISqlTransactionalOutboxItem<TUniqueIdentifier>, TPayload> ParsePayloadFunc { get; set; }
+        
+        public bool IsFifoEnforcedReceivingEnabled { get; protected set; }
+        public string FifoGroupingIdentifier { get; protected set; }
 
-        public bool IsFifoEnforcedReceivingEnabled { get; }
-        public string FifoGroupingIdentifier { get; }
+        protected OutboxReceivedItem()
+        {
+            //Empty Constructor for inheriting /implementing classes.
+        }
 
         public OutboxReceivedItem(
             ISqlTransactionalOutboxItem<TUniqueIdentifier> outboxItem,
             ILookup<string, object> headersLookup,
             string contentType,
-            Func<Task> acknowledgeReceiptAsyncFunc,
-            Func<Task> rejectAbandonReceiptAsyncFunc,
-            Func<Task> rejectDeadLetterReceiptAsyncFunc,
-            Func<ISqlTransactionalOutboxItem<TUniqueIdentifier>, TPayload> parsePayloadFunc,
             bool enableFifoEnforcedReceiving = false,
+            string fifoGroupingIdentifier = null,
+            string correlationId = null
+        )
+        {
+            InitBaseOutboxReceivedItem(
+                outboxItem,
+                headersLookup,
+                contentType,
+                enableFifoEnforcedReceiving,
+                fifoGroupingIdentifier,
+                correlationId
+            );
+        }
+
+        protected void InitBaseOutboxReceivedItem(
+            ISqlTransactionalOutboxItem<TUniqueIdentifier> outboxItem,
+            ILookup<string, object> headersLookup,
+            string contentType,
+            bool isFifoProcessingEnabled = false,
             string fifoGroupingIdentifier = null,
             string correlationId = null
         )
@@ -43,16 +60,11 @@ namespace SqlTransactionalOutbox.Receiving
             PublishedItem = outboxItem.AssertNotNull(nameof(outboxItem));
             HeadersLookup = headersLookup.AssertNotNull(nameof(headersLookup));
 
-            AcknowledgeReceiptAsyncFunc = acknowledgeReceiptAsyncFunc.AssertNotNull(nameof(acknowledgeReceiptAsyncFunc));
-            RejectAndAbandonReceiptAsyncFunc = rejectAbandonReceiptAsyncFunc.AssertNotNull(nameof(rejectAbandonReceiptAsyncFunc));
-            RejectAsDeadLetterReceiptAsyncFunc = rejectDeadLetterReceiptAsyncFunc.AssertNotNull(nameof(rejectDeadLetterReceiptAsyncFunc));
-            ParsePayloadFunc = parsePayloadFunc.AssertNotNull(nameof(parsePayloadFunc));
-
             UniqueIdentifier = outboxItem.UniqueIdentifier;
             ContentType = string.IsNullOrWhiteSpace(contentType) ? MessageContentTypes.PlainText : contentType;
 
             CorrelationId = correlationId;
-            IsFifoEnforcedReceivingEnabled = enableFifoEnforcedReceiving;
+            IsFifoEnforcedReceivingEnabled = isFifoProcessingEnabled;
             FifoGroupingIdentifier = fifoGroupingIdentifier;
         }
 
@@ -67,37 +79,40 @@ namespace SqlTransactionalOutbox.Receiving
             return (T)HeadersLookup[headerKey].FirstOrDefault() ?? defaultValue;
         }
 
-        public virtual async Task AcknowledgeSuccessfulReceiptAsync()
+        public virtual Task AcknowledgeSuccessfulReceiptAsync()
         {
             //Ensure that we are re-entrant and don't attempt to finalize again...
-            if (IsStatusFinalized)
-                return;
+            if (!IsStatusFinalized)
+            {
+                this.Status = OutboxReceivedItemProcessingStatus.AcknowledgeSuccessfulReceipt;
+                IsStatusFinalized = true;
+            }
 
-            this.Status = OutboxReceivedItemProcessingStatus.AcknowledgeSuccessfulReceipt;
-            await AcknowledgeReceiptAsyncFunc().ConfigureAwait(false);
-            IsStatusFinalized = true;
+            return Task.CompletedTask;
         }
 
-        public virtual async Task RejectAndAbandonAsync()
+        public virtual Task RejectAndAbandonAsync()
         {
             //Ensure that we are re-entrant and don't attempt to finalize again...
-            if (IsStatusFinalized)
-                return;
-
-            this.Status = OutboxReceivedItemProcessingStatus.RejectAndAbandon;
-            await RejectAndAbandonReceiptAsyncFunc().ConfigureAwait(false);
+            if (!IsStatusFinalized)
+            {
+                this.Status = OutboxReceivedItemProcessingStatus.RejectAndAbandon;
+                IsStatusFinalized = true;
+            }
             IsStatusFinalized = true;
+            return Task.CompletedTask;
         }
 
-        public virtual async Task RejectAsDeadLetterAsync()
+        public virtual Task RejectAsDeadLetterAsync()
         {
             //Ensure that we are re-entrant and don't attempt to finalize again...
-            if (IsStatusFinalized)
-                return;
+            if (!IsStatusFinalized)
+            {
+                this.Status = OutboxReceivedItemProcessingStatus.RejectAsDeadLetter;
+                IsStatusFinalized = true;
+            }
 
-            this.Status = OutboxReceivedItemProcessingStatus.RejectAsDeadLetter;
-            await RejectAsDeadLetterReceiptAsyncFunc().ConfigureAwait(false);
-            IsStatusFinalized = true;
+            return Task.CompletedTask;
         }
     }
 }

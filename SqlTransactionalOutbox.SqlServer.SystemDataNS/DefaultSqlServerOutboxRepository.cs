@@ -1,7 +1,6 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Data.SqlClient;
-using System.Text;
+using SqlTransactionalOutbox.SqlServer.Common;
 
 namespace SqlTransactionalOutbox.SqlServer.SystemDataNS
 {
@@ -11,8 +10,9 @@ namespace SqlTransactionalOutbox.SqlServer.SystemDataNS
             SqlTransaction sqlTransaction,
             ISqlTransactionalOutboxTableConfig outboxTableConfig = null,
             ISqlTransactionalOutboxItemFactory<Guid, TPayload> outboxItemFactory = null,
-            int distributedMutexAcquisitionTimeoutSeconds = 5
-        ) : base (
+            int distributedMutexAcquisitionTimeoutSeconds = Defaults.DistributedMutexAcquisitionTimeoutSeconds
+        ) 
+        : base (
             sqlTransaction: sqlTransaction,
             outboxTableConfig: outboxTableConfig ?? new OutboxTableConfig(),
             outboxItemFactory: outboxItemFactory ?? new DefaultOutboxItemFactory<TPayload>(), 
