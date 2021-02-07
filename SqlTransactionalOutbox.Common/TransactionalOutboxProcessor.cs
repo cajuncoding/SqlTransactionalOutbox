@@ -43,7 +43,7 @@ namespace SqlTransactionalOutbox
             results.ProcessingTimer.Start();
 
             //Retrieve items to e processed from the Repository (ALL Pending items available for publishing attempt!)
-            var outboxItems = await OutboxRepository.RetrieveOutboxItemsAsync(
+            var pendingOutboxItems = await OutboxRepository.RetrieveOutboxItemsAsync(
                 OutboxItemStatus.Pending, 
                 options.ItemProcessingBatchSize
             ).ConfigureAwait(false);
@@ -51,14 +51,14 @@ namespace SqlTransactionalOutbox
             results.ProcessingTimer.Stop();
 
             //Short Circuit if there is nothing to process!
-            if (outboxItems.Count <= 0)
+            if (pendingOutboxItems.Count <= 0)
             {
                 options.LogDebugCallback?.Invoke($"There are no outbox items to process; processing completed at [{DateTime.Now}].");
                 return results;
             }
 
             options.LogDebugCallback?.Invoke(
-                $"Starting Outbox Processing of [{outboxItems.Count}] outbox items, retrieved in" +
+                $"Starting Outbox Processing of [{pendingOutboxItems.Count}] outbox items, retrieved in" +
                     $" [{results.ProcessingTimer.Elapsed.ToElapsedTimeDescriptiveFormat()}], at [{DateTime.Now}]..."
             );
 
@@ -89,7 +89,7 @@ namespace SqlTransactionalOutbox
             //      this ensures that we guarantee at-least-once delivery because the item will be retried at a later point
             //      if anything fails with the update.
             await ProcessOutboxItemsInternalAsync(
-                outboxItems, 
+                pendingOutboxItems, 
                 options, 
                 results, 
                 throwExceptionOnFailure
@@ -108,23 +108,30 @@ namespace SqlTransactionalOutbox
             //Convert the list to a Queue for easier processing...
             var processingQueue = new Queue<ISqlTransactionalOutboxItem<TUniqueIdentifier>>(outboxItems);
 
-            //This process will publish pending items, while also cleaning up Pending Items that need to be Failed because
-            //  they couldn't be successfully published before and are exceeding the currently configured limits for
-            //  retry attempts and/or time-to-live.
-            //NOTE: IF any of this fails due to issues with Sql Server it's ok because we have already transaction-ally
-            //      secured the data in the outbox therefore we can repeat processing over-and-over under the promise of
-            //      'at-least-once' publishing attempt.
+            var skipFifoGroups = new HashSet<string>();
+
             while (processingQueue.Count > 0)
             {
                 var item = processingQueue.Dequeue();
 
-                try
+                //Process the item when Fifo Publishing is Disabled, or the Item has no Fifo Group specified, or the
+                //  specified Fifo Group Id is not already identified as one that needs to be skipped due to an item error
+                //  that belongs to that group!
+                if (!options.FifoEnforcedPublishingEnabled  // Fifo is Disabled
+                    || string.IsNullOrWhiteSpace(item.FifoGroupingIdentifier) // No Fifo Group is defined
+                    || !skipFifoGroups.Contains(item.FifoGroupingIdentifier) // Fifo group defined is not in the set to be skipped
+                ) 
                 {
-                    await ProcessOutboxItemFromQueueInternal(item, options, results);
-                }
-                catch (Exception exc)
-                {
-                    await HandleExceptionForOutboxItemFromQueueInternal(processingQueue, item, exc, options, results, throwExceptionOnFailure);
+                    try
+                    {
+                        await ProcessOutboxItemFromQueueInternal(item, options, results);
+                    }
+                    catch (Exception itemException)
+                    {
+                        await HandleExceptionForOutboxItemFromQueueInternal(
+                            item, itemException, options, results, throwExceptionOnFailure, skipFifoGroups
+                        );
+                    }
                 }
             }
 
@@ -168,6 +175,12 @@ namespace SqlTransactionalOutbox
             OutboxProcessingResults<TUniqueIdentifier> results
         )
         {
+            //This process will publish pending items, while also cleaning up Pending Items that need to be Failed because
+            //  they couldn't be successfully published before and are exceeding the currently configured limits for
+            //  retry attempts and/or time-to-live.
+            //NOTE: IF any of this fails due to issues with Sql Server it's ok because we have already transaction-ally
+            //      secured the data in the outbox therefore we can repeat processing over-and-over under the promise of
+            //      'at-least-once' publishing attempt.
             options.LogDebugCallback?.Invoke($"Processing Item [{item.UniqueIdentifier}]...");
 
             //Validate the Item hasn't exceeded the Max Retry Attempts if enabled in the options...
@@ -212,19 +225,24 @@ namespace SqlTransactionalOutbox
             }
         }
 
-        public async Task HandleExceptionForOutboxItemFromQueueInternal(
-            Queue<ISqlTransactionalOutboxItem<TUniqueIdentifier>> processingQueue,
+        protected async Task HandleExceptionForOutboxItemFromQueueInternal(
             ISqlTransactionalOutboxItem<TUniqueIdentifier> item,
             Exception itemException,
             OutboxProcessingOptions options,
             OutboxProcessingResults<TUniqueIdentifier> results,
-            bool throwExceptionOnFailure
+            bool throwExceptionOnFailure,
+            HashSet<string> skipFifoGroups
         )
         {
-            var processingException = new Exception(
-                message: $"An Unexpected Exception occurred while processing outbox item [{item.UniqueIdentifier}].",
-                innerException: itemException
-            );
+            var errorMessage = $"An Unexpected Exception occurred while processing outbox item [{item.UniqueIdentifier}].";
+
+            var fifoErrorMessage = $"FIFO Processing is enabled, but the outbox item [{item.UniqueIdentifier}] could not be published;" +
+                                            $" all associated items for the Fifo Group [{item.FifoGroupingIdentifier}] will be skipped.";
+
+            if (options.FifoEnforcedPublishingEnabled)
+                errorMessage = string.Concat(errorMessage, fifoErrorMessage);
+
+            var processingException = new Exception(errorMessage, itemException);
 
             //Add Failed Item to the results
             results.FailedItems.Add(item);
@@ -241,27 +259,34 @@ namespace SqlTransactionalOutbox
 
                 throw processingException;
             }
-
-            //If Enforce Fifo processing is enabled then we also need to halt processing and drain the current queue to preserve 
-            //  the current order of processing; if we allow it to proceed we might publish the next item out of order.
-            //NOTE: This may create a block in the Queue if the issue isn't fixed but it's necessary to preserve
-            //      the publishing order until the erroneous blocking item is resolved automatically (via connections restored,
-            //      or item fails due to re-attempts), or manually (item is failed and/or removed manually).
-            if (options.FifoEnforcedPublishingEnabled)
+            else if (options.FifoEnforcedPublishingEnabled)
             {
-                processingException = new Exception(
-                    $"The processing must be stopped because [{nameof(options.FifoEnforcedPublishingEnabled)}]"
-                    + $" configuration option is enabled; therefore to preserve the publishing order the remaining"
-                    + $" [{processingQueue.Count}] items will be delayed until the current item [{item.UniqueIdentifier}]"
-                    + " can be processed successfully or is failed out of the outbox queue.",
-                    processingException
+                //If Enforce Fifo processing is enabled then we also need to halt processing and drain the current queue to preserve 
+                //  the current order of processing; if we allow it to proceed we might publish the next item out of order.
+                //NOTE: This may create a block in the Queue if the issue isn't fixed but it's necessary to preserve
+                //      the publishing order until the erroneous blocking item is resolved automatically (via connections restored,
+                //      or item fails due to re-attempts), or manually (item is failed and/or removed manually).
+                options.LogDebugCallback?.Invoke(
+                    $"FIFO Processing is enabled, but the outbox item [{item.UniqueIdentifier}] could not be published;" +
+                        $" all associated items for the Fifo Group [{item.FifoGroupingIdentifier}] will be skipped."
                 );
 
-                //Drain the Queue to halt current process...
-                while (processingQueue.Count > 0)
-                {
-                    results.SkippedItems.Add(processingQueue.Dequeue());
-                }
+                skipFifoGroups.Add(item.FifoGroupingIdentifier);
+
+                //ORIGINAL Logic before Fifo Grouping Identifiers were implemented...
+                //processingException = new Exception(
+                //    $"The processing must be stopped because [{nameof(options.FifoEnforcedPublishingEnabled)}]"
+                //    + $" configuration option is enabled; therefore to preserve the publishing order the remaining"
+                //    + $" [{processingQueue.Count}] items will be delayed until the current item [{item.UniqueIdentifier}]"
+                //    + " can be processed successfully or is failed out of the outbox queue.",
+                //    processingException
+                //);
+
+                ////Drain the Queue to halt current process...
+                //while (processingQueue.Count > 0)
+                //{
+                //    results.SkippedItems.Add(processingQueue.Dequeue());
+                //}
             }
 
             //Log the latest initialized exception with details...
