@@ -54,6 +54,7 @@ namespace SqlTransactionalOutbox.AzureServiceBus.Receiving
                 outboxItem,
                 headersLookup,
                 azureServiceBusMessage.ContentType,
+                outboxItemFactory.ParsePayload,
                 isFifoProcessingEnabled,
                 fifoGroupingIdentifier: azureServiceBusMessage.SessionId,
                 correlationId: azureServiceBusMessage.CorrelationId

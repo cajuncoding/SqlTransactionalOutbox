@@ -214,7 +214,7 @@ namespace SqlTransactionalOutbox
                 );
             }
         }
-
+        
         protected async Task HandleExceptionForOutboxItemFromQueueInternal(
             ISqlTransactionalOutboxItem<TUniqueIdentifier> item,
             Exception itemException,
@@ -258,7 +258,7 @@ namespace SqlTransactionalOutbox
                 //      or item fails due to re-attempts), or manually (item is failed and/or removed manually).
                 options.LogDebugCallback?.Invoke(
                     $"FIFO Processing is enabled, but the outbox item [{item.UniqueIdentifier}] could not be published;" +
-                        $" all associated items for the Fifo Group [{item.FifoGroupingIdentifier}] will be skipped."
+                        $" all following items for the FIFO Group [{item.FifoGroupingIdentifier}] will be skipped."
                 );
 
                 skipFifoGroups.Add(item.FifoGroupingIdentifier);

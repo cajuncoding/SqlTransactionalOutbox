@@ -14,6 +14,7 @@ namespace SqlTransactionalOutbox.Receiving
         public ISqlTransactionalOutboxItem<TUniqueIdentifier> PublishedItem { get; protected set; }
         public TUniqueIdentifier UniqueIdentifier { get; protected set; }
         public string ContentType { get; protected set; }
+        public string PayloadSerializedBody => PublishedItem?.Payload;
         public string CorrelationId { get; protected set; }
 
 
@@ -33,6 +34,7 @@ namespace SqlTransactionalOutbox.Receiving
             ISqlTransactionalOutboxItem<TUniqueIdentifier> outboxItem,
             ILookup<string, object> headersLookup,
             string contentType,
+            Func<ISqlTransactionalOutboxItem<TUniqueIdentifier>, TPayload> parsePayloadFunc,
             bool enableFifoEnforcedReceiving = false,
             string fifoGroupingIdentifier = null,
             string correlationId = null
@@ -42,6 +44,7 @@ namespace SqlTransactionalOutbox.Receiving
                 outboxItem,
                 headersLookup,
                 contentType,
+                parsePayloadFunc,
                 enableFifoEnforcedReceiving,
                 fifoGroupingIdentifier,
                 correlationId
@@ -52,6 +55,7 @@ namespace SqlTransactionalOutbox.Receiving
             ISqlTransactionalOutboxItem<TUniqueIdentifier> outboxItem,
             ILookup<string, object> headersLookup,
             string contentType,
+            Func<ISqlTransactionalOutboxItem<TUniqueIdentifier>, TPayload> parsePayloadFunc,
             bool isFifoProcessingEnabled = false,
             string fifoGroupingIdentifier = null,
             string correlationId = null
@@ -62,16 +66,22 @@ namespace SqlTransactionalOutbox.Receiving
 
             UniqueIdentifier = outboxItem.UniqueIdentifier;
             ContentType = string.IsNullOrWhiteSpace(contentType) ? MessageContentTypes.PlainText : contentType;
+            ParsePayloadFunc = parsePayloadFunc.AssertNotNull(nameof(parsePayloadFunc));
 
             CorrelationId = correlationId;
             IsFifoEnforcedReceivingEnabled = isFifoProcessingEnabled;
             FifoGroupingIdentifier = fifoGroupingIdentifier;
         }
 
-        public TPayload GetPayload()
+        public TPayload ParsePayloadBody()
         {
             var payload = ParsePayloadFunc(PublishedItem);
             return payload;
+        }
+
+        public string GetPayloadSerializedBody()
+        {
+            return this.PayloadSerializedBody;
         }
 
         public T GetHeaderValue<T>(string headerKey, T defaultValue = default)

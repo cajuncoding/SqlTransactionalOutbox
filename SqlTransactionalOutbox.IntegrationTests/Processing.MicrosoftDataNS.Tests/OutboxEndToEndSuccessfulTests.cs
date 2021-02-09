@@ -7,7 +7,7 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 using SqlTransactionalOutbox.SqlServer.MicrosoftDataNS;
 using SqlTransactionalOutbox.Tests;
 
-namespace SqlTransactionalOutbox.IntegrationTests
+namespace SqlTransactionalOutbox.IntegrationTests.MicrosoftDataNS
 {
     [TestClass]
     public class OutboxEndToEndSuccessfulTests

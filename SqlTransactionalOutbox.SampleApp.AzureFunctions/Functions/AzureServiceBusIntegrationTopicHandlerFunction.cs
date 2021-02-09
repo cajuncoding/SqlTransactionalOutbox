@@ -29,14 +29,12 @@ namespace SqlTransactionalOutbox.SampleApp.AzureFunctions
         )
         {
             var timer = Stopwatch.StartNew();
-            logger.LogInformation($"Azure Service Bus Message Received at [{DateTimeOffset.Now}]: {serviceBusMessage.Label}");
-
             try
             {
-                var receivedItem = new DefaultAzureServiceBusReceivedItem<JObject>(serviceBusMessage);
+                var receivedItem = new DefaultAzureServiceBusReceivedItem<string>(serviceBusMessage);
 
-                logger.LogInformation(
-                    $"{Environment.NewLine}Azure Service Bus Payload Received:" +
+                logger.LogInformation($"Azure Service Bus Message Received at [{DateTimeOffset.Now}]:" +
+                    $"{Environment.NewLine}Label: [{receivedItem.AzureServiceBusMessage.Label}]" +
                     $"{Environment.NewLine}UniqueIdentifier: [{receivedItem.UniqueIdentifier}]" +
                     $"{Environment.NewLine}Content Type: [{receivedItem.ContentType}]" +
                     $"{Environment.NewLine}Correlation ID: [{receivedItem.CorrelationId}]" +
@@ -45,7 +43,7 @@ namespace SqlTransactionalOutbox.SampleApp.AzureFunctions
                     $"{Environment.NewLine}Publish Target: [{receivedItem.PublishedItem.PublishTarget}]" +
                     $"{Environment.NewLine}Publish Attempts: [{receivedItem.PublishedItem.PublishAttempts}]" +
                     $"{Environment.NewLine}Publish Status: [{receivedItem.PublishedItem.Status}]" +
-                    $"{Environment.NewLine}Payload:{Environment.NewLine}{receivedItem.GetPayload()}" +
+                    $"{Environment.NewLine}Payload:{Environment.NewLine}{receivedItem.ParsePayloadBody()}" +
                     Environment.NewLine
                 );
 

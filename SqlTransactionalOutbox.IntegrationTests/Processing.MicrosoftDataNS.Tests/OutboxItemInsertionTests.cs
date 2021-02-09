@@ -7,7 +7,7 @@ using SqlTransactionalOutbox.CustomExtensions;
 using SqlTransactionalOutbox.SqlServer.MicrosoftDataNS;
 using SqlTransactionalOutbox.Tests;
 
-namespace SqlTransactionalOutbox.IntegrationTests
+namespace SqlTransactionalOutbox.IntegrationTests.MicrosoftDataNS
 {
     [TestClass]
     public class OutboxItemInsertionTests

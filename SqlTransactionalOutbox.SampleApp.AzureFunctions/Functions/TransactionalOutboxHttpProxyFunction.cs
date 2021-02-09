@@ -73,7 +73,7 @@ namespace SqlTransactionalOutbox.SampleApp.AzureFunctions
                 FunctionsConfiguration.AzureServiceBusConnectionString,
                 new AzureServiceBusPublishingOptions()
                 {
-                    SenderApplicationName = $"[{typeof(TransactionalOutboxHttpProxyFunction).Assembly.GetName().Name}]",
+                    SenderApplicationName = typeof(TransactionalOutboxHttpProxyFunction).Assembly.GetName().Name,
                     LogDebugCallback = (s) => log.LogDebug(s),
                     LogErrorCallback = (e) => log.LogError(e, "Unexpected Exception occurred while attempting to store into the Transactional Outbox.")
                 }
@@ -84,7 +84,7 @@ namespace SqlTransactionalOutbox.SampleApp.AzureFunctions
         {
             return new OutboxProcessingOptions()
             {
-                ItemProcessingBatchSize = 10, //Only process the top 10 items to keep this function responsive!
+                ItemProcessingBatchSize = 200, //Only process the top 10 items to keep this function responsive!
                 FifoEnforcedPublishingEnabled = true,
                 LogDebugCallback = (s) => log.LogDebug(s),
                 LogErrorCallback = (e) => log.LogError(e, "Unexpected Exception occurred while Processing Items from the Transactional Outbox."),

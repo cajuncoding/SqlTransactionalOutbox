@@ -6,6 +6,10 @@ namespace SqlTransactionalOutbox
 {
     public class OutboxPayloadJsonSerializer : ISqlTransactionalOutboxSerializer
     {
+        private static readonly Type _stringType = typeof(string);
+        private static readonly Type _jTokenType = typeof(JToken);
+        //private static readonly Type _jObjecgtType = typeof(JObject);
+
         public string SerializePayload<TPayload>(TPayload payload)
         {
             switch (payload)
@@ -26,11 +30,11 @@ namespace SqlTransactionalOutbox
         public TPayload DeserializePayload<TPayload>(string payload)
         {
             var payloadType = typeof(TPayload);
-            if (payloadType == typeof(string))
+            if (payloadType == _stringType || payloadType.IsAssignableFrom(_stringType))
             {
                 return (TPayload)(object)payload;
             }
-            else if (payloadType == typeof(JToken))
+            else if (_jTokenType.IsAssignableFrom(payloadType))
             {
                 return (TPayload)(object)JToken.Parse(payload);
             }

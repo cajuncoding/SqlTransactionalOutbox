@@ -24,7 +24,7 @@ namespace SqlTransactionalOutbox
         
         public string FifoGroupingIdentifier { get; }
 
-        TPayload GetPayload();
+        TPayload ParsePayloadBody();
 
         Task AcknowledgeSuccessfulReceiptAsync();
 

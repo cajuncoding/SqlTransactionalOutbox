@@ -42,8 +42,9 @@ namespace SqlTransactionalOutbox.AzureServiceBus.Publishing
             if (isFifoEnforcedProcessingEnabled && string.IsNullOrWhiteSpace(message.SessionId))
             {
                 var sessionGuid = Guid.NewGuid();
-                Options.LogDebugCallback?.Invoke($"FIFO Processing is Enabled but the Message does not have a valid SessionId; " +
-                                                 $"a surrogate Session GUID [{sessionGuid}] as been assigned to ensure delivery.");
+                Options.LogDebugCallback?.Invoke($"WARNING: FIFO Processing is Enabled but the Outbox Item [{outboxItem.UniqueIdentifier}]" +
+                                                 $" does not have a valid FifoGrouping Identifier (e.g. SessionId for Azure Service Bus); " +
+                                                 $" so delivery may fail therefore a surrogate Session GUID [{sessionGuid}] as been assigned to ensure delivery.");
                 
                 message.SessionId = sessionGuid.ToString();
             }
@@ -80,6 +81,11 @@ namespace SqlTransactionalOutbox.AzureServiceBus.Publishing
 
             Options.LogDebugCallback?.Invoke($"Creating Azure Message Object from [{uniqueIdString}]...");
 
+            //Optional FifoGrouping ID From Outbox Table should be used if specified...
+            var fifoGroupingId = !string.IsNullOrWhiteSpace(outboxItem.FifoGroupingIdentifier)
+                ? outboxItem.FifoGroupingIdentifier.Trim()
+                : null;
+
             //Attempt to decode teh Message as JObject to see if it contains dynamically defined parameters
             //that need to be mapped into the message; otherwise if it's just a string we populate only the minimum.
             var json = ParsePayloadAsJsonSafely(outboxItem);
@@ -88,20 +94,19 @@ namespace SqlTransactionalOutbox.AzureServiceBus.Publishing
                 Options.LogDebugCallback?.Invoke($"Payload for [{uniqueIdString}] is valid Json; initializing dynamic Message Parameters from the Json root properties...");
 
                 //Get the session id; because it is needed to determine PartitionKey when defined...
-                var sessionId = 
-                    GetJsonValueSafely(json, JsonMessageFields.FifoGroupingId, (string)null)
-                    ?? GetJsonValueSafely(json, JsonMessageFields.SessionId, (string)null);
+                fifoGroupingId ??= GetJsonValueSafely(json, JsonMessageFields.FifoGroupingId, (string)null)
+                                             ?? GetJsonValueSafely(json, JsonMessageFields.SessionId, (string)null);
 
                 message = new Message
                 {
                     MessageId = uniqueIdString,
-                    SessionId = sessionId,
+                    SessionId = fifoGroupingId,
                     CorrelationId = GetJsonValueSafely(json, JsonMessageFields.CorrelationId, string.Empty),
                     To = GetJsonValueSafely(json, JsonMessageFields.To, string.Empty),
                     ReplyTo = GetJsonValueSafely(json, JsonMessageFields.ReplyTo, string.Empty),
                     ReplyToSessionId = GetJsonValueSafely(json, JsonMessageFields.ReplyToSessionId, string.Empty),
                     //NOTE: IF SessionId is Defined then the Partition Key MUST MATCH the SessionId...
-                    PartitionKey = sessionId ?? GetJsonValueSafely(json, JsonMessageFields.PartitionKey, string.Empty),
+                    PartitionKey = fifoGroupingId ?? GetJsonValueSafely(json, JsonMessageFields.PartitionKey, string.Empty),
                     //Transaction related Partition Key... unused so disabling this to minimize risk.
                     //ViaPartitionKey = sessionId ?? GetJsonValueSafely(json, "viaPartitionKey", string.Empty),
                     ContentType = GetJsonValueSafely(json, JsonMessageFields.ContentType, MessageContentTypes.Json),
@@ -136,6 +141,7 @@ namespace SqlTransactionalOutbox.AzureServiceBus.Publishing
                 message = new Message
                 {
                     MessageId = uniqueIdString,
+                    SessionId = fifoGroupingId,
                     CorrelationId = string.Empty,
                     Label = defaultLabel,
                     ContentType = MessageContentTypes.PlainText,
@@ -180,16 +186,12 @@ namespace SqlTransactionalOutbox.AzureServiceBus.Publishing
             }
             catch (Exception exc)
             {
-                var argException = new ArgumentException(
-                    $"Json parsing failure; the publishing payload for item [{outboxItem.UniqueIdentifier}] could not" +
-                    $" be be parsed as Json.", exc
-                );
-
-                Options.LogErrorCallback?.Invoke(argException);
-
                 if (Options.ThrowExceptionOnJsonPayloadParseFailure)
                 {
-                    throw argException;
+                    throw new ArgumentException(
+                        $"Json parsing failure; the publishing payload for item [{outboxItem.UniqueIdentifier}] could not" +
+                        $" be be parsed as Json.", exc
+                    );
                 }
 
                 return null;
