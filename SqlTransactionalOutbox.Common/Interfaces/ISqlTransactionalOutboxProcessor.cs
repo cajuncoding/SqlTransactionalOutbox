@@ -12,6 +12,5 @@ namespace SqlTransactionalOutbox
             bool throwExceptionOnFailure = false
         );
 
-        Task ProcessCleanupOfOutboxHistoricalItemsAsync(TimeSpan historyTimeToKeepTimeSpan);
     }
 }

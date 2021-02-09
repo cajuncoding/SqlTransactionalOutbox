@@ -4,13 +4,35 @@ namespace SqlTransactionalOutbox.SampleApp.AzureFunctions
 {
     public class FunctionsConfiguration
     {
+        private const int _defaultMaxPublishingRetryAttempts = 50;
+        private const int _defaultMaxPublishingTTLDays = 10;
+
         static FunctionsConfiguration()
         {
-            SqlConnectionString = Environment.GetEnvironmentVariable(nameof(SqlConnectionString));
-            AzureServiceBusConnectionString = Environment.GetEnvironmentVariable(nameof(AzureServiceBusConnectionString));
+            SqlConnectionString = GetStringValue(nameof(SqlConnectionString));
+            AzureServiceBusConnectionString = GetStringValue(nameof(AzureServiceBusConnectionString));
+            OutboxMaxPublishingRetryAttempts = GetIntValue(nameof(OutboxMaxPublishingRetryAttempts), _defaultMaxPublishingRetryAttempts);
+            OutboxMaxTimeToLiveDays = TimeSpan.FromDays(GetIntValue(nameof(OutboxMaxTimeToLiveDays), _defaultMaxPublishingTTLDays));
+        }
+
+        private static string GetStringValue(string key)
+        {
+            var value = Environment.GetEnvironmentVariable(key)?.Trim();
+            return value;
+        }
+
+        private static int GetIntValue(string key, int defaultValue = default)
+        {
+            var value = int.TryParse(GetStringValue(key), out int intValue)
+                ? intValue
+                : defaultValue;
+            
+            return value;
         }
 
         public static string SqlConnectionString { get; }
         public static string AzureServiceBusConnectionString { get; }
+        public static int OutboxMaxPublishingRetryAttempts { get; }
+        public  static TimeSpan OutboxMaxTimeToLiveDays { get; }
     }
 }

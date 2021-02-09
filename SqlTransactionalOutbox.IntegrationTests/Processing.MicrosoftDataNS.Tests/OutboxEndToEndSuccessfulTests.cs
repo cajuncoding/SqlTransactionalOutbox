@@ -1,13 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Data.SqlClient;
+using Microsoft.Data.SqlClient;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
-using SqlTransactionalOutbox.SqlServer.SystemDataNS;
+using SqlTransactionalOutbox.SqlServer.MicrosoftDataNS;
 using SqlTransactionalOutbox.Tests;
 
-namespace SqlTransactionalOutbox.IntegrationTests.SystemDataNS
+namespace SqlTransactionalOutbox.IntegrationTests
 {
     [TestClass]
     public class OutboxEndToEndSuccessfulTests
@@ -18,7 +18,7 @@ namespace SqlTransactionalOutbox.IntegrationTests.SystemDataNS
         public async Task TestTransactionalOutboxEndToEndSuccessfulProcessing()
         {
             //Organize
-            await using var sqlConnection = await SqlConnectionHelper.CreateSystemDataSqlConnectionAsync().ConfigureAwait(false);
+            await using var sqlConnection = await SqlConnectionHelper.CreateMicrosoftDataSqlConnectionAsync().ConfigureAwait(false);
 
             //*****************************************************************************************
             //* STEP 1 - Prepare/Clear the Queue Table
@@ -59,7 +59,7 @@ namespace SqlTransactionalOutbox.IntegrationTests.SystemDataNS
             //* STEP 4 - Retrieve and Validate Data is updated and no pending Items Remain...
             //*****************************************************************************************
             //Assert All Items in the DB are Successful!
-            await using var sqlTransaction3 = (SqlTransaction) await sqlConnection.BeginTransactionAsync().ConfigureAwait(false);
+            await using var sqlTransaction3 = (SqlTransaction)await sqlConnection.BeginTransactionAsync().ConfigureAwait(false);
             var outboxProcessor = new DefaultSqlServerTransactionalOutboxProcessor<string>(sqlTransaction3, testPublisher);
 
             var successfulResultsFromDb = await outboxProcessor.OutboxRepository

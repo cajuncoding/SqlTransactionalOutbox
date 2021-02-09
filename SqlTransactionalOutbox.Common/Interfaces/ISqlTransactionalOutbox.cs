@@ -16,5 +16,7 @@ namespace SqlTransactionalOutbox
         Task<List<ISqlTransactionalOutboxItem<TUniqueIdentifier>>> InsertNewPendingOutboxItemsAsync(
             IEnumerable<ISqlTransactionalOutboxInsertionItem<TPayload>> outboxInsertionItems
         );
+
+        Task CleanupHistoricalOutboxItemsAsync(TimeSpan historyTimeToKeepTimeSpan);
     }
 }

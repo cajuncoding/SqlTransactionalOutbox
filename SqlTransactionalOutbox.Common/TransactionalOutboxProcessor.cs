@@ -26,12 +26,7 @@ namespace SqlTransactionalOutbox
             this.OutboxPublisher = outboxPublisher ?? throw new ArgumentNullException(nameof(OutboxPublisher));
         }
 
-        public virtual async Task ProcessCleanupOfOutboxHistoricalItemsAsync(TimeSpan historyTimeToKeepTimeSpan)
-        {
-            //Cleanup the Historical data using the Repository...
-            await OutboxRepository.CleanupOutboxHistoricalItemsAsync(historyTimeToKeepTimeSpan).ConfigureAwait(false);
-        }
-        
+       
         public virtual async Task<ISqlTransactionalOutboxProcessingResults<TUniqueIdentifier>> ProcessPendingOutboxItemsAsync(
             OutboxProcessingOptions processingOptions = null,
             bool throwExceptionOnFailure = false
@@ -105,15 +100,11 @@ namespace SqlTransactionalOutbox
             bool throwExceptionOnFailure
         )
         {
-            //Convert the list to a Queue for easier processing...
-            var processingQueue = new Queue<ISqlTransactionalOutboxItem<TUniqueIdentifier>>(outboxItems);
 
             var skipFifoGroups = new HashSet<string>();
 
-            while (processingQueue.Count > 0)
+            foreach(var item in outboxItems)
             {
-                var item = processingQueue.Dequeue();
-
                 //Process the item when Fifo Publishing is Disabled, or the Item has no Fifo Group specified, or the
                 //  specified Fifo Group Id is not already identified as one that needs to be skipped due to an item error
                 //  that belongs to that group!
@@ -124,7 +115,7 @@ namespace SqlTransactionalOutbox
                 {
                     try
                     {
-                        await ProcessOutboxItemFromQueueInternal(item, options, results);
+                        await ProcessSingleOutboxItemInternal(item, options, results);
                     }
                     catch (Exception itemException)
                     {
@@ -143,7 +134,6 @@ namespace SqlTransactionalOutbox
             
             //Store all updated results back into the Outbox!
             await UpdateProcessedItemsInternal(results, options);
-            
         }
 
         protected virtual async Task UpdateProcessedItemsInternal(
@@ -169,7 +159,7 @@ namespace SqlTransactionalOutbox
             );
         }
 
-        protected virtual async Task ProcessOutboxItemFromQueueInternal(
+        protected virtual async Task ProcessSingleOutboxItemInternal(
             ISqlTransactionalOutboxItem<TUniqueIdentifier> item,
             OutboxProcessingOptions options,
             OutboxProcessingResults<TUniqueIdentifier> results

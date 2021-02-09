@@ -1,13 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Text;
 using System.Threading.Tasks;
-using SqlTransactionalOutbox;
-using SqlTransactionalOutbox.IntegrationTests;
 using SqlTransactionalOutbox.SqlServer.SystemDataNS;
-using SqlTransactionalOutbox.Tests;
 using SystemData = System.Data.SqlClient;
-//using MicrosoftData = Microsoft.Data.SqlClient;
+using MicrosoftData = Microsoft.Data.SqlClient;
 
 namespace SqlTransactionalOutbox.Tests
 {
@@ -20,10 +16,12 @@ namespace SqlTransactionalOutbox.Tests
             return sqlConnection;
         }
 
-        //public static MicrosoftData.SqlConnection CreateMicrosoftDataSqlConnectionAsync()
-        //{
-        //    return new MicrosoftData.SqlConnection(TestConfiguration.SqlConnectionString);
-        //}
+        public static async Task<MicrosoftData.SqlConnection> CreateMicrosoftDataSqlConnectionAsync()
+        {
+            var sqlConnection = new MicrosoftData.SqlConnection(TestConfiguration.SqlConnectionString);
+            await sqlConnection.OpenAsync();
+            return sqlConnection;
+        }
     }
 
     public static class SqlCommands
@@ -39,6 +37,19 @@ namespace SqlTransactionalOutbox.Tests
         {
             //CLEAR the Table for Integration Tests to validate:
             await using var sqlCmd = new SystemData.SqlCommand(
+                SqlCommands.TruncateTransactionalOutbox,
+                sqlConnection
+            );
+            await sqlCmd.ExecuteNonQueryAsync().ConfigureAwait(false);
+        }
+    }
+
+    public static class SqlConnectionCustomExtensionsForMicrosoftData
+    {
+        public static async Task TruncateTransactionalOutboxTableAsync(this MicrosoftData.SqlConnection sqlConnection)
+        {
+            //CLEAR the Table for Integration Tests to validate:
+            await using var sqlCmd = new MicrosoftData.SqlCommand(
                 SqlCommands.TruncateTransactionalOutbox,
                 sqlConnection
             );
@@ -63,20 +74,10 @@ namespace SqlTransactionalOutbox.Tests
             //*****************************************************************************************
             //* STEP 2 - Insert New Outbox Items to process with TestHarness for Publishing...
             //*****************************************************************************************
-            //Initialize Transaction and Outbox Processor
-            await using var sqlTransaction = (SystemData.SqlTransaction)await sqlConnection.BeginTransactionAsync().ConfigureAwait(false);
-
-            //Initialize the Test Harness for Publish tracking...
-            var outbox = new DefaultSqlServerTransactionalOutbox<string>(sqlTransaction);
-
             var outboxTestItems = TestHelper.CreateTestStringOutboxItemData(testDataSize);
-
-            //Execute Insert of New Items!
-            var insertedResults = await outbox
-                .InsertNewPendingOutboxItemsAsync(outboxTestItems)
+            var insertedResults = await sqlConnection
+                .AddTransactionalOutboxPendingItemListAsync(outboxTestItems)
                 .ConfigureAwait(false);
-
-            await sqlTransaction.CommitAsync();
 
             return insertedResults;
         }

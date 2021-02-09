@@ -1,12 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Data.SqlClient;
+using Microsoft.Data.SqlClient;
 using System.Threading.Tasks;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
-using SqlTransactionalOutbox.SqlServer.SystemDataNS;
+using SqlTransactionalOutbox.SqlServer.MicrosoftDataNS;
 using SqlTransactionalOutbox.Tests;
 
-namespace SqlTransactionalOutbox.IntegrationTests.SystemDataNS
+namespace SqlTransactionalOutbox.IntegrationTests
 {
     [TestClass]
     public class OutboxEndToEndFailureTests
@@ -38,7 +38,7 @@ namespace SqlTransactionalOutbox.IntegrationTests.SystemDataNS
             //*****************************************************************************************
             //* STEP 2 - Process Outbox and get Results
             //*****************************************************************************************
-            await using var sqlConnection = await SqlConnectionHelper.CreateSystemDataSqlConnectionAsync();
+            await using var sqlConnection = await SqlConnectionHelper.CreateMicrosoftDataSqlConnectionAsync();
             var processingResults = await sqlConnection.ProcessPendingOutboxItemsAsync(testHarnessPublisher, new OutboxProcessingOptions()
             {
                 TimeSpanToLive = timeToLiveTimeSpan
@@ -109,14 +109,14 @@ namespace SqlTransactionalOutbox.IntegrationTests.SystemDataNS
             var maxPublishingAttempts = 2;
             var failedItemsFromDb = await DoTestTransactionalOutboxCrawlingOfBlockingFailureItems(
                 testDataSize,
-                maxPublishingAttempts, 
-                true, 
+                maxPublishingAttempts,
+                true,
                 false
             );
 
             //We expect all items to be processed before any item is failed....
             //So the First Item will be repeated as the 10'th item after the next 9 are also attempted...
-            for (var x = 0; x < testDataSize * maxPublishingAttempts; x+=2)
+            for (var x = 0; x < testDataSize * maxPublishingAttempts; x += 2)
             {
                 Assert.AreEqual(failedItemsFromDb[x].UniqueIdentifier, failedItemsFromDb[x + 1].UniqueIdentifier);
             }
@@ -129,7 +129,7 @@ namespace SqlTransactionalOutbox.IntegrationTests.SystemDataNS
             var failedItemsFromDb = await DoTestTransactionalOutboxCrawlingOfBlockingFailureItems(
                 testDataSize,
                 2,
-                false, 
+                false,
                 false
             );
 
@@ -179,14 +179,14 @@ namespace SqlTransactionalOutbox.IntegrationTests.SystemDataNS
             bool handledExceptionSoItsOkToContinue = false;
             do
             {
-                await using var sqlConnection = await SqlConnectionHelper.CreateSystemDataSqlConnectionAsync();
+                await using var sqlConnection = await SqlConnectionHelper.CreateMicrosoftDataSqlConnectionAsync();
                 await using var sqlTransaction = (SqlTransaction)await sqlConnection.BeginTransactionAsync().ConfigureAwait(false);
 
                 handledExceptionSoItsOkToContinue = false;
                 try
                 {
                     publishedResults = await sqlTransaction.ProcessPendingOutboxItemsAsync(
-                        failingPublisher, 
+                        failingPublisher,
                         outboxProcessingOptions,
                         throwExceptionOnFailedItem
                     ).ConfigureAwait(false);
@@ -222,7 +222,7 @@ namespace SqlTransactionalOutbox.IntegrationTests.SystemDataNS
             //* STEP 4 - Retrieve and Validate Data in the Database is updated and all have failed out...
             //*****************************************************************************************
             //Assert All Items in the DB are Successful!
-            await using var sqlConnection2 = await SqlConnectionHelper.CreateSystemDataSqlConnectionAsync();
+            await using var sqlConnection2 = await SqlConnectionHelper.CreateMicrosoftDataSqlConnectionAsync();
             await using var sqlTransaction2 = (SqlTransaction)await sqlConnection2.BeginTransactionAsync().ConfigureAwait(false);
             var outboxProcessor2 = new DefaultSqlServerTransactionalOutboxProcessor<string>(sqlTransaction2, failingPublisher);
 

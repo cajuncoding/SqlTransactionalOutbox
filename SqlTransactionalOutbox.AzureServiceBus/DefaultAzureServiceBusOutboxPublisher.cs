@@ -8,7 +8,7 @@ namespace SqlTransactionalOutbox.AzureServiceBus
     public class DefaultAzureServiceBusOutboxPublisher : BaseAzureServiceBusPublisher<Guid>
     {
         public DefaultAzureServiceBusOutboxPublisher(
-        string azureServiceBusConnectionString,
+            string azureServiceBusConnectionString,
             AzureServiceBusPublishingOptions options = null
         )
         : base (
@@ -16,6 +16,7 @@ namespace SqlTransactionalOutbox.AzureServiceBus
             options
         )
         {
+            //All logic is currently in the Base Constructor
         }
 }
 }

@@ -48,5 +48,11 @@ namespace SqlTransactionalOutbox
             var resultItems = await OutboxRepository.InsertNewOutboxItemsAsync(outboxInsertionItems).ConfigureAwait(false);
             return resultItems;
         }
+
+        public virtual async Task CleanupHistoricalOutboxItemsAsync(TimeSpan historyTimeToKeepTimeSpan)
+        {
+            //Cleanup the Historical data using the Repository...
+            await OutboxRepository.CleanupOutboxHistoricalItemsAsync(historyTimeToKeepTimeSpan).ConfigureAwait(false);
+        }
     }
 }

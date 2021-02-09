@@ -1,13 +1,13 @@
 using System;
-using System.Data.SqlClient;
+using Microsoft.Data.SqlClient;
 using System.Diagnostics;
 using System.Threading.Tasks;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using SqlTransactionalOutbox.CustomExtensions;
-using SqlTransactionalOutbox.SqlServer.SystemDataNS;
+using SqlTransactionalOutbox.SqlServer.MicrosoftDataNS;
 using SqlTransactionalOutbox.Tests;
 
-namespace SqlTransactionalOutbox.IntegrationTests.SystemDataNS
+namespace SqlTransactionalOutbox.IntegrationTests
 {
     [TestClass]
     public class OutboxItemInsertionTests
@@ -18,7 +18,7 @@ namespace SqlTransactionalOutbox.IntegrationTests.SystemDataNS
         public async Task TestNewOutboxItemInsertionBenchmark()
         {
             //Organize
-            await using var sqlConnection = await SqlConnectionHelper.CreateSystemDataSqlConnectionAsync();
+            await using var sqlConnection = await SqlConnectionHelper.CreateMicrosoftDataSqlConnectionAsync();
 
             //WARM UP...
             var warmupTestItems = TestHelper.CreateTestStringOutboxItemData(2);
@@ -39,7 +39,7 @@ namespace SqlTransactionalOutbox.IntegrationTests.SystemDataNS
                 .AddTransactionalOutboxPendingItemListAsync(warmupTestItems)
                 .ConfigureAwait(false);
             timer.Stop();
-            
+
             TestContext?.WriteLine($"Benchmark Execution Inserted [{executionResults.Count}] items in [{timer.Elapsed.ToElapsedTimeDescriptiveFormat()}].");
         }
 
@@ -47,7 +47,7 @@ namespace SqlTransactionalOutbox.IntegrationTests.SystemDataNS
         public async Task TestNewOutboxItemInsertionByBatch()
         {
             //Organize
-            await using var sqlConnection = await SqlConnectionHelper.CreateSystemDataSqlConnectionAsync();
+            await using var sqlConnection = await SqlConnectionHelper.CreateMicrosoftDataSqlConnectionAsync();
 
             //Clear the Table data for the test...
             await sqlConnection.TruncateTransactionalOutboxTableAsync();
@@ -57,7 +57,7 @@ namespace SqlTransactionalOutbox.IntegrationTests.SystemDataNS
 
             //Execute
             var timer = Stopwatch.StartNew();
-            
+
             var insertedResults = await sqlConnection
                 .AddTransactionalOutboxPendingItemListAsync(outboxTestItems)
                 .ConfigureAwait(false);
@@ -88,7 +88,7 @@ namespace SqlTransactionalOutbox.IntegrationTests.SystemDataNS
             var insertedResults = await SystemDataSqlTestHelpers.PopulateTransactionalOutboxTestDataAsync(100);
 
             //Initialize Transaction and Outbox Processor
-            await using var sqlConnection = await SqlConnectionHelper.CreateSystemDataSqlConnectionAsync();
+            await using var sqlConnection = await SqlConnectionHelper.CreateMicrosoftDataSqlConnectionAsync().ConfigureAwait(false);
             await using var sqlTransaction = (SqlTransaction)await sqlConnection.BeginTransactionAsync().ConfigureAwait(false);
 
             var outboxProcessor = new DefaultSqlServerTransactionalOutboxProcessor<string>(sqlTransaction, testPublisher);

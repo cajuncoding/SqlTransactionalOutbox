@@ -25,6 +25,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SqlTransactionalOutbox.Inte
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SqlTransactionalOutbox.Benchmarks", "SqlTransactionalOutbox.Benchmarks\SqlTransactionalOutbox.Benchmarks.csproj", "{70872DD3-86A6-4F34-885F-5F4768210D8B}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SqlTransactionalOutbox.SqlServer.MicrosoftDataNS", "SqlTransactionalOutbox.SqlServer.MicrosoftDataNS\SqlTransactionalOutbox.SqlServer.MicrosoftDataNS.csproj", "{57711747-7947-456D-8083-BF965B8DE734}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -59,6 +61,10 @@ Global
 		{70872DD3-86A6-4F34-885F-5F4768210D8B}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{70872DD3-86A6-4F34-885F-5F4768210D8B}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{70872DD3-86A6-4F34-885F-5F4768210D8B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{57711747-7947-456D-8083-BF965B8DE734}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{57711747-7947-456D-8083-BF965B8DE734}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{57711747-7947-456D-8083-BF965B8DE734}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{57711747-7947-456D-8083-BF965B8DE734}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -71,6 +77,7 @@ Global
 		{B5B5CAC9-25AF-4415-AD61-621D0C043640} = {D75A40EA-4ECE-46FF-93E7-64193AD078F7}
 		{C427EC86-37B5-4176-8B72-7FC18D1EDB8C} = {D849B37A-EB7F-4202-8D02-A6A113DA21D5}
 		{70872DD3-86A6-4F34-885F-5F4768210D8B} = {D849B37A-EB7F-4202-8D02-A6A113DA21D5}
+		{57711747-7947-456D-8083-BF965B8DE734} = {D75A40EA-4ECE-46FF-93E7-64193AD078F7}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {E8B58B0F-A54F-46A4-9DA0-ABEA3B106C76}

@@ -39,17 +39,21 @@ namespace SqlTransactionalOutbox.SampleApp.AzureFunctions
             //************************************************************
             //*** Add The Payload to our Outbox
             //************************************************************
-            var outboxItem = await AddPendingItemToOutboxAsync(
-                sqlConnection,
+            var outboxItem = await sqlConnection.AddTransactionalOutboxPendingItemAsync(
                 publishTopic: payloadBuilder.PublishTopic,
-                jsonPayload: payloadBuilder.ToJObject(),
+                payload: payloadBuilder.ToJObject(),
                 fifoGroupingIdentifier: payloadBuilder.FifoGroupingId
             ).ConfigureAwait(false);
 
             //************************************************************
             //*** Immediately attempt to process the Outbox...
             //************************************************************
-            await ExecuteOutboxProcessingAsync(sqlConnection, log).ConfigureAwait(false);
+            await sqlConnection
+                .ProcessPendingOutboxItemsAsync(
+                    outboxPublisher: GetAzureServiceBusPublisher(log),
+                    processingOptions: GetOutboxProcessingOptions(log)
+                )
+                .ConfigureAwait(false);
 
             
             //Log results and return response to the client...
@@ -63,107 +67,32 @@ namespace SqlTransactionalOutbox.SampleApp.AzureFunctions
             };
         }
 
-        public async Task<ISqlTransactionalOutboxItem<Guid>> AddPendingItemToOutboxAsync(
-            SqlConnection sqlConnection, 
-            string publishTopic,
-            JObject jsonPayload,
-            string fifoGroupingIdentifier = null
-        )
+        public virtual DefaultAzureServiceBusOutboxPublisher GetAzureServiceBusPublisher(ILogger log)
         {
-            await using var outboxTransaction = (SqlTransaction)(await sqlConnection.BeginTransactionAsync());
-            try
-            {
-                //SAVE the Item to the Outbox...
-                var outbox = new DefaultSqlServerTransactionalOutbox<JObject>(outboxTransaction);
-                var outboxItem = await outbox.InsertNewPendingOutboxItemAsync(
-                    publishingTarget: publishTopic, 
-                    publishingPayload: jsonPayload, 
-                    fifoGroupingIdentifier: fifoGroupingIdentifier
-                ).ConfigureAwait(false);
-
-                await outboxTransaction.CommitAsync().ConfigureAwait(false);
-                return outboxItem;
-            }
-            catch(Exception)
-            {
-                await outboxTransaction.RollbackAsync().ConfigureAwait(false);
-                throw;
-            }
+            return new DefaultAzureServiceBusOutboxPublisher(
+                FunctionsConfiguration.AzureServiceBusConnectionString,
+                new AzureServiceBusPublishingOptions()
+                {
+                    SenderApplicationName = $"[{typeof(TransactionalOutboxHttpProxyFunction).Assembly.GetName().Name}]",
+                    LogDebugCallback = (s) => log.LogDebug(s),
+                    LogErrorCallback = (e) => log.LogError(e, "Unexpected Exception occurred while attempting to store into the Transactional Outbox.")
+                }
+            );
         }
 
-        public async Task ExecuteOutboxProcessingAsync(SqlConnection sqlConnection, ILogger log)
+        public virtual OutboxProcessingOptions GetOutboxProcessingOptions(ILogger log)
         {
-            //PROCESS Pending Items in the Outbox...
-            await using var outboxProcessingTransaction = (SqlTransaction)(await sqlConnection.BeginTransactionAsync());
-
-            try
+            return new OutboxProcessingOptions()
             {
-                var outboxProcessor = new DefaultSqlServerTransactionalOutboxProcessor<object>(
-                    outboxProcessingTransaction,
-                    new DefaultAzureServiceBusOutboxPublisher(
-                        FunctionsConfiguration.AzureServiceBusConnectionString,
-                        new AzureServiceBusPublishingOptions()
-                        {
-                            SenderApplicationName = $"[{typeof(TransactionalOutboxHttpProxyFunction).Assembly.GetName().Name}]",
-                            LogDebugCallback = (s) => log.LogDebug(s),
-                            LogErrorCallback = (e) => log.LogError(e, "Unexpected Exception occurred while attempting to store into the Transactional Outbox.")
-                        }
-                    )
-                );
-
-                await outboxProcessor.ProcessPendingOutboxItemsAsync(
-                    new OutboxProcessingOptions()
-                    {
-                        ItemProcessingBatchSize = 10,  //Only process the top 10 items to keep this function responsive!
-                        FifoEnforcedPublishingEnabled = true,
-                        LogDebugCallback = (s) => log.LogDebug(s),
-                        LogErrorCallback = (e) => log.LogError(e, "Unexpected Exception occurred while Processing Items from the Transactional Outbox."),
-                        //TODO: Make Configuration Options!
-                        MaxPublishingAttempts = 50,
-                        TimeSpanToLive = TimeSpan.FromHours(24)
-                    }
-                );
-
-                await outboxProcessingTransaction.CommitAsync().ConfigureAwait(false);
-            }
-            catch(Exception)
-            {
-                await outboxProcessingTransaction.RollbackAsync().ConfigureAwait(false);
-                throw;
-            }
+                ItemProcessingBatchSize = 10, //Only process the top 10 items to keep this function responsive!
+                FifoEnforcedPublishingEnabled = true,
+                LogDebugCallback = (s) => log.LogDebug(s),
+                LogErrorCallback = (e) => log.LogError(e, "Unexpected Exception occurred while Processing Items from the Transactional Outbox."),
+                MaxPublishingAttempts = FunctionsConfiguration.OutboxMaxPublishingRetryAttempts,
+                TimeSpanToLive = FunctionsConfiguration.OutboxMaxTimeToLiveDays
+            };
         }
-
-        ////TODO: Move to Re-Useable Element for Http Azure Functions Proxying...
-        //public string GetValueFromRequest(string field, JObject json, ILookup<string, string> query, string defaultValue = null, bool isRequired = false)
-        //{
-        //    var value = json.ValueSafely<string>(field) ?? query[field].FirstOrDefault() ?? defaultValue;
-
-        //    if(value == null && isRequired)
-        //        throw new ArgumentNullException($"The field [{field}] is required but no value for [{field}] could be found on the request querystring or in the body payload.");
-
-        //    return value;
-        //}
-
-        //public string GetContentType(JObject json, ILookup<string, string> query)
-        //{
-        //    //First check the Body & Query to see if ContentType is specified!
-        //    var contentType = GetValueFromRequest("ContentType", json, query);
-
-        //    //If not then dynamically determine by inspection...
-        //    if (string.IsNullOrWhiteSpace(contentType))
-        //    {
-        //        var payloadBody = GetValueFromRequest("Body", json, query);
-
-        //        //Content type is Json if the specified payload is valid Json or if the fallback to the original request payload
-        //        //  is valid json (which we know if the JObject isn't null).
-        //        var isValidJson = (!string.IsNullOrWhiteSpace(payloadBody) && JsonHelpers.IsValidJson(payloadBody)) //Specified Body is Json?
-        //                          || (json != null); //Original Payload is Json?
-
-        //        contentType = isValidJson ? MessageContentTypes.Json : MessageContentTypes.PlainText;
-        //    }
-
-        //    return contentType;
-        //}
+        
     }
 
 }

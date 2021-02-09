@@ -17,6 +17,7 @@
   <ItemGroup>
     <ProjectReference Include="..\SqlTransactionalOutbox.AzureServiceBus\SqlTransactionalOutbox.AzureServiceBus.csproj" />
     <ProjectReference Include="..\SqlTransactionalOutbox.Common\SqlTransactionalOutbox.Common.csproj" />
+    <ProjectReference Include="..\SqlTransactionalOutbox.SqlServer.MicrosoftDataNS\SqlTransactionalOutbox.SqlServer.MicrosoftDataNS.csproj" />
     <ProjectReference Include="..\SqlTransactionalOutbox.SqlServer.SystemDataNS\SqlTransactionalOutbox.SqlServer.SystemDataNS.csproj" />
   </ItemGroup>
 
@@ -24,10 +25,6 @@
     <None Update="appsettings.json">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-  </ItemGroup>
-
-  <ItemGroup>
-    <Folder Include="Processing.MicrosoftDataNS.Tests\" />
   </ItemGroup>
 
 </Project>
