@@ -4,15 +4,17 @@ namespace SqlTransactionalOutbox.SampleApp.AzureFunctions
 {
     public class FunctionsConfiguration
     {
-        private const int _defaultMaxPublishingRetryAttempts = 50;
+        private const int _defaultMaxPublishingRetryAttempts = 25;
         private const int _defaultMaxPublishingTTLDays = 10;
+        private const int _defaultHistoryToKeepDays = 30;
 
         static FunctionsConfiguration()
         {
             SqlConnectionString = GetStringValue(nameof(SqlConnectionString));
             AzureServiceBusConnectionString = GetStringValue(nameof(AzureServiceBusConnectionString));
             OutboxMaxPublishingRetryAttempts = GetIntValue(nameof(OutboxMaxPublishingRetryAttempts), _defaultMaxPublishingRetryAttempts);
-            OutboxMaxTimeToLiveDays = TimeSpan.FromDays(GetIntValue(nameof(OutboxMaxTimeToLiveDays), _defaultMaxPublishingTTLDays));
+            OutboxMaxTimeToLiveTimeSpan = TimeSpan.FromDays(GetIntValue("OutboxMaxTimeToLiveDays", _defaultMaxPublishingTTLDays));
+            OutboxHistoryToKeepTimeSpan = TimeSpan.FromDays(GetIntValue("OutboxHistoryToKeepDays", _defaultMaxPublishingTTLDays));
         }
 
         private static string GetStringValue(string key)
@@ -33,6 +35,7 @@ namespace SqlTransactionalOutbox.SampleApp.AzureFunctions
         public static string SqlConnectionString { get; }
         public static string AzureServiceBusConnectionString { get; }
         public static int OutboxMaxPublishingRetryAttempts { get; }
-        public  static TimeSpan OutboxMaxTimeToLiveDays { get; }
+        public  static TimeSpan OutboxMaxTimeToLiveTimeSpan { get; }
+        public static TimeSpan OutboxHistoryToKeepTimeSpan { get; }
     }
 }

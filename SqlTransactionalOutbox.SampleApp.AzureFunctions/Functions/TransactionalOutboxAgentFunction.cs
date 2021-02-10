@@ -32,7 +32,7 @@ namespace SqlTransactionalOutbox.SampleApp.AzureFunctions.Functions
                 LogDebugCallback = (m) => log.LogDebug(m),
                 LogErrorCallback = (e) => log.LogError(e, "Transactional Outbox Processing Exception"),
                 MaxPublishingAttempts = FunctionsConfiguration.OutboxMaxPublishingRetryAttempts,
-                TimeSpanToLive = FunctionsConfiguration.OutboxMaxTimeToLiveDays
+                TimeSpanToLive = FunctionsConfiguration.OutboxMaxTimeToLiveTimeSpan
             };
 
             //************************************************************
@@ -48,7 +48,7 @@ namespace SqlTransactionalOutbox.SampleApp.AzureFunctions.Functions
             //************************************************************
             //*** Execute Cleanup of Historical Outbox Data...
             //************************************************************
-            await sqlConnection.CleanupHistoricalOutboxItemsAsync(TimeSpan.FromDays(30));
+            await sqlConnection.CleanupHistoricalOutboxItemsAsync(FunctionsConfiguration.OutboxHistoryToKeepTimeSpan);
         }
     }
 }
