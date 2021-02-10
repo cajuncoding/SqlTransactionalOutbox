@@ -71,7 +71,7 @@ namespace SqlTransactionalOutbox.IntegrationTests.SystemDataNS
             {
                 //Validate Created Date Time (can't match precisely but can validate it was populated as expected...
                 Assert.AreEqual(OutboxItemStatus.Pending, i.Status);
-                Assert.AreNotEqual(DateTime.MinValue, i.CreatedDateTimeUtc);
+                Assert.AreNotEqual(DateTimeOffset.MinValue, i.CreatedDateTimeUtc);
                 Assert.AreEqual(0, i.PublishAttempts);
                 Assert.IsFalse(string.IsNullOrWhiteSpace(i.PublishTarget));
                 Assert.IsFalse(string.IsNullOrWhiteSpace(i.Payload));

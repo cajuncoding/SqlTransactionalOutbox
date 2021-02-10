@@ -190,7 +190,8 @@ namespace SqlTransactionalOutbox.AzureServiceBus.Publishing
                 {
                     throw new ArgumentException(
                         $"Json parsing failure; the publishing payload for item [{outboxItem.UniqueIdentifier}] could not" +
-                        $" be be parsed as Json.", exc
+                        $" be be parsed as Json.", 
+                        exc
                     );
                 }
 

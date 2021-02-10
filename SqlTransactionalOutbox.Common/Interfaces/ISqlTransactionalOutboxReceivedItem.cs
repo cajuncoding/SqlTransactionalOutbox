@@ -6,7 +6,7 @@ using SqlTransactionalOutbox.Receiving;
 
 namespace SqlTransactionalOutbox
 {
-    public interface ISqlTransactionalOutboxReceivedItem<TUniqueIdentifier, out TPayload>
+    public interface ISqlTransactionalOutboxReceivedItem<TUniqueIdentifier, out TPayloadBody>
     {
         OutboxReceivedItemProcessingStatus Status { get; }
 
@@ -24,7 +24,7 @@ namespace SqlTransactionalOutbox
         
         public string FifoGroupingIdentifier { get; }
 
-        TPayload ParsePayloadBody();
+        TPayloadBody ParsePayloadBody();
 
         Task AcknowledgeSuccessfulReceiptAsync();
 

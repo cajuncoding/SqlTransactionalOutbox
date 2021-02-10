@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Azure.ServiceBus;
@@ -56,7 +57,7 @@ namespace SqlTransactionalOutbox.AzureServiceBus.Receiving
             return serviceBusConnection;
         }
 
-        public virtual void RegisterReceivedItemHandler(
+        public virtual UnregisterHandlerAsyncDelegate RegisterReceivedItemHandler(
             string topicPath,
             string subscriptionName,
             ISqlTransactionalOutboxReceivedItemHandler<TUniqueIdentifier, TPayload> receivedItemHandler,
@@ -68,7 +69,7 @@ namespace SqlTransactionalOutbox.AzureServiceBus.Receiving
 
             //Our interface matches the Delegate signature as an alternative implementation (to help separate
             //  code responsibilities via class interface implementation...
-            RegisterMessageHandlerInternal(
+            return RegisterMessageHandlerInternal(
                 topicPath, 
                 subscriptionName, 
                 receivedItemHandler.HandleReceivedItemAsync,
@@ -76,14 +77,14 @@ namespace SqlTransactionalOutbox.AzureServiceBus.Receiving
             );
         }
 
-        public virtual void RegisterReceivedItemHandler(
+        public virtual UnregisterHandlerAsyncDelegate RegisterReceivedItemHandler(
             string topicPath,
             string subscriptionName,
             ReceivedItemHandlerAsyncDelegate receivedItemHandlerAsyncDelegateFunc,
             Func<IMessageSession, Message, Task> fifoSessionEndAsyncHandler = null
         )
         {
-            RegisterMessageHandlerInternal(
+            return RegisterMessageHandlerInternal(
                 topicPath, 
                 subscriptionName, 
                 receivedItemHandlerAsyncDelegateFunc, 
@@ -91,7 +92,9 @@ namespace SqlTransactionalOutbox.AzureServiceBus.Receiving
             );
         }
 
-        protected virtual void RegisterMessageHandlerInternal(
+        public delegate Task UnregisterHandlerAsyncDelegate(TimeSpan inflightWaitTimeSpan);
+
+        protected virtual UnregisterHandlerAsyncDelegate RegisterMessageHandlerInternal(
             string topicPath,
             string subscriptionName,
             ReceivedItemHandlerAsyncDelegate receivedItemHandlerAsyncDelegateFunc,
@@ -107,13 +110,14 @@ namespace SqlTransactionalOutbox.AzureServiceBus.Receiving
                 subscriptionName.AssertNotNullOrWhiteSpace(nameof(subscriptionName))
             );
 
+            UnregisterHandlerAsyncDelegate unregisterHandlerAsyncFunc;
+
             //Complete full Handler Registration with provided options, etc...
             if (Options.FifoEnforcedReceivingEnabled)
             {
                 subscriptionClient.RegisterSessionHandler(
                     handler: async (sessionClient, message, cancellationToken) =>
                     {
-
                         try
                         {
                             await ExecuteRegisteredMessageHandlerAsync(
@@ -134,7 +138,7 @@ namespace SqlTransactionalOutbox.AzureServiceBus.Receiving
                                 }
                                 else if (fifoSessionEndAsyncHandler != null)
                                 {
-                                    await fifoSessionEndAsyncHandler.Invoke(sessionClient, message).ConfigureAwait(false);
+                                    await fifoSessionEndAsyncHandler(sessionClient, message).ConfigureAwait(false);
                                 }
                             }
                         }
@@ -147,6 +151,9 @@ namespace SqlTransactionalOutbox.AzureServiceBus.Receiving
                         MaxAutoRenewDuration = this.Options.MaxAutoRenewDuration
                     }
                 );
+
+                //Initialize the SESSION un-register Delegate to provide easy removal of this Handler for re-use of hte Receiver Client!
+                unregisterHandlerAsyncFunc = (inflightWaitTimeSpan) => subscriptionClient.UnregisterSessionHandlerAsync(inflightWaitTimeSpan);
             }
             else
             {
@@ -165,7 +172,13 @@ namespace SqlTransactionalOutbox.AzureServiceBus.Receiving
                         MaxAutoRenewDuration = this.Options.MaxAutoRenewDuration
                     }
                 );
+
+                //Initialize the Un-register Delegate to provide easy removal of this Handler for re-use of hte Receiver Client!
+                unregisterHandlerAsyncFunc = (inflightWaitTimeSpan) => subscriptionClient.UnregisterMessageHandlerAsync(inflightWaitTimeSpan);
             }
+
+            //Return the Delegate for Un-registering via Callback!
+            return unregisterHandlerAsyncFunc;
         }
 
         public virtual async IAsyncEnumerable<ISqlTransactionalOutboxReceivedItem<TUniqueIdentifier, TPayload>> RetrieveAsyncEnumerable(
@@ -229,6 +242,10 @@ namespace SqlTransactionalOutbox.AzureServiceBus.Receiving
             //A SHARED CONTEXT SPECIFIC reference to be set by the Registered Handler and
             //  Called Safely by the Disposal of the Receiver Queue when Disposed!
             IMessageSession queueContextSessionClient = null;
+            
+            //This reference enables deferred un-registration of the Handler when the Receiver Queue is Disposed!
+            //NOTE: this is CRITICAl to allow the cached Receiver Client to be re-used...
+            UnregisterHandlerAsyncDelegate unregisterHandlerFunc = null;
 
             //Initialize the producer/consumer queue for asynchronously & dynamically receiving items produced from the
             //  Azure Service Bus by being populated from our handler.
@@ -239,11 +256,20 @@ namespace SqlTransactionalOutbox.AzureServiceBus.Receiving
                     {
                         await queueContextSessionClient.CloseAsync().ConfigureAwait(false);
                     }
+
+                    //WE MUST UNREGISTER the Handler as soon as we are done enumerating or else the Azure Service Bus Client
+                    //  that is cached will throw Operation Exceptions when future processing attempts to register another Handler!
+                    // ReSharper disable once AccessToModifiedClosure
+                    if (unregisterHandlerFunc != null)
+                    {
+                        // ReSharper disable once AccessToModifiedClosure
+                        await unregisterHandlerFunc.Invoke(TimeSpan.FromMilliseconds(250)).ConfigureAwait(false);
+                    }
                 }
             );
 
             //Attempt to Receive & Handle the Messages just published for End-to-End Validation!
-            this.RegisterMessageHandlerInternal(
+            unregisterHandlerFunc = this.RegisterMessageHandlerInternal(
                 topicPath,
                 subscriptionName,
                 receivedItemHandlerAsyncDelegateFunc: async (outboxPublishedItem) =>
@@ -288,33 +314,60 @@ namespace SqlTransactionalOutbox.AzureServiceBus.Receiving
             bool automaticFinalizationEnabled = true
         )
         {
-            //Initialize the MessageHandler facade for processing the Azure Service Bus message...
-            var azureServiceBusReceivedItem = CreateReceivedItem(
-                message, 
-                azureServiceBusClient, 
-                Options.FifoEnforcedReceivingEnabled
-            );
+            azureServiceBusClient.AssertNotNull(nameof(azureServiceBusClient));
+            message.AssertNotNull(nameof(message));
+            receivedItemHandlerAsyncDelegateFunc.AssertNotNull(nameof(receivedItemHandlerAsyncDelegateFunc));
 
+            AzureServiceBusReceivedItem<TUniqueIdentifier, TPayload> azureServiceBusReceivedItem = null;
+
+            //FIRST attempt to convert the MEssage into an AzureServiceBus Received Item....
             try
             {
-                //Execute the delegate to handle/process the published item...
-                await receivedItemHandlerAsyncDelegateFunc(azureServiceBusReceivedItem).ConfigureAwait(false);
-
-                //If necessary, we need to Finalize the item with Azure Service Bus (Complete/Abandon) based on the Status returned on the item!
-                if (automaticFinalizationEnabled && !azureServiceBusReceivedItem.IsStatusFinalized)
-                {
-                    await azureServiceBusReceivedItem.SendFinalizedStatusToAzureServiceBusAsync().ConfigureAwait(false);
-                }
-                
+                //Initialize the MessageHandler facade for processing the Azure Service Bus message...
+                azureServiceBusReceivedItem = CreateReceivedItem(
+                    message,
+                    azureServiceBusClient,
+                    Options.FifoEnforcedReceivingEnabled
+                ).AssertNotNull(nameof(azureServiceBusReceivedItem));
             }
             catch (Exception exc)
             {
-                this.Options.LogErrorCallback?.Invoke(exc);
+                var messageException = new Exception("The message could not be correctly initialized due to unexpected exception." +
+                                                     " It must be Dead lettered to prevent blocking of the Service Bus as it will never be" +
+                                                     " processed successfully.", exc);
 
-                //Always Reject/Abandon the message if any unhandled exceptions are thrown...
-                //NOTE: We ALWAYS do this even if autoMessageFinalizationEnabled is false...
-                if (!azureServiceBusReceivedItem.IsStatusFinalized)
-                    await azureServiceBusReceivedItem.SendFinalizedStatusToAzureServiceBusAsync().ConfigureAwait(false);
+                this.Options.LogErrorCallback?.Invoke(messageException);
+
+                //An Exception happened during Message Initialization so we release and dead-letter this message because it can't be initialized!
+                await azureServiceBusClient.DeadLetterAsync(message.SystemProperties.LockToken);
+            }
+
+            //IF the Received Item is successfully initialized then process it!
+            if (azureServiceBusReceivedItem != null)
+            {
+                try
+                {
+                    //Execute the delegate to handle/process the published item...
+                    await receivedItemHandlerAsyncDelegateFunc(azureServiceBusReceivedItem).ConfigureAwait(false);
+
+                    //If necessary, we need to Finalize the item with Azure Service Bus (Complete/Abandon) based on the Status returned on the item!
+                    if (automaticFinalizationEnabled && !azureServiceBusReceivedItem.IsStatusFinalized)
+                    {
+                        await azureServiceBusReceivedItem.SendFinalizedStatusToAzureServiceBusAsync().ConfigureAwait(false);
+                    }
+                }
+                catch (Exception exc)
+                {
+                    this.Options.LogErrorCallback?.Invoke(exc);
+
+                    //Always attempt to Reject/Abandon the message if any unhandled exceptions are thrown...
+                    if (azureServiceBusReceivedItem?.IsStatusFinalized == false)
+                    {
+                        //Finalize the status as set by the Delegate function if it's not already Finalized!
+                        //NOTE: We ALWAYS do this even if autoMessageFinalizationEnabled is false to prevent BLOCKING...
+                        await azureServiceBusReceivedItem.SendFinalizedStatusToAzureServiceBusAsync().ConfigureAwait(false);
+                    }
+                }
             }
         }
 
@@ -369,9 +422,9 @@ namespace SqlTransactionalOutbox.AzureServiceBus.Receiving
 
             //Throw the exception if we can't Log it...
             if(this.Options.LogErrorCallback == null)
-                throw logException;
-
-            this.Options.LogErrorCallback(logException);
+                Debug.WriteLine(logException.GetMessagesRecursively());
+            else
+                this.Options.LogErrorCallback(logException);
 
             return Task.CompletedTask;
         }

@@ -26,7 +26,7 @@ namespace SqlTransactionalOutbox.IntegrationTests
 
             var payloadBuilder = PayloadBuilder.FromJsonSafely(jsonText);
 
-            Assert.AreEqual("SqlTransactionalOutbox/Integration-Tests", payloadBuilder.PublishTopic);
+            Assert.AreEqual("SqlTransactionalOutbox/Integration-Tests", payloadBuilder.PublishTarget);
             Assert.AreEqual("HttpProxy-IntegrationTest", payloadBuilder.FifoGroupingId);
             Assert.AreEqual("CajunCoding", payloadBuilder.To);
             Assert.AreEqual("Testing Json Payload from HttpProxy", payloadBuilder.Body);
@@ -37,7 +37,7 @@ namespace SqlTransactionalOutbox.IntegrationTests
         {
             var jsonText = @"
                 {
-                    ""topic"": ""SqlTransactionalOutbox/Integration-Tests"",
+                    ""publishTopic"": ""SqlTransactionalOutbox/Integration-Tests"",
                     ""FifoGroupingId"": ""HttpProxy-IntegrationTest"",
                     ""to"": ""CajunCoding"",
                     ""body"": ""Testing Json Payload from HttpProxy""
@@ -47,10 +47,10 @@ namespace SqlTransactionalOutbox.IntegrationTests
             var payloadBuilder = PayloadBuilder.FromJsonSafely(jsonText);
             var jsonPayload = payloadBuilder.ToJObject();
 
-            Assert.AreEqual("SqlTransactionalOutbox/Integration-Tests", jsonPayload.ValueSafely<string>(JsonMessageFields.PublishTopic));
-            Assert.AreEqual("HttpProxy-IntegrationTest", jsonPayload.ValueSafely<string>(JsonMessageFields.FifoGroupingId));
-            Assert.AreEqual("CajunCoding", jsonPayload.ValueSafely<string>(JsonMessageFields.To));
-            Assert.AreEqual("Testing Json Payload from HttpProxy", jsonPayload.ValueSafely<string>(JsonMessageFields.Body));
+            Assert.AreEqual("SqlTransactionalOutbox/Integration-Tests", jsonPayload.ValueSafely<string>(nameof(PayloadBuilder.PublishTarget)));
+            Assert.AreEqual("HttpProxy-IntegrationTest", jsonPayload.ValueSafely<string>(nameof(PayloadBuilder.FifoGroupingId)));
+            Assert.AreEqual("CajunCoding", jsonPayload.ValueSafely<string>(nameof(PayloadBuilder.To)));
+            Assert.AreEqual("Testing Json Payload from HttpProxy", jsonPayload.ValueSafely<string>(nameof(PayloadBuilder.Body)));
         }
     }
 }

@@ -12,7 +12,7 @@ namespace SqlTransactionalOutbox.Utilities
 {
     public class PayloadBuilder
     {
-        public string PublishTopic { get; set; }
+        public string PublishTarget { get; set; }
         public string To { get; set; }
         public string FifoGroupingId { get; set; }
         public string Subject { get; set; }
@@ -21,7 +21,7 @@ namespace SqlTransactionalOutbox.Utilities
         public string CorrelationId { get; set; }
         public string ReplyTo { get; set; }
         public string ReplyToSessionId { get; set; }
-        public List<KeyValuePair<string, string>> Headers { get; set; }
+        public Dictionary<string, string> Headers { get; set; }
 
         public static PayloadBuilder FromJsonSafely(string jsonText)
         {
@@ -51,11 +51,13 @@ namespace SqlTransactionalOutbox.Utilities
                                         ?? json.ValueSafely<JObject>(JsonMessageFields.UserProperties);
             if (jsonHeaders != null)
             {
+                this.Headers = new Dictionary<string, string>();
                 //NOTE: We DO NOT convert headers to encoded names here for simplicity and to
                 //      prevent duplicate header name construction/encoding.
-                Headers = jsonHeaders.Properties().Select(prop => 
-                    new KeyValuePair<string, string>(prop.Name, prop.Value.ToString())
-                ).ToList();
+                foreach (var prop in jsonHeaders.Properties())
+                {
+                    this.Headers[prop.Name] = prop.Value.ToString();
+                }
             }
 
             //Make Chainable...
@@ -66,19 +68,34 @@ namespace SqlTransactionalOutbox.Utilities
         {
             lookup.AssertNotNull(nameof(lookup));
 
-            PublishTopic = InitValue(PublishTopic, lookup, overwriteExisting, JsonMessageFields.PublishTopic, JsonMessageFields.Topic);
+            PublishTarget = InitValue(PublishTarget, lookup, overwriteExisting,
+                JsonMessageFields.PublishTarget, JsonMessageFields.PublishTopic, 
+                                JsonMessageFields.QueueTarget, JsonMessageFields.Topic);
+            
             To = InitValue(To, lookup, overwriteExisting, JsonMessageFields.To);
-            FifoGroupingId = InitValue(FifoGroupingId, lookup, overwriteExisting, JsonMessageFields.FifoGroupingId, JsonMessageFields.SessionId);
-            Subject = InitValue(Subject, lookup, overwriteExisting, JsonMessageFields.Subject, JsonMessageFields.Label);
-            CorrelationId = InitValue(CorrelationId, lookup, overwriteExisting, JsonMessageFields.CorrelationId);
-            ReplyTo = InitValue(ReplyTo, lookup, overwriteExisting, JsonMessageFields.ReplyTo);
-            ReplyToSessionId = InitValue(ReplyToSessionId, lookup, overwriteExisting, JsonMessageFields.ReplyToSessionId);
+            
+            FifoGroupingId = InitValue(FifoGroupingId, lookup, overwriteExisting, 
+                JsonMessageFields.FifoGroupingId, JsonMessageFields.SessionId);
+            
+            Subject = InitValue(Subject, lookup, overwriteExisting, 
+                JsonMessageFields.Subject, JsonMessageFields.Label);
+            
+            CorrelationId = InitValue(CorrelationId, lookup, overwriteExisting, 
+                JsonMessageFields.CorrelationId);
+            
+            ReplyTo = InitValue(ReplyTo, lookup, overwriteExisting, 
+                JsonMessageFields.ReplyTo);
+            
+            ReplyToSessionId = InitValue(ReplyToSessionId, lookup, overwriteExisting, 
+                JsonMessageFields.ReplyToSessionId);
 
             //Init the Body and fallback to the original Json is not specified explicitly...
-            Body = InitValue(Body, lookup, overwriteExisting, JsonMessageFields.Body) ?? lookup.ToString();
+            Body = InitValue(Body, lookup, overwriteExisting, 
+                JsonMessageFields.Body) ?? lookup.ToString();
 
             //Look for ContentType but then fallback to detect it if not specified explicitly...
-            ContentType = InitValue(ContentType, lookup, overwriteExisting, JsonMessageFields.ContentType) ?? DetectContentType(Body);
+            ContentType = InitValue(ContentType, lookup, overwriteExisting, 
+                JsonMessageFields.ContentType) ?? DetectContentType(Body);
 
             ////Headers must be defined by JSON Payload for now...
             //var headersList = new List<KeyValuePair<string, string>>();

@@ -5,9 +5,7 @@ using System.Threading.Tasks;
 using Microsoft.Azure.WebJobs;
 using Microsoft.Azure.ServiceBus;
 using Microsoft.Extensions.Logging;
-using Newtonsoft.Json.Linq;
 using SqlTransactionalOutbox.AzureServiceBus;
-using SqlTransactionalOutbox.AzureServiceBus.Receiving;
 using SqlTransactionalOutbox.CustomExtensions;
 
 namespace SqlTransactionalOutbox.SampleApp.AzureFunctions
@@ -31,7 +29,7 @@ namespace SqlTransactionalOutbox.SampleApp.AzureFunctions
             var timer = Stopwatch.StartNew();
             try
             {
-                var receivedItem = new DefaultAzureServiceBusReceivedItem<string>(serviceBusMessage);
+                var receivedItem = serviceBusMessage.ToOutboxReceivedItem<string>();
 
                 logger.LogInformation($"Azure Service Bus Message Received at [{DateTimeOffset.Now}]:" +
                     $"{Environment.NewLine}Label: [{receivedItem.AzureServiceBusMessage.Label}]" +

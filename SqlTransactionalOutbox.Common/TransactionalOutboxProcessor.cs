@@ -185,7 +185,7 @@ namespace SqlTransactionalOutbox
                 results.FailedItems.Add(item);
             }
             //Validate the Item hasn't expired if enabled in the options...
-            else if (options.TimeSpanToLive > TimeSpan.Zero && DateTime.UtcNow.Subtract(item.CreatedDateTimeUtc) >= options.TimeSpanToLive)
+            else if (options.TimeSpanToLive > TimeSpan.Zero && DateTimeOffset.UtcNow.Subtract(item.CreatedDateTimeUtc) >= options.TimeSpanToLive)
             {
                 options.LogDebugCallback?.Invoke(
                     $"Item [{item.UniqueIdentifier}] has failed due to exceeding the maximum time-to-live" +

@@ -54,6 +54,6 @@ namespace SqlTransactionalOutbox
         ///         in SQL Server we can do this with DEFAULT Values to ensure that times are consistently
         ///         derived with no risk of being out-of-sync from parallel processes.
         /// </summary>
-        public DateTime CreatedDateTimeUtc { get; set; }
+        public DateTimeOffset CreatedDateTimeUtc { get; set; }
     }
 }

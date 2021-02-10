@@ -52,12 +52,14 @@ namespace SqlTransactionalOutbox.SqlServer.MicrosoftDataNS
             await using var sqlReader = await sqlCmd.ExecuteReaderAsync().ConfigureAwait(false);
             while (await sqlReader.ReadAsync().ConfigureAwait(false))
             {
+                var createdDateUtcFromDb = (DateTime)sqlReader[OutboxTableConfig.CreatedDateTimeUtcFieldName];
+
                 var outboxItem = OutboxItemFactory.CreateExistingOutboxItem(
                     uniqueIdentifier: ConvertUniqueIdentifierFromDb(sqlReader),
                     status:(string)sqlReader[OutboxTableConfig.StatusFieldName],
                     fifoGroupingIdentifier: (string)sqlReader[OutboxTableConfig.FifoGroupingIdentifier],
                     publishAttempts:(int)sqlReader[OutboxTableConfig.PublishAttemptsFieldName],
-                    createdDateTimeUtc:(DateTime)sqlReader[OutboxTableConfig.CreatedDateTimeUtcFieldName],
+                    createdDateTimeUtc: new DateTimeOffset(createdDateUtcFromDb, TimeSpan.Zero),
                     publishTarget:(string)sqlReader[OutboxTableConfig.PublishTargetFieldName],
                     serializedPayload:(string)sqlReader[OutboxTableConfig.PayloadFieldName]
                 );
@@ -86,7 +88,7 @@ namespace SqlTransactionalOutbox.SqlServer.MicrosoftDataNS
             int insertBatchSize = 20
         )
         {
-            await using var sqlCmd = CreateSqlCommand("");
+            await using var sqlCmd = CreateSqlCommand(string.Empty);
 
             //Use the Outbox Item Factory to create a new Outbox Item with serialized payload.
             var outboxItemsList = outboxItems.Select(
@@ -132,7 +134,7 @@ namespace SqlTransactionalOutbox.SqlServer.MicrosoftDataNS
                     var outboxItem = outboxBatchLookup[uniqueIdentifier].First();
 
                     var createdDateUtcFromDb = (DateTime)sqlReader[OutboxTableConfig.CreatedDateTimeUtcFieldName];
-                    outboxItem.CreatedDateTimeUtc = createdDateUtcFromDb;
+                    outboxItem.CreatedDateTimeUtc = new DateTimeOffset(createdDateUtcFromDb, TimeSpan.Zero);
                 }
             }
 

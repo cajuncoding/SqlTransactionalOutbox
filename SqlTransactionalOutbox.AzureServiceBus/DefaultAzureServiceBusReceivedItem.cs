@@ -7,23 +7,25 @@ using SqlTransactionalOutbox.AzureServiceBus.Receiving;
 
 namespace SqlTransactionalOutbox.AzureServiceBus
 {
-    public class DefaultAzureServiceBusReceivedItem<TPayload> : AzureServiceBusReceivedItem<Guid, TPayload>
+    public class DefaultAzureServiceBusReceivedItem<TPayloadBody> : AzureServiceBusReceivedItem<Guid, TPayloadBody>
     {
         public DefaultAzureServiceBusReceivedItem(
             Message azureServiceBusMessage,
-            ISqlTransactionalOutboxItemFactory<Guid, TPayload> outboxItemFactory = null,
+            ISqlTransactionalOutboxItemFactory<Guid, TPayloadBody> outboxItemFactory = null,
             //Client is OPTIONAL; necessary when processing will be handled by AzureFunctions framework bindings, etc.
             IReceiverClient azureServiceBusClient = null,
             bool isFifoProcessingEnabled = false
         )
         : base(
             azureServiceBusMessage: azureServiceBusMessage, 
-            outboxItemFactory: outboxItemFactory ?? new DefaultOutboxItemFactory<TPayload>(),
+            outboxItemFactory: outboxItemFactory ?? new DefaultOutboxItemFactory<TPayloadBody>(),
             azureServiceBusClient: azureServiceBusClient,
             isFifoProcessingEnabled: isFifoProcessingEnabled
         )
         {
         }
     }
+
+
 
 }

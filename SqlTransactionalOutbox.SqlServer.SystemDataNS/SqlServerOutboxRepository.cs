@@ -52,14 +52,16 @@ namespace SqlTransactionalOutbox.SqlServer.SystemDataNS
             await using var sqlReader = await sqlCmd.ExecuteReaderAsync().ConfigureAwait(false);
             while (await sqlReader.ReadAsync().ConfigureAwait(false))
             {
+                var createdDateUtcFromDb = (DateTime)sqlReader[OutboxTableConfig.CreatedDateTimeUtcFieldName];
+
                 var outboxItem = OutboxItemFactory.CreateExistingOutboxItem(
                     uniqueIdentifier: ConvertUniqueIdentifierFromDb(sqlReader),
-                    status:(string)sqlReader[OutboxTableConfig.StatusFieldName],
+                    status: (string)sqlReader[OutboxTableConfig.StatusFieldName],
                     fifoGroupingIdentifier: (string)sqlReader[OutboxTableConfig.FifoGroupingIdentifier],
-                    publishAttempts:(int)sqlReader[OutboxTableConfig.PublishAttemptsFieldName],
-                    createdDateTimeUtc:(DateTime)sqlReader[OutboxTableConfig.CreatedDateTimeUtcFieldName],
-                    publishTarget:(string)sqlReader[OutboxTableConfig.PublishTargetFieldName],
-                    serializedPayload:(string)sqlReader[OutboxTableConfig.PayloadFieldName]
+                    publishAttempts: (int)sqlReader[OutboxTableConfig.PublishAttemptsFieldName],
+                    createdDateTimeUtc: new DateTimeOffset(createdDateUtcFromDb, TimeSpan.Zero),
+                    publishTarget: (string)sqlReader[OutboxTableConfig.PublishTargetFieldName],
+                    serializedPayload: (string)sqlReader[OutboxTableConfig.PayloadFieldName]
                 );
 
                 results.Add(outboxItem);
@@ -71,7 +73,7 @@ namespace SqlTransactionalOutbox.SqlServer.SystemDataNS
         public virtual async Task CleanupOutboxHistoricalItemsAsync(TimeSpan historyTimeToKeepTimeSpan)
         {
             var purgeHistoryParamName = "@purgeHistoryBeforeDate";
-            var purgeHistoryBeforeDate = DateTime.UtcNow.Subtract(historyTimeToKeepTimeSpan);
+            var purgeHistoryBeforeDate = DateTimeOffset.UtcNow.Subtract(historyTimeToKeepTimeSpan);
 
             var sql = QueryBuilder.BuildSqlForHistoricalOutboxCleanup(purgeHistoryParamName);
             
@@ -86,7 +88,7 @@ namespace SqlTransactionalOutbox.SqlServer.SystemDataNS
             int insertBatchSize = 20
         )
         {
-            await using var sqlCmd = CreateSqlCommand("");
+            await using var sqlCmd = CreateSqlCommand(string.Empty);
 
             //Use the Outbox Item Factory to create a new Outbox Item with serialized payload.
             var outboxItemsList = outboxItems.Select(
@@ -132,7 +134,7 @@ namespace SqlTransactionalOutbox.SqlServer.SystemDataNS
                     var outboxItem = outboxBatchLookup[uniqueIdentifier].First();
 
                     var createdDateUtcFromDb = (DateTime)sqlReader[OutboxTableConfig.CreatedDateTimeUtcFieldName];
-                    outboxItem.CreatedDateTimeUtc = createdDateUtcFromDb;
+                    outboxItem.CreatedDateTimeUtc = new DateTimeOffset(createdDateUtcFromDb, TimeSpan.Zero);
                 }
             }
 

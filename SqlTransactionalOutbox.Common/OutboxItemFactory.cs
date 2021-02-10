@@ -34,8 +34,6 @@ namespace SqlTransactionalOutbox
             //Serialize the Payload for Storage with our Outbox Item...
             var serializedPayload = PayloadSerializer.SerializePayload(publishingPayload);
 
-            //TODO: Implement Logic for Compression Handling!
-
             //Now we can create the fully validated Outbox Item
             var outboxItem = new OutboxProcessingItem<TUniqueIdentifier>()
             {
@@ -44,7 +42,7 @@ namespace SqlTransactionalOutbox
                 Status = OutboxItemStatus.Pending,
                 FifoGroupingIdentifier = fifoGroupingIdentifier,
                 PublishAttempts = 0,
-                CreatedDateTimeUtc = DateTime.UtcNow,
+                CreatedDateTimeUtc = DateTimeOffset.UtcNow,
                 //Initialize client provided details
                 PublishTarget = publishingTarget,
                 Payload = serializedPayload
@@ -55,7 +53,7 @@ namespace SqlTransactionalOutbox
 
         public virtual ISqlTransactionalOutboxItem<TUniqueIdentifier> CreateExistingOutboxItem(
             string uniqueIdentifier,
-            DateTime createdDateTimeUtc,
+            DateTimeOffset createdDateTimeUtc,
             string status,
             string fifoGroupingIdentifier,
             int publishAttempts,
@@ -78,7 +76,7 @@ namespace SqlTransactionalOutbox
 
         public virtual ISqlTransactionalOutboxItem<TUniqueIdentifier> CreateExistingOutboxItem(
             TUniqueIdentifier uniqueIdentifier,
-            DateTime createdDateTimeUtc,
+            DateTimeOffset createdDateTimeUtc,
             string status,
             string fifoGroupingIdentifier,
             int publishAttempts,
@@ -118,7 +116,6 @@ namespace SqlTransactionalOutbox
 
         public TPayload ParsePayload(ISqlTransactionalOutboxItem<TUniqueIdentifier> outboxItem)
         {
-            //TODO: Implement Logic for Compression Handling!
             var payload = PayloadSerializer.DeserializePayload<TPayload>(outboxItem.Payload);
             return payload;
         }

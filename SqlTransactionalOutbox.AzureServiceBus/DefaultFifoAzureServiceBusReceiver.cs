@@ -15,9 +15,16 @@ namespace SqlTransactionalOutbox.AzureServiceBus
         : base(
             azureServiceBusConnectionString, 
             outboxItemFactory ?? new DefaultOutboxItemFactory<TPayload>(),
-            options ?? new AzureServiceBusReceivingOptions() { FifoEnforcedReceivingEnabled = true }
+            InitOptions(options ?? new AzureServiceBusReceivingOptions())
         )
         {
+        }
+
+        private static AzureServiceBusReceivingOptions InitOptions(AzureServiceBusReceivingOptions options)
+        {
+            //FORCE FIFO processing to be enabled!
+            options.FifoEnforcedReceivingEnabled = true;
+            return options;
         }
     }
 }

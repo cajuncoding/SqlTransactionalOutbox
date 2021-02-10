@@ -11,7 +11,7 @@ using SqlTransactionalOutbox.Receiving;
 
 namespace SqlTransactionalOutbox.AzureServiceBus.Receiving
 {
-    public class AzureServiceBusReceivedItem<TUniqueIdentifier, TPayload> : OutboxReceivedItem<TUniqueIdentifier, TPayload>
+    public class AzureServiceBusReceivedItem<TUniqueIdentifier, TPayloadBody> : OutboxReceivedItem<TUniqueIdentifier, TPayloadBody>
     {
         private const string AzureServiceBusClientIsClosedErrorMessage =
             "Unable to explicitly reject/abandon receipt of the message because the AzureServiceBusClient" +
@@ -23,7 +23,7 @@ namespace SqlTransactionalOutbox.AzureServiceBus.Receiving
 
         public AzureServiceBusReceivedItem(
             Message azureServiceBusMessage,
-            ISqlTransactionalOutboxItemFactory<TUniqueIdentifier, TPayload> outboxItemFactory,
+            ISqlTransactionalOutboxItemFactory<TUniqueIdentifier, TPayloadBody> outboxItemFactory,
             //Client is OPTIONAL; necessary when processing will be handled by AzureFunctions framework bindings, etc.
             IReceiverClient azureServiceBusClient = null,
             bool isFifoProcessingEnabled = false
@@ -37,7 +37,7 @@ namespace SqlTransactionalOutbox.AzureServiceBus.Receiving
 
             var outboxItem = outboxItemFactory.CreateExistingOutboxItem(
                 uniqueIdentifier: azureServiceBusMessage.MessageId,
-                createdDateTimeUtc: (DateTime)azureServiceBusMessage.UserProperties[MessageHeaders.OutboxCreatedDateUtc],
+                createdDateTimeUtc: (DateTimeOffset)azureServiceBusMessage.UserProperties[MessageHeaders.OutboxCreatedDateUtc],
                 status: OutboxItemStatus.Successful.ToString(),
                 fifoGroupingIdentifier: azureServiceBusMessage.SessionId,
                 publishAttempts: (int)azureServiceBusMessage.UserProperties[MessageHeaders.OutboxPublishingAttempts],
@@ -79,25 +79,31 @@ namespace SqlTransactionalOutbox.AzureServiceBus.Receiving
             }
         }
 
-        public override Task AcknowledgeSuccessfulReceiptAsync()
+        public override async Task AcknowledgeSuccessfulReceiptAsync()
         {
-            return ProcessAzureServiceBusStatusAsync(
+            await ProcessAzureServiceBusStatusAsync(
                 (lockToken) => this.AzureServiceBusClient?.CompleteAsync(lockToken)
-            );
+            ).ConfigureAwait(false);
+
+            await base.AcknowledgeSuccessfulReceiptAsync().ConfigureAwait(false);
         }
 
-        public override Task RejectAndAbandonAsync()
+        public override async Task RejectAndAbandonAsync()
         {
-            return ProcessAzureServiceBusStatusAsync(
+            await ProcessAzureServiceBusStatusAsync(
                 (lockToken) => this.AzureServiceBusClient?.AbandonAsync(lockToken)
-            );
+            ).ConfigureAwait(false);
+
+            await base.RejectAndAbandonAsync().ConfigureAwait(false);
         }
 
-        public override Task RejectAsDeadLetterAsync()
+        public override async Task RejectAsDeadLetterAsync()
         {
-            return ProcessAzureServiceBusStatusAsync(
+            await ProcessAzureServiceBusStatusAsync(
                 (lockToken) => this.AzureServiceBusClient?.DeadLetterAsync(lockToken)
-            );
+            ).ConfigureAwait(false);
+
+            await base.RejectAsDeadLetterAsync().ConfigureAwait(false);
         }
 
         protected virtual async Task ProcessAzureServiceBusStatusAsync(Func<string, Task> sendStatusFunc)
@@ -114,9 +120,6 @@ namespace SqlTransactionalOutbox.AzureServiceBus.Receiving
             //Acknowledge & Complete the Receipt of the Message!
             var lockToken = this.AzureServiceBusMessage.SystemProperties.LockToken;
             await sendStatusFunc(lockToken).ConfigureAwait(false);
-
-            //Ensure that we are re-entrant and don't attempt to finalize again...
-            IsStatusFinalized = true;
         }
     }
 }

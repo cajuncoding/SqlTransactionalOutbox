@@ -7,7 +7,7 @@ using SqlTransactionalOutbox.CustomExtensions;
 
 namespace SqlTransactionalOutbox.Receiving
 {
-    public class OutboxReceivedItem<TUniqueIdentifier, TPayload> : ISqlTransactionalOutboxReceivedItem<TUniqueIdentifier, TPayload>
+    public class OutboxReceivedItem<TUniqueIdentifier, TPayloadBody> : ISqlTransactionalOutboxReceivedItem<TUniqueIdentifier, TPayloadBody>
     {
         public bool IsStatusFinalized { get; protected set; } = false;
         public OutboxReceivedItemProcessingStatus Status { get; protected set;  } = OutboxReceivedItemProcessingStatus.RejectAndAbandon;
@@ -20,7 +20,7 @@ namespace SqlTransactionalOutbox.Receiving
 
         protected ILookup<string, object> HeadersLookup = null;
         protected bool IsDisposed { get; set; } = false;
-        protected Func<ISqlTransactionalOutboxItem<TUniqueIdentifier>, TPayload> ParsePayloadFunc { get; set; }
+        protected Func<ISqlTransactionalOutboxItem<TUniqueIdentifier>, TPayloadBody> ParsePayloadFunc { get; set; }
         
         public bool IsFifoEnforcedReceivingEnabled { get; protected set; }
         public string FifoGroupingIdentifier { get; protected set; }
@@ -34,7 +34,7 @@ namespace SqlTransactionalOutbox.Receiving
             ISqlTransactionalOutboxItem<TUniqueIdentifier> outboxItem,
             ILookup<string, object> headersLookup,
             string contentType,
-            Func<ISqlTransactionalOutboxItem<TUniqueIdentifier>, TPayload> parsePayloadFunc,
+            Func<ISqlTransactionalOutboxItem<TUniqueIdentifier>, TPayloadBody> parsePayloadFunc,
             bool enableFifoEnforcedReceiving = false,
             string fifoGroupingIdentifier = null,
             string correlationId = null
@@ -55,7 +55,7 @@ namespace SqlTransactionalOutbox.Receiving
             ISqlTransactionalOutboxItem<TUniqueIdentifier> outboxItem,
             ILookup<string, object> headersLookup,
             string contentType,
-            Func<ISqlTransactionalOutboxItem<TUniqueIdentifier>, TPayload> parsePayloadFunc,
+            Func<ISqlTransactionalOutboxItem<TUniqueIdentifier>, TPayloadBody> parsePayloadFunc,
             bool isFifoProcessingEnabled = false,
             string fifoGroupingIdentifier = null,
             string correlationId = null
@@ -73,7 +73,7 @@ namespace SqlTransactionalOutbox.Receiving
             FifoGroupingIdentifier = fifoGroupingIdentifier;
         }
 
-        public TPayload ParsePayloadBody()
+        public TPayloadBody ParsePayloadBody()
         {
             var payload = ParsePayloadFunc(PublishedItem);
             return payload;

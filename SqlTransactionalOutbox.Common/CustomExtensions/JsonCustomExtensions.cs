@@ -78,12 +78,19 @@ namespace SqlTransactionalOutbox.JsonExtensions
         {
             if (json == null) return defaultValue;
 
-            var jToken = json.GetValue(fieldName, StringComparison.OrdinalIgnoreCase);
-            var value = jToken == null
-                ? defaultValue
-                : jToken.Value<TValue>();
+            try
+            {
+                var jToken = json.GetValue(fieldName, StringComparison.OrdinalIgnoreCase);
+                var value = jToken == null
+                    ? defaultValue
+                    : jToken.Value<TValue>();
 
-            return value;
+                return value;
+            }
+            catch (Exception)
+            {
+                return defaultValue;
+            }
         }
     }
 }

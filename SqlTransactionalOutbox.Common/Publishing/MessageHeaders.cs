@@ -6,8 +6,11 @@ namespace SqlTransactionalOutbox.Publishing
 {
     public class JsonMessageFields
     {
-        public const string Topic = "topic"; // Convenience Alias for PublishTopic
+        public const string Topic = "topic"; // Convenience Alias for PublishTarget
         public const string PublishTopic = "publishTopic";
+        public const string PublishTarget = "publishTarget";
+        public const string QueueTarget = "queueTarget";
+
         public const string To = "to";
         public const string Body = "body";
         public const string FifoGroupingId = "fifoGroupingId"; // Convenience Alias for SessionId

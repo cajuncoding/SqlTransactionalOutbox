@@ -14,7 +14,7 @@ namespace SqlTransactionalOutbox
         
         ISqlTransactionalOutboxItem<TUniqueIdentifier> CreateExistingOutboxItem(
             string uniqueIdentifier,
-            DateTime createdDateTimeUtc,
+            DateTimeOffset createdDateTimeUtc,
             string status,
             string fifoGroupingIdentifier,
             int publishAttempts,
@@ -25,7 +25,7 @@ namespace SqlTransactionalOutbox
 
         ISqlTransactionalOutboxItem<TUniqueIdentifier> CreateExistingOutboxItem(
             TUniqueIdentifier uniqueIdentifier,
-            DateTime createdDateTimeUtc,
+            DateTimeOffset createdDateTimeUtc,
             string status,
             string fifoGroupingIdentifier,
             int publishAttempts,

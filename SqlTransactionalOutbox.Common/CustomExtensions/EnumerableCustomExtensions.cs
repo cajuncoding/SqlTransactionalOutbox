@@ -5,7 +5,6 @@ using System.Text;
 
 namespace SqlTransactionalOutbox.CustomExtensions
 {
-
     public static class EnumerableCustomExtensions
     {
         /// <summary>

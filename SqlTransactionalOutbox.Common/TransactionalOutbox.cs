@@ -45,7 +45,10 @@ namespace SqlTransactionalOutbox
         )
         {
             //Store the outbox item using the Repository...
-            var resultItems = await OutboxRepository.InsertNewOutboxItemsAsync(outboxInsertionItems).ConfigureAwait(false);
+            var resultItems = await OutboxRepository
+                .InsertNewOutboxItemsAsync(outboxInsertionItems)
+                .ConfigureAwait(false);
+            
             return resultItems;
         }
 
