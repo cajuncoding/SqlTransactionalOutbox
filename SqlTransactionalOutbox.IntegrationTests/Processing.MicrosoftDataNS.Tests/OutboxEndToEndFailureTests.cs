@@ -24,16 +24,16 @@ namespace SqlTransactionalOutbox.IntegrationTests.MicrosoftDataNS
             //*****************************************************************************************
             //* STEP 1 - Prepare/Clear the Queue Table
             //*****************************************************************************************
-            await SystemDataSqlTestHelpers.PopulateTransactionalOutboxTestDataAsync(failedItemTestDataSizeByBatch);
+            await MicrosoftDataSqlTestHelpers.PopulateTransactionalOutboxTestDataAsync(failedItemTestDataSizeByBatch);
 
             //*****************************************************************************************
             //* STEP 2 - Add a Second & Third batch of items with different TTL
             //*****************************************************************************************
             await Task.Delay(timeToLiveTimeSpan + TimeSpan.FromMilliseconds(500));
-            await SystemDataSqlTestHelpers.PopulateTransactionalOutboxTestDataAsync(successfulItemTestDataSize, false);
+            await MicrosoftDataSqlTestHelpers.PopulateTransactionalOutboxTestDataAsync(successfulItemTestDataSize, false);
 
             //Insert in a second batch to force different Creation Dates at the DB level...
-            await SystemDataSqlTestHelpers.PopulateTransactionalOutboxTestDataAsync(successfulItemTestDataSize, false);
+            await MicrosoftDataSqlTestHelpers.PopulateTransactionalOutboxTestDataAsync(successfulItemTestDataSize, false);
 
             //*****************************************************************************************
             //* STEP 2 - Process Outbox and get Results
@@ -147,7 +147,7 @@ namespace SqlTransactionalOutbox.IntegrationTests.MicrosoftDataNS
             //*****************************************************************************************
             //* STEP 1 - Prepare/Clear the Queue Table
             //*****************************************************************************************
-            await SystemDataSqlTestHelpers.PopulateTransactionalOutboxTestDataAsync(testDataSize);
+            await MicrosoftDataSqlTestHelpers.PopulateTransactionalOutboxTestDataAsync(testDataSize);
 
             //*****************************************************************************************
             //* STEP 2 - Setup Custom Publisher & Processing Options...

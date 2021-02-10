@@ -23,7 +23,7 @@ namespace SqlTransactionalOutbox.IntegrationTests.MicrosoftDataNS
             //*****************************************************************************************
             //* STEP 1 - Prepare/Clear the Queue Table
             //*****************************************************************************************
-            await SystemDataSqlTestHelpers.PopulateTransactionalOutboxTestDataAsync(100);
+            await MicrosoftDataSqlTestHelpers.PopulateTransactionalOutboxTestDataAsync(100);
 
             //*****************************************************************************************
             //* STEP 3 - Executing processing of the Pending Items in the Queue...

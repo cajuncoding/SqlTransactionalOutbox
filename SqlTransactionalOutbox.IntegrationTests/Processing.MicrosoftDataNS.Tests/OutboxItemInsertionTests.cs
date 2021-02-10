@@ -85,7 +85,7 @@ namespace SqlTransactionalOutbox.IntegrationTests.MicrosoftDataNS
             var testPublisher = new TestHarnessSqlTransactionalOutboxPublisher();
 
             //Create Test Data
-            var insertedResults = await SystemDataSqlTestHelpers.PopulateTransactionalOutboxTestDataAsync(100);
+            var insertedResults = await MicrosoftDataSqlTestHelpers.PopulateTransactionalOutboxTestDataAsync(100);
 
             //Initialize Transaction and Outbox Processor
             await using var sqlConnection = await SqlConnectionHelper.CreateMicrosoftDataSqlConnectionAsync().ConfigureAwait(false);

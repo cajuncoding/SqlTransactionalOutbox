@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using SqlTransactionalOutbox.SqlServer.SystemDataNS;
+using SqlTransactionalOutbox.SqlServer.MicrosoftDataNS;
 using SystemData = System.Data.SqlClient;
 using MicrosoftData = Microsoft.Data.SqlClient;
 
@@ -69,6 +70,32 @@ namespace SqlTransactionalOutbox.Tests
             //*****************************************************************************************
             //Clear the Table data for the test...
             if(clearExistingOutbox)
+                await sqlConnection.TruncateTransactionalOutboxTableAsync();
+
+            //*****************************************************************************************
+            //* STEP 2 - Insert New Outbox Items to process with TestHarness for Publishing...
+            //*****************************************************************************************
+            var outboxTestItems = TestHelper.CreateTestStringOutboxItemData(testDataSize);
+            var insertedResults = await sqlConnection
+                .AddTransactionalOutboxPendingItemListAsync(outboxTestItems)
+                .ConfigureAwait(false);
+
+            return insertedResults;
+        }
+    }
+
+    public static class MicrosoftDataSqlTestHelpers
+    {
+        public static async Task<List<ISqlTransactionalOutboxItem<Guid>>> PopulateTransactionalOutboxTestDataAsync(int testDataSize, bool clearExistingOutbox = true)
+        {
+            //Organize
+            await using var sqlConnection = await SqlConnectionHelper.CreateMicrosoftDataSqlConnectionAsync();
+
+            //*****************************************************************************************
+            //* STEP 1 - Prepare/Clear the Queue Table
+            //*****************************************************************************************
+            //Clear the Table data for the test...
+            if (clearExistingOutbox)
                 await sqlConnection.TruncateTransactionalOutboxTableAsync();
 
             //*****************************************************************************************

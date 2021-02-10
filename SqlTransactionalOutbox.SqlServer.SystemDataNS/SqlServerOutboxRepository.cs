@@ -10,40 +10,40 @@ using SqlTransactionalOutbox.SqlServer.Common;
 
 namespace SqlTransactionalOutbox.SqlServer.SystemDataNS
 {
-    public class SqlServerOutboxRepository<TUniqueIdentifier, TPayload> 
+    public class SqlServerOutboxRepository<TUniqueIdentifier, TPayload>
         : BaseSqlServerTransactionalOutboxRepository<TUniqueIdentifier, TPayload>, ISqlTransactionalOutboxRepository<TUniqueIdentifier, TPayload>
     {
         protected SqlTransaction SqlTransaction { get; set; }
         protected SqlConnection SqlConnection { get; set; }
 
         public SqlServerOutboxRepository(
-            SqlTransaction sqlTransaction, 
+            SqlTransaction sqlTransaction,
             ISqlTransactionalOutboxTableConfig outboxTableConfig = null,
             ISqlTransactionalOutboxItemFactory<TUniqueIdentifier, TPayload> outboxItemFactory = null,
             int distributedMutexAcquisitionTimeoutSeconds = Defaults.DistributedMutexAcquisitionTimeoutSeconds
         )
         {
-            SqlTransaction = sqlTransaction ?? 
+            SqlTransaction = sqlTransaction ??
                 throw new ArgumentNullException(nameof(sqlTransaction), "A valid SqlTransaction must be provided for Sql Transactional Outbox processing.");
 
-            SqlConnection = sqlTransaction.Connection ?? 
+            SqlConnection = sqlTransaction.Connection ??
                 throw new ArgumentNullException(nameof(SqlConnection), "The SqlTransaction specified must have a valid SqlConnection.");
 
             base.Init(
-                outboxTableConfig: outboxTableConfig.AssertNotNull(nameof(outboxTableConfig)), 
-                outboxItemFactory: outboxItemFactory.AssertNotNull(nameof(outboxItemFactory)), 
+                outboxTableConfig: outboxTableConfig.AssertNotNull(nameof(outboxTableConfig)),
+                outboxItemFactory: outboxItemFactory.AssertNotNull(nameof(outboxItemFactory)),
                 distributedMutexAcquisitionTimeoutSeconds
             );
         }
 
         public virtual async Task<List<ISqlTransactionalOutboxItem<TUniqueIdentifier>>> RetrieveOutboxItemsAsync(
-            OutboxItemStatus status, 
+            OutboxItemStatus status,
             int maxBatchSize = -1
         )
         {
             var statusParamName = OutboxTableConfig.StatusFieldName;
             var sql = QueryBuilder.BuildSqlForRetrieveOutboxItemsByStatus(status, maxBatchSize, statusParamName);
-            
+
             await using var sqlCmd = CreateSqlCommand(sql);
             AddParam(sqlCmd, statusParamName, status.ToString(), SqlDbType.VarChar);
 
@@ -73,10 +73,10 @@ namespace SqlTransactionalOutbox.SqlServer.SystemDataNS
         public virtual async Task CleanupOutboxHistoricalItemsAsync(TimeSpan historyTimeToKeepTimeSpan)
         {
             var purgeHistoryParamName = "@purgeHistoryBeforeDate";
-            var purgeHistoryBeforeDate = DateTimeOffset.UtcNow.Subtract(historyTimeToKeepTimeSpan);
+            var purgeHistoryBeforeDate = DateTime.UtcNow.Subtract(historyTimeToKeepTimeSpan);
 
             var sql = QueryBuilder.BuildSqlForHistoricalOutboxCleanup(purgeHistoryParamName);
-            
+
             await using var sqlCmd = CreateSqlCommand(sql);
             AddParam(sqlCmd, purgeHistoryParamName, purgeHistoryBeforeDate, SqlDbType.DateTime2);
 
@@ -84,7 +84,7 @@ namespace SqlTransactionalOutbox.SqlServer.SystemDataNS
         }
 
         public virtual async Task<List<ISqlTransactionalOutboxItem<TUniqueIdentifier>>> InsertNewOutboxItemsAsync(
-            IEnumerable<ISqlTransactionalOutboxInsertionItem<TPayload>> outboxItems, 
+            IEnumerable<ISqlTransactionalOutboxInsertionItem<TPayload>> outboxItems,
             int insertBatchSize = 20
         )
         {
@@ -93,7 +93,7 @@ namespace SqlTransactionalOutbox.SqlServer.SystemDataNS
             //Use the Outbox Item Factory to create a new Outbox Item with serialized payload.
             var outboxItemsList = outboxItems.Select(
                 i => OutboxItemFactory.CreateNewOutboxItem(
-                    i.PublishingTarget, 
+                    i.PublishingTarget,
                     i.PublishingPayload,
                     i.FifoGroupingIdentifier
                 )
@@ -142,7 +142,7 @@ namespace SqlTransactionalOutbox.SqlServer.SystemDataNS
         }
 
         public virtual async Task<List<ISqlTransactionalOutboxItem<TUniqueIdentifier>>> UpdateOutboxItemsAsync(
-            IEnumerable<ISqlTransactionalOutboxItem<TUniqueIdentifier>> outboxItems, 
+            IEnumerable<ISqlTransactionalOutboxItem<TUniqueIdentifier>> outboxItems,
             int updateBatchSize = 20
         )
         {
@@ -206,7 +206,7 @@ namespace SqlTransactionalOutbox.SqlServer.SystemDataNS
         public virtual async Task<IAsyncDisposable> AcquireDistributedProcessingMutexAsync()
         {
             var distributedMutex = await SqlTransaction.AcquireAppLockAsync(
-                DistributedMutexLockName, 
+                DistributedMutexLockName,
                 DistributedMutexAcquisitionTimeoutSeconds,
                 throwsException: false
             );
@@ -216,7 +216,7 @@ namespace SqlTransactionalOutbox.SqlServer.SystemDataNS
         }
 
         #region Helpers
-        
+
         protected virtual SqlCommand CreateSqlCommand(string sqlCmdText)
         {
             var sqlCmd = new SqlCommand(sqlCmdText, this.SqlConnection, this.SqlTransaction)
