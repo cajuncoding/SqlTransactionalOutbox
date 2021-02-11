@@ -17,3 +17,4 @@ Provide documentation for:
  - Simplified usage of default implementations using easy to consume CustomExtensions.
  - Advanced usage of default implementations with Options
  - Summary of details for customizing impleentations as needed (e.g. Different Publishing implementation)
+ - Provide link directly to SQL Script for Default table schema creation 
