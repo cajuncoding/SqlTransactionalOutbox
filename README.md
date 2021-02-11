@@ -1,6 +1,7 @@
 # SqlTransactionalOutbox
-A lightweight library for implementing the Transactional Outbox pattern in .Net with default implementaions for SQL Server & messaging via Azure Service Bus. 
-One of the main goals was to offer support for running in serverless environments (without necessary 'worker threads') and the SqlTransactionalOutbox can be easily consumed either way: as hosted .Net Framework/.Net Core, or as a server-less Azure Functions deployment. Another primary goal of the library is to provide support for enforcing true FIFO processing to preserve ordering. 
+A lightweight library & framework for implementing the Transactional Outbox pattern in .Net with default implementaions for SQL Server & messaging via Azure Service Bus. Some of the key benefits offered are support for running in serverless environments (e.g. AzureFunctions) or in standard hosted .Net applications (via 'worker threads'), and support for enforcing true FIFO processing to preserve ordering, and a simplified abstractions for the Outbox, Outbox Processing, and Messaging systems utilized.
+
+One of the main goals was to offer support for running in serverless environments such as Azure Functions, and the SqlTransactionalOutbox can be easily utilized either way: as hosted .Net Framework/.Net Core application (via 'worker threads'), or as a serverless Azure Functions deployment. Another primary goal of the library is to provide support for enforcing true FIFO processing to preserve ordering as well as providing safe coordination in horizontally scaled environments (e.g. serverless, or load balanced web servers).
 
 The library is completely interface based and extremely modular. In addition, all existing class methods are exposed as virtual methods to make it easy to customize existing implementations as needed, but ultimately we hope that the default implementations will work for the majority of use cases.
 
