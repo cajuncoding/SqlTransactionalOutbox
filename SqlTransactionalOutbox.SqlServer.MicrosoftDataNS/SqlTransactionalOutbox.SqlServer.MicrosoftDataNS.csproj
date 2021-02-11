@@ -1,0 +1,30 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <RootNamespace>SqlTransactionalOutbox.SqlServer</RootNamespace>
+    <Version>0.0.1</Version>
+    <Authors>BBernard / CajunCoding</Authors>
+    <Copyright>Copyright © 2021</Copyright>
+    <Description>The SQL Server outbox implementation of SqlTransactionalOutbox framework using the new Microsoft.Data.SqlClient libraries.
+
+A lightweight library &amp; framework for implementing the Transactional Outbox pattern in .Net with default implementaions for SQL Server &amp; messaging via Azure Service Bus. Some of the key benefits offered are support for running in serverless environments (e.g. AzureFunctions) or in standard hosted .Net applications (via 'worker threads'), and support for enforcing true FIFO processing to preserve ordering, and a simplified abstractions for the Outbox, Outbox Processing, and Messaging systems utilized.
+</Description>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/cajuncoding/SqlTransactionalOutbox</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/cajuncoding/SqlTransactionalOutbox</RepositoryUrl>
+    <PackageTags>sql server sqlserver sql-server transactional outbox transactional-outbox outbox-pattern microservice eventservices event-services event-notifications azure service bus azurefunctions azure-functions</PackageTags>
+    <PackageReleaseNotes>Initial BETA release for default implementations of SQL Server transactional outbox.</PackageReleaseNotes>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Data.SqlClient" Version="2.1.1" />
+    <PackageReference Include="SqlAppLockHelper.MicrosoftData" Version="1.0.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\SqlTransactionalOutbox.Common\SqlTransactionalOutbox.Common.csproj" />
+    <ProjectReference Include="..\SqlTransactionalOutbox.SqlServer.Common\SqlTransactionalOutbox.SqlServer.Common.csproj" />
+  </ItemGroup>
+
+</Project>
