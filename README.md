@@ -6,7 +6,7 @@ One of the main goals was to offer support for running in serverless environment
 The library is completely interface based and extremely modular. In addition, all existing class methods are exposed as virtual methods to make it easy to customize existing implementations as needed, but ultimately we hope that the default implementations will work for the majority of use cases.
 
 ## BETA Release v0.0.1
-THe library is current being shared/released in a Beta form as we use it for a variety of projects.  As our confidence in the functionality and stability increases through testing. Release notes and detais will be posted here as needed.
+The library is current being shared/released in a _Beta_ form. It is being actively used for a variety of projects, and as the confidence in the functionality and stability increases through testing we will update and provide a full release. Release notes and detais will be posted here as needed.
 
 ## Nuget:
 Updae with Nuget Detauls once published.
