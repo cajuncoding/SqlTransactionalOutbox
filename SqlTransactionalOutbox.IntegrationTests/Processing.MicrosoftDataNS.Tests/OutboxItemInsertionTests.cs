@@ -79,6 +79,52 @@ namespace SqlTransactionalOutbox.IntegrationTests.MicrosoftDataNS
             });
         }
 
+
+        [TestMethod]
+        public async Task TestNewOutboxItemInsertionIndividualItemsViaConvenienceMethods()
+        {
+            //Organize
+            await using var sqlConnection = await SqlConnectionHelper.CreateMicrosoftDataSqlConnectionAsync();
+
+            //Clear the Table data for the test...
+            await sqlConnection.TruncateTransactionalOutboxTableAsync();
+
+            //Initialize Transaction and Outbox Processor
+            var outboxTestItems = TestHelper.CreateTestStringOutboxItemData(2);
+
+            //Execute
+            var timer = Stopwatch.StartNew();
+
+            //Add Item 1!
+            var insertedResult1 = await sqlConnection
+                .AddTransactionalOutboxPendingItemAsync(
+                    outboxTestItems[0].PublishingTarget,
+                    outboxTestItems[0].PublishingPayload,
+                    outboxTestItems[0].FifoGroupingIdentifier
+                )
+                .ConfigureAwait(false);
+
+            TestContext?.WriteLine($"Inserted First Item in [{timer.Elapsed.ToElapsedTimeDescriptiveFormat()}].");
+            Assert.IsNotNull(insertedResult1);
+            Assert.IsNotNull(insertedResult1.UniqueIdentifier);
+            Assert.AreEqual(DateTime.UtcNow.Date, insertedResult1.CreatedDateTimeUtc.Date);
+
+            //Add Item 2 (No FifoGroupingIdentifier)!
+            var insertedResult2 = await sqlConnection
+                .AddTransactionalOutboxPendingItemAsync(
+                    outboxTestItems[1].PublishingTarget,
+                    outboxTestItems[1].PublishingPayload
+                )
+                .ConfigureAwait(false);
+
+            TestContext?.WriteLine($"Inserted First Item in [{timer.Elapsed.ToElapsedTimeDescriptiveFormat()}].");
+            Assert.IsNotNull(insertedResult2);
+            Assert.IsNotNull(insertedResult2.UniqueIdentifier);
+            Assert.AreEqual(DateTime.UtcNow.Date, insertedResult2.CreatedDateTimeUtc.Date);
+
+            timer.Stop();
+        }
+
         [TestMethod]
         public async Task TestNewOutboxItemInsertionAndRetrieval()
         {

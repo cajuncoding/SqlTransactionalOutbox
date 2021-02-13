@@ -21,7 +21,7 @@ namespace SqlTransactionalOutbox.SampleApp.AzureFunctions.Functions
                 {
                     SenderApplicationName = $"{typeof(TransactionalOutboxAgentFunction).Assembly.GetName().Name}.{nameof(TransactionalOutboxAgentFunction)}",
                     LogDebugCallback = (s) => log.LogDebug(s),
-                    LogErrorCallback = (e) => log.LogError(e, "Unexpected Exception occurred while attempting to store into the Transactional Outbox.")
+                    LogErrorCallback = (e) => log.LogError(e, "Unexpected Exception occurred while Processing the Transactional Outbox.")
                 }
             );
 

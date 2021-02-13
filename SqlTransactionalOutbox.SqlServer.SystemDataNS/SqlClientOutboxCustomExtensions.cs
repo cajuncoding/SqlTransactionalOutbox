@@ -11,9 +11,9 @@ namespace SqlTransactionalOutbox.SqlServer.SystemDataNS
     public static class SqlClientOutboxCustomExtensions
     {
         /// <summary>
-        /// Convenience method for adding an item easily from a JSON representation of data to add to the Outbox.  Using
-        /// this approach is highly flexible as the payload can control the Outbox and publishing process in an non-coupled
-        /// way (via late binding).  Validation of required fields will result in exceptions.
+        /// Convenience method for adding a completely dynamic JSON payload item easily to the Outbox. Using this approach
+        /// is highly flexible as the payload can control the Outbox and publishing process in very dynamic way;
+        /// any failed validation of required fields will result in exceptions.
         /// This will parse and process the json payload with the Transactional Outbox using Default implementations (e.g. GUID identifier).
         /// This method will create and commit the Transaction automatically, but may error if a running transaction
         /// is already in progress in which case the custom extension of the Transaction should be used directly instead.
@@ -211,7 +211,7 @@ namespace SqlTransactionalOutbox.SqlServer.SystemDataNS
         public static async Task<ISqlTransactionalOutboxItem<Guid>> AddTransactionalOutboxPendingItemAsync<TPayload>(
             this SqlTransaction sqlTransaction,
             string publishTarget,
-            TPayload jsonPayload,
+            TPayload payload,
             string fifoGroupingIdentifier = null
         )
         {
@@ -221,7 +221,7 @@ namespace SqlTransactionalOutbox.SqlServer.SystemDataNS
             var outbox = new DefaultSqlServerTransactionalOutbox<TPayload>(sqlTransaction);
             var outboxItem = await outbox.InsertNewPendingOutboxItemAsync(
                 publishingTarget: publishTarget,
-                publishingPayload: jsonPayload,
+                publishingPayload: payload,
                 fifoGroupingIdentifier: fifoGroupingIdentifier
             ).ConfigureAwait(false);
 

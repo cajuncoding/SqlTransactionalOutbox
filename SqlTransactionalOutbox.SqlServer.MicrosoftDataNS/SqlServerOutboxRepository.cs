@@ -234,11 +234,12 @@ namespace SqlTransactionalOutbox.SqlServer.MicrosoftDataNS
             //the Size = -1 to force MAX size usage in the SqlClient parameter binding...
             if (name.Equals(OutboxTableConfig.PayloadFieldName, StringComparison.OrdinalIgnoreCase))
             {
-                sqlCmd.Parameters.Add(paramName, SqlDbType.NVarChar, -1).Value = value;
+                sqlCmd.Parameters.Add(paramName, SqlDbType.NVarChar, -1).Value = value ?? DBNull.Value;
             }
             else
             {
-                sqlCmd.Parameters.Add(paramName, dbType).Value = value;
+                //NOTE: We MUST explicitly coalesce to DBNull if the value is null....
+                sqlCmd.Parameters.Add(paramName, dbType).Value = value ?? DBNull.Value;
             }
         }
 
