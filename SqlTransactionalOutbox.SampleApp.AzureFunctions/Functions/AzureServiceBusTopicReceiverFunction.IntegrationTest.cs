@@ -32,16 +32,16 @@ namespace SqlTransactionalOutbox.SampleApp.AzureFunctions
                 var receivedItem = serviceBusMessage.ToOutboxReceivedItem<string>();
 
                 logger.LogInformation($"Azure Service Bus Message Received at [{DateTimeOffset.Now}]:" +
-                    $"{Environment.NewLine}Label: [{receivedItem.AzureServiceBusMessage.Label}]" +
-                    $"{Environment.NewLine}UniqueIdentifier: [{receivedItem.UniqueIdentifier}]" +
-                    $"{Environment.NewLine}Content Type: [{receivedItem.ContentType}]" +
-                    $"{Environment.NewLine}Correlation ID: [{receivedItem.CorrelationId}]" +
-                    $"{Environment.NewLine}FIFO Grouping ID: [{receivedItem.FifoGroupingIdentifier}]" +
-                    $"{Environment.NewLine}Created Date UTC: [{receivedItem.PublishedItem.CreatedDateTimeUtc}]" +
-                    $"{Environment.NewLine}Publish Target: [{receivedItem.PublishedItem.PublishTarget}]" +
-                    $"{Environment.NewLine}Publish Attempts: [{receivedItem.PublishedItem.PublishAttempts}]" +
-                    $"{Environment.NewLine}Publish Status: [{receivedItem.PublishedItem.Status}]" +
-                    $"{Environment.NewLine}Payload:{Environment.NewLine}{receivedItem.ParsePayloadBody()}" +
+                    $"{Environment.NewLine} - Label: [{receivedItem.AzureServiceBusMessage.Label}]" +
+                    $"{Environment.NewLine} - UniqueIdentifier: [{receivedItem.UniqueIdentifier}]" +
+                    $"{Environment.NewLine} - Content Type: [{receivedItem.ContentType}]" +
+                    $"{Environment.NewLine} - Correlation ID: [{receivedItem.CorrelationId}]" +
+                    $"{Environment.NewLine} - FIFO Grouping ID: [{receivedItem.FifoGroupingIdentifier}]" +
+                    $"{Environment.NewLine} - Created Date UTC: [{receivedItem.PublishedItem.CreatedDateTimeUtc}]" +
+                    $"{Environment.NewLine} - Publish Target: [{receivedItem.PublishedItem.PublishTarget}]" +
+                    $"{Environment.NewLine} - Publish Attempts: [{receivedItem.PublishedItem.PublishAttempts}]" +
+                    $"{Environment.NewLine} - Publish Status: [{receivedItem.PublishedItem.Status}]" +
+                    $"{Environment.NewLine} - Payload:{Environment.NewLine}{receivedItem.ParsedBody}" +
                     Environment.NewLine
                 );
 

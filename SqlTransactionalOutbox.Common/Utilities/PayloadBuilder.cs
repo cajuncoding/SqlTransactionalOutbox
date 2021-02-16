@@ -23,6 +23,16 @@ namespace SqlTransactionalOutbox.Utilities
         public string ReplyToSessionId { get; set; }
         public Dictionary<string, string> Headers { get; set; }
 
+        public static PayloadBuilder FromObject<TObject>(TObject obj)
+        {
+            var payload = new PayloadBuilder();
+
+            var json = JObject.FromObject(obj);
+            payload.ApplyValues(json);
+
+            return payload;
+        }
+
         public static PayloadBuilder FromJsonSafely(string jsonText)
         {
             var payload = new PayloadBuilder();

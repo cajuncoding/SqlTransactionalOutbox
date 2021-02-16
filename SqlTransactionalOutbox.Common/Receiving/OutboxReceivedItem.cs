@@ -17,7 +17,10 @@ namespace SqlTransactionalOutbox.Receiving
         public string PayloadSerializedBody => PublishedItem?.Payload;
         public string CorrelationId { get; protected set; }
 
+        private TPayloadBody _parsedBody;
 
+        public TPayloadBody ParsedBody => _parsedBody ??= ParsePayloadBody();
+        
         protected ILookup<string, object> HeadersLookup = null;
         protected bool IsDisposed { get; set; } = false;
         protected Func<ISqlTransactionalOutboxItem<TUniqueIdentifier>, TPayloadBody> ParsePayloadFunc { get; set; }
