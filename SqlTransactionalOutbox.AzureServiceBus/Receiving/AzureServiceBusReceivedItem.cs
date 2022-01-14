@@ -3,8 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using Microsoft.Azure.ServiceBus;
-using Microsoft.Azure.ServiceBus.Core;
+using Azure.Messaging.ServiceBus;
 using SqlTransactionalOutbox.CustomExtensions;
 using SqlTransactionalOutbox.Publishing;
 using SqlTransactionalOutbox.Receiving;
@@ -17,35 +16,95 @@ namespace SqlTransactionalOutbox.AzureServiceBus.Receiving
             "Unable to explicitly reject/abandon receipt of the message because the AzureServiceBusClient" +
             " is closed; the message will be automatically abandoned after the lock timeout is exceeded.";
 
-        public Message AzureServiceBusMessage { get; }
+        public ServiceBusReceivedMessage AzureServiceBusMessage { get; }
 
-        protected IReceiverClient AzureServiceBusClient { get; }
+        protected ProcessSessionMessageEventArgs SessionMessageEventArgs { get; }
+        
+        protected ProcessMessageEventArgs MessageEventArgs { get; }
 
+        protected ServiceBusReceiver ServiceBusReceiver { get; }
+
+        protected ISqlTransactionalOutboxItemFactory<TUniqueIdentifier, TPayloadBody> OutboxItemFactory { get; }
+
+        /// <summary>
+        /// Initialize a received item with all Sql Transactional Outbox data.  The resulting item will
+        ///     allow for specific handling of the Message Acknowledgement/Rejection/Dead-lettering just as.
+        ///     the ProcessMessageEventArgs allow...
+        /// </summary>
+        /// <param name="sessionMessageEventArgs"></param>
+        /// <param name="outboxItemFactory"></param>
         public AzureServiceBusReceivedItem(
-            Message azureServiceBusMessage,
+            ProcessSessionMessageEventArgs sessionMessageEventArgs,
+            ISqlTransactionalOutboxItemFactory<TUniqueIdentifier, TPayloadBody> outboxItemFactory
+        )
+        {
+            this.SessionMessageEventArgs = sessionMessageEventArgs.AssertNotNull(nameof(sessionMessageEventArgs));
+            this.AzureServiceBusMessage = sessionMessageEventArgs.Message;
+            this.OutboxItemFactory = outboxItemFactory.AssertNotNull(nameof(outboxItemFactory));
+            
+            this.InitAzureServiceBusOutboxReceivedItem(isFifoProcessingEnabled: true);
+        }
+
+        /// <summary>
+        /// Initialize a received item with all Sql Transactional Outbox data.  The resulting item will
+        ///     allow for specific handling of the Message Acknowledgement/Rejection/Dead-lettering just as.
+        ///     the ProcessMessageEventArgs allow...
+        /// </summary>
+        /// <param name="messageEventArgs"></param>
+        /// <param name="outboxItemFactory"></param>
+        public AzureServiceBusReceivedItem(
+            ProcessMessageEventArgs messageEventArgs,
+            ISqlTransactionalOutboxItemFactory<TUniqueIdentifier, TPayloadBody> outboxItemFactory
+        )
+        {
+            this.MessageEventArgs = messageEventArgs.AssertNotNull(nameof(messageEventArgs));
+            this.AzureServiceBusMessage = messageEventArgs.Message;
+            this.OutboxItemFactory = outboxItemFactory.AssertNotNull(nameof(outboxItemFactory));
+
+            this.InitAzureServiceBusOutboxReceivedItem(isFifoProcessingEnabled: false);
+        }
+
+
+        /// <summary>
+        /// Initialize a received item with all Sql Transactional Outbox data.  The resulting item will
+        ///     allow for specific handling of the Message Acknowledgement/Rejection/Dead-lettering if the correct Reciever is provided.
+        /// NOTE: With Azure Functions there is no client when used with Function Bindings because this is handled
+        ///     by the Azure Functions framework when the Message is returned, so this should be a No-op if null/not-specified!
+        /// </summary>
+        /// <param name="azureServiceBusMessage"></param>
+        /// <param name="outboxItemFactory"></param>
+        /// <param name="azureServiceBusReceiverClient"></param>
+        public AzureServiceBusReceivedItem(
+            ServiceBusReceivedMessage azureServiceBusMessage,
             ISqlTransactionalOutboxItemFactory<TUniqueIdentifier, TPayloadBody> outboxItemFactory,
             //Client is OPTIONAL; necessary when processing will be handled by AzureFunctions framework bindings, etc.
-            IReceiverClient azureServiceBusClient = null,
-            bool isFifoProcessingEnabled = false
+            ServiceBusReceiver azureServiceBusReceiverClient = null
         )
         {
             //Provide access to the original Azure Service Bus Message for customized Advanced functionality.
             this.AzureServiceBusMessage = azureServiceBusMessage.AssertNotNull(nameof(azureServiceBusMessage));
+            this.ServiceBusReceiver = azureServiceBusReceiverClient;
+            this.OutboxItemFactory = outboxItemFactory.AssertNotNull(nameof(outboxItemFactory));
 
-            //Client is OPTIONAL; necessary when processing will be handled by AzureFunctions framework bindings, etc.
-            this.AzureServiceBusClient = azureServiceBusClient;
+            bool isFifoProcessingEnabled = azureServiceBusReceiverClient is ServiceBusSessionReceiver;
+            this.InitAzureServiceBusOutboxReceivedItem(isFifoProcessingEnabled);
+        }
 
-            var outboxItem = outboxItemFactory.CreateExistingOutboxItem(
+        protected void InitAzureServiceBusOutboxReceivedItem(bool isFifoProcessingEnabled)
+        {
+            var azureServiceBusMessage = this.AzureServiceBusMessage;
+
+            var outboxItem = this.OutboxItemFactory.CreateExistingOutboxItem(
                 uniqueIdentifier: azureServiceBusMessage.MessageId,
-                createdDateTimeUtc: (DateTimeOffset)azureServiceBusMessage.UserProperties[MessageHeaders.OutboxCreatedDateUtc],
+                createdDateTimeUtc: (DateTimeOffset)azureServiceBusMessage.ApplicationProperties[MessageHeaders.OutboxCreatedDateUtc],
                 status: OutboxItemStatus.Successful.ToString(),
                 fifoGroupingIdentifier: azureServiceBusMessage.SessionId,
-                publishAttempts: (int)azureServiceBusMessage.UserProperties[MessageHeaders.OutboxPublishingAttempts],
-                publishTarget: (string)azureServiceBusMessage.UserProperties[MessageHeaders.OutboxPublishingTarget],
+                publishAttempts: (int)azureServiceBusMessage.ApplicationProperties[MessageHeaders.OutboxPublishingAttempts],
+                publishTarget: (string)azureServiceBusMessage.ApplicationProperties[MessageHeaders.OutboxPublishingTarget],
                 serializedPayload: Encoding.UTF8.GetString(azureServiceBusMessage.Body)
             );
 
-            var headersLookup = this.AzureServiceBusMessage.UserProperties?.ToLookup(
+            var headersLookup = azureServiceBusMessage.ApplicationProperties?.ToLookup(
                 k => k.Key,
                 v => v.Value
             );
@@ -54,8 +113,8 @@ namespace SqlTransactionalOutbox.AzureServiceBus.Receiving
                 outboxItem,
                 headersLookup,
                 azureServiceBusMessage.ContentType,
-                outboxItemFactory.ParsePayload,
-                isFifoProcessingEnabled,
+                this.OutboxItemFactory.ParsePayload,
+                isFifoProcessingEnabled: isFifoProcessingEnabled,
                 fifoGroupingIdentifier: azureServiceBusMessage.SessionId,
                 correlationId: azureServiceBusMessage.CorrelationId
             );
@@ -81,45 +140,83 @@ namespace SqlTransactionalOutbox.AzureServiceBus.Receiving
 
         public override async Task AcknowledgeSuccessfulReceiptAsync()
         {
-            await ProcessAzureServiceBusStatusAsync(
-                (lockToken) => this.AzureServiceBusClient?.CompleteAsync(lockToken)
-            ).ConfigureAwait(false);
+            //Ensure that we are re-entrant and don't attempt to finalize again...
+            //NOTE: With Azure Functions there is no client when used with Function Bindings because this is handled
+            //      by the Azure Functions framework when the Message is returned, so this should be a No-op if null/not-specified!
+            if (IsStatusFinalized)
+                return;
+
+            if (this.ServiceBusReceiver != null)
+            {
+                if (this.ServiceBusReceiver.IsClosed)
+                    throw new Exception(AzureServiceBusClientIsClosedErrorMessage);
+
+                await this.ServiceBusReceiver.CompleteMessageAsync(this.AzureServiceBusMessage);
+            }
+            else if (this.MessageEventArgs != null)
+            {
+                await this.MessageEventArgs.CompleteMessageAsync(this.AzureServiceBusMessage);
+            }
+            else if (this.SessionMessageEventArgs != null)
+            {
+                await this.SessionMessageEventArgs.CompleteMessageAsync(this.AzureServiceBusMessage);
+            }
 
             await base.AcknowledgeSuccessfulReceiptAsync().ConfigureAwait(false);
         }
 
         public override async Task RejectAndAbandonAsync()
         {
-            await ProcessAzureServiceBusStatusAsync(
-                (lockToken) => this.AzureServiceBusClient?.AbandonAsync(lockToken)
-            ).ConfigureAwait(false);
+            //Ensure that we are re-entrant and don't attempt to finalize again...
+            //NOTE: With Azure Functions there is no client when used with Function Bindings because this is handled
+            //      by the Azure Functions framework when the Message is returned, so this should be a No-op if null/not-specified!
+            if (IsStatusFinalized)
+                return;
+
+            if (this.ServiceBusReceiver != null)
+            {
+                if (this.ServiceBusReceiver.IsClosed)
+                    throw new Exception(AzureServiceBusClientIsClosedErrorMessage);
+
+                await this.ServiceBusReceiver.AbandonMessageAsync(this.AzureServiceBusMessage);
+            }
+            else if (this.MessageEventArgs != null)
+            {
+                await this.MessageEventArgs.AbandonMessageAsync(this.AzureServiceBusMessage);
+            }
+            else if (this.SessionMessageEventArgs != null)
+            {
+                await this.SessionMessageEventArgs.AbandonMessageAsync(this.AzureServiceBusMessage);
+            }
 
             await base.RejectAndAbandonAsync().ConfigureAwait(false);
         }
 
         public override async Task RejectAsDeadLetterAsync()
         {
-            await ProcessAzureServiceBusStatusAsync(
-                (lockToken) => this.AzureServiceBusClient?.DeadLetterAsync(lockToken)
-            ).ConfigureAwait(false);
-
-            await base.RejectAsDeadLetterAsync().ConfigureAwait(false);
-        }
-
-        protected virtual async Task ProcessAzureServiceBusStatusAsync(Func<string, Task> sendStatusFunc)
-        {
             //Ensure that we are re-entrant and don't attempt to finalize again...
             //NOTE: With Azure Functions there is no client when used with Function Bindings because this is handled
             //      by the Azure Functions framework when the Message is returned, so this should be a No-op if null/not-specified!
-            if (IsStatusFinalized || this.AzureServiceBusClient == null)
+            if (IsStatusFinalized)
                 return;
 
-            if (this.AzureServiceBusClient.IsClosedOrClosing)
-                throw new Exception(AzureServiceBusClientIsClosedErrorMessage);
+            if (this.ServiceBusReceiver != null)
+            {
+                if (this.ServiceBusReceiver.IsClosed)
+                    throw new Exception(AzureServiceBusClientIsClosedErrorMessage);
 
-            //Acknowledge & Complete the Receipt of the Message!
-            var lockToken = this.AzureServiceBusMessage.SystemProperties.LockToken;
-            await sendStatusFunc(lockToken).ConfigureAwait(false);
+                await this.ServiceBusReceiver.DeadLetterMessageAsync(this.AzureServiceBusMessage);
+            }
+            else if (this.MessageEventArgs != null)
+            {
+                await this.MessageEventArgs.DeadLetterMessageAsync(this.AzureServiceBusMessage);
+            }
+            else if (this.SessionMessageEventArgs != null)
+            {
+                await this.SessionMessageEventArgs.DeadLetterMessageAsync(this.AzureServiceBusMessage);
+            }
+
+            await base.RejectAsDeadLetterAsync().ConfigureAwait(false);
         }
     }
 }

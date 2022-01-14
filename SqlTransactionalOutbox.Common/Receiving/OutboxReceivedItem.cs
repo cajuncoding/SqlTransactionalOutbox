@@ -59,7 +59,7 @@ namespace SqlTransactionalOutbox.Receiving
             ILookup<string, object> headersLookup,
             string contentType,
             Func<ISqlTransactionalOutboxItem<TUniqueIdentifier>, TPayloadBody> parsePayloadFunc,
-            bool isFifoProcessingEnabled = false,
+            bool isFifoProcessingEnabled,
             string fifoGroupingIdentifier = null,
             string correlationId = null
         )

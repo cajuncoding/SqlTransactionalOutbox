@@ -2,8 +2,8 @@ using System;
 using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
+using Azure.Messaging.ServiceBus;
 using Microsoft.Azure.WebJobs;
-using Microsoft.Azure.ServiceBus;
 using Microsoft.Extensions.Logging;
 using SqlTransactionalOutbox.AzureServiceBus;
 using SqlTransactionalOutbox.CustomExtensions;
@@ -21,7 +21,7 @@ namespace SqlTransactionalOutbox.SampleApp.AzureFunctions
                 Connection = "AzureServiceBusConnectionString",
                 //NOTE: Sessions are used to support FIFO Enforced Processing with Azure Service Bus.
                 IsSessionsEnabled = true
-            )] Message serviceBusMessage,
+            )] ServiceBusReceivedMessage serviceBusMessage,
             ILogger logger,
             CancellationToken cancellationToken
         )
@@ -32,7 +32,7 @@ namespace SqlTransactionalOutbox.SampleApp.AzureFunctions
                 var receivedItem = serviceBusMessage.ToOutboxReceivedItem<string>();
 
                 logger.LogInformation($"Azure Service Bus Message Received at [{DateTimeOffset.Now}]:" +
-                    $"{Environment.NewLine} - Label: [{receivedItem.AzureServiceBusMessage.Label}]" +
+                    $"{Environment.NewLine} - Subject: [{receivedItem.AzureServiceBusMessage.Subject}]" +
                     $"{Environment.NewLine} - UniqueIdentifier: [{receivedItem.UniqueIdentifier}]" +
                     $"{Environment.NewLine} - Content Type: [{receivedItem.ContentType}]" +
                     $"{Environment.NewLine} - Correlation ID: [{receivedItem.CorrelationId}]" +
@@ -57,7 +57,7 @@ namespace SqlTransactionalOutbox.SampleApp.AzureFunctions
                 //  retrying of Delivery again (until MaxDeliveryCount limit is reached)!
                 throw new Exception(
                     $"An unexpected error was encountered during processing of the Azure Service Bus Message -- " +
-                    $" [ID={serviceBusMessage.MessageId}] [Subject={serviceBusMessage.Label}] -- " +
+                    $" [ID={serviceBusMessage.MessageId}] [Subject={serviceBusMessage.Subject}] -- " +
                     $" after [{timer.Elapsed.ToElapsedTimeDescriptiveFormat()}] of processing time.",
                     exc
                 );

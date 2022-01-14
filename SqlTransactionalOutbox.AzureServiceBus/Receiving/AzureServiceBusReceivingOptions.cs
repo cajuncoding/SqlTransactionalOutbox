@@ -1,28 +1,29 @@
 ﻿using System;
-using Microsoft.Azure.ServiceBus;
+using Azure.Messaging.ServiceBus;
+using SqlTransactionalOutbox.AzureServiceBus.Common;
 
 namespace SqlTransactionalOutbox.AzureServiceBus.Receiving
 {
-    public class AzureServiceBusReceivingOptions
+    public class AzureServiceBusReceivingOptions : IAzureServiceBusClientOptions
     {
         /// <summary>
-        /// 
+        /// Determines whether FIFO processing is enforced; for Azure Service Bus this means that a Session
+        ///     based Processor/Receiver will be used instead of a standard processor!
         /// </summary>
         public bool FifoEnforcedReceivingEnabled { get; set; } = false;
 
-        public TimeSpan MaxAutoRenewDuration { get; set; } = TimeSpan.FromMinutes(5);
-
-        public RetryPolicy RetryPolicy { get; set; } = RetryPolicy.Default;
+        public ServiceBusClientOptions ServiceBusClientOptions { get; set; } = new ServiceBusClientOptions();
 
         public int PrefetchCount { get; set; } = 0;
 
+        public TimeSpan? MaxAutoRenewDuration { get; set; }
+
         public int MaxConcurrentReceiversOrSessions { get; set; } = 1;
 
-        public TimeSpan? ClientOperationTimeout { get; set; } = null;
+        //[Obsolete("Not available with Azure.Messaging.ServiceBus library.")]
+        //public TimeSpan? ClientOperationTimeout { get; set; } = null;
 
-        public TimeSpan? ConnectionIdleTimeout { get; set; } = null;
-
-        public bool ReleaseSessionWhenNoHandlerIsProvided { get; set; } = true;
+        public TimeSpan? SessionConnectionIdleTimeout { get; set; } = null;
 
         /// <summary>
         /// An hook/callback for handling informational logging.
