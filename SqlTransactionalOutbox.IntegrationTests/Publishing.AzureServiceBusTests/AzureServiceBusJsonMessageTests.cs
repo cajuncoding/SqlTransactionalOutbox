@@ -6,6 +6,7 @@ using Newtonsoft.Json;
 using SqlTransactionalOutbox.Tests;
 using SqlTransactionalOutbox.AzureServiceBus;
 using SqlTransactionalOutbox.AzureServiceBus.Receiving;
+using SqlTransactionalOutbox.CustomExtensions;
 using SqlTransactionalOutbox.SqlServer.MicrosoftDataNS;
 
 namespace SqlTransactionalOutbox.IntegrationTests
@@ -55,7 +56,7 @@ namespace SqlTransactionalOutbox.IntegrationTests
             //*****************************************************************************************
             //* STEP 2 - Publish the receivedItem to Azure Service Bus!
             //*****************************************************************************************
-            var azureServiceBusPublisher = new DefaultAzureServiceBusOutboxPublisher(
+            await using var azureServiceBusPublisher = new DefaultAzureServiceBusOutboxPublisher(
                 TestConfiguration.AzureServiceBusConnectionString,
                 new AzureServiceBusPublishingOptions()
                 {
@@ -77,7 +78,6 @@ namespace SqlTransactionalOutbox.IntegrationTests
             //* STEP 3 - Attempt to Retrieve/Receive the Message & Validate after Arrival!
             //*****************************************************************************************
             await AssertReceiptAndValidationOfThePublishedItem(outboxItem);
-
         }
 
         [TestMethod]
@@ -117,7 +117,7 @@ namespace SqlTransactionalOutbox.IntegrationTests
             //*****************************************************************************************
             //* STEP 3 - Now Process the Outbox to Publish the items data
             //*****************************************************************************************
-            var azureServiceBusPublisher = new DefaultAzureServiceBusOutboxPublisher(
+            await using var azureServiceBusPublisher = new DefaultAzureServiceBusOutboxPublisher(
                 TestConfiguration.AzureServiceBusConnectionString,
                 new AzureServiceBusPublishingOptions()
                 {
@@ -146,12 +146,14 @@ namespace SqlTransactionalOutbox.IntegrationTests
             //*****************************************************************************************
             //* Attempt to Retrieve/Receive the Message & Validate after Arrival!
             //*****************************************************************************************
-            var azureServiceBusReceiver = new DefaultFifoAzureServiceBusReceiver<string>(
+            await using var azureServiceBusReceiver = new DefaultFifoAzureServiceBusReceiver<string>(
                 TestConfiguration.AzureServiceBusConnectionString, 
+                IntegrationTestTopic,
+                IntegrationTestSubscriptionName,
                 options: new AzureServiceBusReceivingOptions()
                 {
-                    LogDebugCallback = (message) => Debug.WriteLine(message)//,
-                    //LogErrorCallback = (exc) => TestContext.WriteLine(exc.Message + exc.InnerException?.Message)
+                    LogDebugCallback = (message) => Debug.WriteLine(message),
+                    LogErrorCallback = (exc) => Debug.WriteLine($"ERROR: {Environment.NewLine}{exc.GetMessagesRecursively()}")
                 }
             );
 
@@ -159,8 +161,7 @@ namespace SqlTransactionalOutbox.IntegrationTests
 
             try
             {
-                await foreach (var item in azureServiceBusReceiver.RetrieveAsyncEnumerable(
-                    IntegrationTestTopic, IntegrationTestSubscriptionName, IntegrationTestServiceBusDeliveryWaitTimeSpan)
+                await foreach (var item in azureServiceBusReceiver.RetrieveAsyncEnumerable(IntegrationTestServiceBusDeliveryWaitTimeSpan)
                 )
                 {
                     Assert.IsNotNull(item, $"The received published outbox receivedItem is null! This should never happen!");

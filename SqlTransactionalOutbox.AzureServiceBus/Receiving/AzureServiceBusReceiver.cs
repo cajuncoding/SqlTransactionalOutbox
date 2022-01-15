@@ -14,25 +14,33 @@ namespace SqlTransactionalOutbox.AzureServiceBus.Receiving
     {
         public delegate Task ReceivedItemHandlerAsyncDelegate(ISqlTransactionalOutboxReceivedItem<TUniqueIdentifier, TPayload> outboxReceivedItem);
 
+        public string ServiceBusSubscription { get; set; }
+
         public AzureServiceBusReceivingOptions Options { get; }
 
         protected ServiceBusSessionProcessor ServiceBusSessionProcessor { get; set; } = null;
+
         protected ServiceBusProcessor ServiceBusProcessor { get; set; } = null;
+        
         protected bool IsProcessing { get; set; } = false;
 
         protected ISqlTransactionalOutboxItemFactory<TUniqueIdentifier, TPayload> OutboxItemFactory { get; }
 
         public AzureServiceBusReceiver(
             string azureServiceBusConnectionString,
+            string serviceBusTopic,
+            string serviceBusSubscription,
             ISqlTransactionalOutboxItemFactory<TUniqueIdentifier, TPayload> outboxItemFactory,
             AzureServiceBusReceivingOptions options = null
-        ) : this(InitAzureServiceBusConnection(azureServiceBusConnectionString, options), outboxItemFactory, options)
+        ) : this(InitAzureServiceBusConnection(azureServiceBusConnectionString, options), serviceBusTopic, serviceBusSubscription, outboxItemFactory, options)
         {
             DisposingEnabled = true;
         }
 
         public AzureServiceBusReceiver(
             ServiceBusClient azureServiceBusClient,
+            string serviceBusTopic,
+            string serviceBusSubscription,
             ISqlTransactionalOutboxItemFactory<TUniqueIdentifier, TPayload> outboxItemFactory,
             AzureServiceBusReceivingOptions options = null
         )
@@ -40,48 +48,33 @@ namespace SqlTransactionalOutbox.AzureServiceBus.Receiving
             this.Options = options ?? new AzureServiceBusReceivingOptions();
             this.AzureServiceBusClient = azureServiceBusClient.AssertNotNull(nameof(azureServiceBusClient));
             this.OutboxItemFactory = outboxItemFactory.AssertNotNull(nameof(outboxItemFactory));
+
+            this.ServiceBusTopic = serviceBusTopic.AssertNotNullOrWhiteSpace(nameof(serviceBusTopic));
+            this.ServiceBusSubscription = serviceBusSubscription.AssertNotNullOrWhiteSpace(nameof(serviceBusSubscription));
         }
 
         public virtual Task StartReceivingAsync(
-            string topicPath,
-            string subscriptionName,
             ISqlTransactionalOutboxReceivedItemHandler<TUniqueIdentifier, TPayload> receivedItemHandler,
             CancellationToken cancellationToken = default
         )
         {
-            if (!this.IsProcessing)
-            {
-                receivedItemHandler.AssertNotNull(nameof(receivedItemHandler));
+            if (this.IsProcessing) 
+                return Task.CompletedTask;
+            
+            receivedItemHandler.AssertNotNull(nameof(receivedItemHandler));
 
-                return StartReceivingInternalAsync(
-                    topicPath,
-                    subscriptionName,
-                    receivedItemHandler.HandleReceivedItemAsync,
-                    cancellationToken: cancellationToken
-                );
-            }
-
-            return Task.CompletedTask;
+            return StartReceivingInternalAsync(receivedItemHandler.HandleReceivedItemAsync, cancellationToken: cancellationToken);
         }
 
         public virtual Task StartReceivingAsync(
-            string topicPath,
-            string subscriptionName,
             ReceivedItemHandlerAsyncDelegate receivedItemHandlerAsyncDelegateFunc,
             CancellationToken cancellationToken = default
         )
         {
-            if (!this.IsProcessing)
-            {
-                return StartReceivingInternalAsync(
-                    topicPath,
-                    subscriptionName,
-                    receivedItemHandlerAsyncDelegateFunc,
-                    cancellationToken: cancellationToken
-                );
-            }
-            
-            return Task.CompletedTask;
+            if (this.IsProcessing) 
+                return Task.CompletedTask;
+
+            return StartReceivingInternalAsync(receivedItemHandlerAsyncDelegateFunc, cancellationToken: cancellationToken);
         }
 
         public virtual async Task StopReceivingAsync(Func<ProcessSessionEventArgs, Task> fifoSessionEndAsyncHandler = null)
@@ -131,9 +124,7 @@ namespace SqlTransactionalOutbox.AzureServiceBus.Receiving
             }
         }
 
-        protected virtual Task StartReceivingInternalAsync(
-            string topicPath,
-            string subscriptionName,
+        protected virtual async Task StartReceivingInternalAsync(
             ReceivedItemHandlerAsyncDelegate receivedItemHandlerAsyncDelegateFunc,
             bool autoMessageFinalizationEnabled = true,
             CancellationToken cancellationToken = default
@@ -149,52 +140,52 @@ namespace SqlTransactionalOutbox.AzureServiceBus.Receiving
             //NOTE: IF FIFO Processing is enabled we use Azure Session Processor; otherwise default Processor is used.
             if (Options.FifoEnforcedReceivingEnabled)
             {
-                this.ServiceBusSessionProcessor = GetAzureServiceBusSessionProcessor(
-                    topicPath.AssertNotNullOrWhiteSpace(nameof(topicPath)),
-                    subscriptionName.AssertNotNullOrWhiteSpace(nameof(subscriptionName))
-                );
-
-                this.ServiceBusSessionProcessor.ProcessMessageAsync += async (messageEventArgs) =>
+                if (this.ServiceBusSessionProcessor == null)
                 {
-                    await ExecuteMessageHandlerAsync(
-                        //Note: We Must use the MessageSession as the Client for processing messages with the Locked Session!
-                        messageEventArgs,
-                        receivedItemHandlerAsyncDelegateFunc,
-                        autoMessageFinalizationEnabled
-                    ).ConfigureAwait(false);
-                };
+                    this.ServiceBusSessionProcessor = GetAzureServiceBusSessionProcessor();
 
-                //Wire up the Error/Exception Handler...
-                this.ServiceBusSessionProcessor.ProcessErrorAsync += ExceptionReceivedHandlerAsync;
+                    this.ServiceBusSessionProcessor.ProcessMessageAsync += async (messageEventArgs) =>
+                    {
+                        await ExecuteMessageHandlerAsync(
+                            //Note: We Must use the MessageSession as the Client for processing messages with the Locked Session!
+                            messageEventArgs,
+                            receivedItemHandlerAsyncDelegateFunc,
+                            autoMessageFinalizationEnabled
+                        ).ConfigureAwait(false);
+                    };
+
+                    //Wire up the Error/Exception Handler...
+                    this.ServiceBusSessionProcessor.ProcessErrorAsync += ExceptionReceivedHandlerAsync;
+                }
 
                 //Kick off processing!!!
-                this.ServiceBusSessionProcessor.StartProcessingAsync(cancellationToken);
+                if(!this.ServiceBusSessionProcessor.IsProcessing)
+                    await this.ServiceBusSessionProcessor.StartProcessingAsync(cancellationToken);
             }
             else
             {
-                this.ServiceBusProcessor = GetAzureServiceBusProcessor(
-                    topicPath.AssertNotNullOrWhiteSpace(nameof(topicPath)),
-                    subscriptionName.AssertNotNullOrWhiteSpace(nameof(subscriptionName))
-                );
-
-                //Wire up the Handler...
-                this.ServiceBusProcessor.ProcessMessageAsync += async (messageEventArgs) =>
+                if (this.ServiceBusProcessor == null)
                 {
-                    await ExecuteMessageHandlerAsync(
-                        messageEventArgs,
-                        receivedItemHandlerAsyncDelegateFunc,
-                        autoMessageFinalizationEnabled
-                    ).ConfigureAwait(false);
-                };
+                    this.ServiceBusProcessor = GetAzureServiceBusProcessor();
 
-                //Wire up the Error/Exception Handler...
-                this.ServiceBusProcessor.ProcessErrorAsync += ExceptionReceivedHandlerAsync;
+                    //Wire up the Handler...
+                    this.ServiceBusProcessor.ProcessMessageAsync += async (messageEventArgs) =>
+                    {
+                        await ExecuteMessageHandlerAsync(
+                            messageEventArgs,
+                            receivedItemHandlerAsyncDelegateFunc,
+                            autoMessageFinalizationEnabled
+                        ).ConfigureAwait(false);
+                    };
+
+                    //Wire up the Error/Exception Handler...
+                    this.ServiceBusProcessor.ProcessErrorAsync += ExceptionReceivedHandlerAsync;
+                }
 
                 //Kick off processing!!!
-                this.ServiceBusProcessor.StartProcessingAsync(cancellationToken);
+                if (!this.ServiceBusProcessor.IsProcessing)
+                    await this.ServiceBusProcessor.StartProcessingAsync(cancellationToken);
             }
-
-            return Task.CompletedTask;
         }
 
         /// <summary>
@@ -211,8 +202,6 @@ namespace SqlTransactionalOutbox.AzureServiceBus.Receiving
         /// <returns></returns>
         /// <exception cref="ArgumentException"></exception>
         public virtual async IAsyncEnumerable<ISqlTransactionalOutboxReceivedItem<TUniqueIdentifier, TPayload>> RetrieveAsyncEnumerable(
-            string topicPath,
-            string subscriptionName,
             TimeSpan receiveWaitPerItemTimeout,
             bool throwExceptionOnCancellation = false
         )
@@ -223,10 +212,7 @@ namespace SqlTransactionalOutbox.AzureServiceBus.Receiving
             }
 
             //ENSURE WE DISPOSE of the Queue when we are done!
-            await using var dynamicReceiverQueue = CreateAsyncReceiverQueue(
-                topicPath.AssertNotNullOrWhiteSpace(nameof(topicPath)),
-                subscriptionName.AssertNotNullOrWhiteSpace(nameof(subscriptionName))
-            );
+            await using var dynamicReceiverQueue = await CreateAsyncReceiverQueueAsync(this.ServiceBusTopic, this.ServiceBusSubscription);
 
             //Wait for Initial Data!
             ISqlTransactionalOutboxReceivedItem<TUniqueIdentifier, TPayload> item = null;
@@ -261,7 +247,7 @@ namespace SqlTransactionalOutbox.AzureServiceBus.Receiving
         /// </summary>
         /// <param name="topicPath"></param>
         /// <param name="subscriptionName"></param>
-        public virtual SqlTransactionalOutboxReceiverQueue<TUniqueIdentifier, TPayload> CreateAsyncReceiverQueue(
+        public virtual async Task<SqlTransactionalOutboxReceiverQueue<TUniqueIdentifier, TPayload>> CreateAsyncReceiverQueueAsync(
             string topicPath,
             string subscriptionName
         )
@@ -279,15 +265,11 @@ namespace SqlTransactionalOutbox.AzureServiceBus.Receiving
             );
 
             //Attempt to Receive & Handle the Messages just published for End-to-End Validation!
-            this.StartReceivingInternalAsync(
-                topicPath,
-                subscriptionName,
+            await this.StartReceivingInternalAsync(
                 receivedItemHandlerAsyncDelegateFunc: async (outboxPublishedItem) =>
                 {
-                    //Set the unit test reference to ENABLE/NOTIFY for Continuation to complete the TEST!
-                    //NOTE: We do NOT perform the Assert Tests inside this handler, because we need the framework
-                    //      to acknowledge that the published item was successfully received and will handled
-                    //      after the Test is able to proceed.
+                    //All our handler needs to do is marshall the resulting item into the Queue to
+                    //  signal/push for the consumer to handle...
                     await dynamicAsyncReceiverQueue.AddAsync(outboxPublishedItem).ConfigureAwait(false);
                 },
                 autoMessageFinalizationEnabled: false
@@ -355,7 +337,7 @@ namespace SqlTransactionalOutbox.AzureServiceBus.Receiving
             }
         }
 
-        protected virtual ServiceBusSessionProcessor GetAzureServiceBusSessionProcessor(string topicPath, string subscriptionName)
+        protected virtual ServiceBusSessionProcessor GetAzureServiceBusSessionProcessor()
         {
             //Configure additional options...
             var sessionProcessorOptions = new ServiceBusSessionProcessorOptions()
@@ -378,18 +360,16 @@ namespace SqlTransactionalOutbox.AzureServiceBus.Receiving
                 sessionProcessorOptions.SessionIdleTimeout= this.Options.SessionConnectionIdleTimeout.Value;
 
             var sessionProcessingClient = this.AzureServiceBusClient.CreateSessionProcessor(
-                topicName: topicPath.AssertNotNullOrWhiteSpace(nameof(topicPath)),
-                subscriptionName: subscriptionName.AssertNotNullOrWhiteSpace(nameof(subscriptionName)),
+                this.ServiceBusTopic,
+                this.ServiceBusSubscription,
                 sessionProcessorOptions
             );
 
-            //Enable dynamic configuration if specified...
-            this.SessionProcessingClientConfigurationFunc?.Invoke(sessionProcessingClient);
             return sessionProcessingClient;
         }
 
 
-        protected virtual ServiceBusProcessor GetAzureServiceBusProcessor(string topicPath, string subscriptionName)
+        protected virtual ServiceBusProcessor GetAzureServiceBusProcessor()
         {
             //Configure additional options...
             var processorOptions = new ServiceBusProcessorOptions()
@@ -408,13 +388,11 @@ namespace SqlTransactionalOutbox.AzureServiceBus.Receiving
                 processorOptions.MaxAutoLockRenewalDuration = this.Options.MaxAutoRenewDuration.Value;
 
             var serviceBusProcessingClient = this.AzureServiceBusClient.CreateProcessor(
-                topicName: topicPath.AssertNotNullOrWhiteSpace(nameof(topicPath)),
-                subscriptionName: subscriptionName.AssertNotNullOrWhiteSpace(nameof(subscriptionName)),
+                this.ServiceBusTopic,
+                this.ServiceBusSubscription,
                 processorOptions
             );
 
-            //Enable dynamic configuration if specified...
-            this.ProcessingClientConfigurationFunc?.Invoke(serviceBusProcessingClient);
             return serviceBusProcessingClient;
         }
 
