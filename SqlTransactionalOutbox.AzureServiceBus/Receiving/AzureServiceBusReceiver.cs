@@ -1,9 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Azure.Messaging.ServiceBus;
+using Microsoft.Azure.Amqp.Serialization;
 using SqlTransactionalOutbox.AzureServiceBus.Common;
 using SqlTransactionalOutbox.CustomExtensions;
 using SqlTransactionalOutbox.Receiving;
@@ -201,7 +203,7 @@ namespace SqlTransactionalOutbox.AzureServiceBus.Receiving
         /// <param name="throwExceptionOnCancellation"></param>
         /// <returns></returns>
         /// <exception cref="ArgumentException"></exception>
-        public virtual async IAsyncEnumerable<ISqlTransactionalOutboxReceivedItem<TUniqueIdentifier, TPayload>> RetrieveAsyncEnumerable(
+        public virtual async IAsyncEnumerable<ISqlTransactionalOutboxReceivedItem<TUniqueIdentifier, TPayload>> AsAsyncEnumerable(
             TimeSpan receiveWaitPerItemTimeout,
             bool throwExceptionOnCancellation = false
         )
@@ -212,32 +214,13 @@ namespace SqlTransactionalOutbox.AzureServiceBus.Receiving
             }
 
             //ENSURE WE DISPOSE of the Queue when we are done!
-            await using var dynamicReceiverQueue = await CreateAsyncReceiverQueueAsync(this.ServiceBusTopic, this.ServiceBusSubscription);
+            await using var dynamicReceiverQueue = await CreateReceiverQueueAsync();
 
-            //Wait for Initial Data!
-            ISqlTransactionalOutboxReceivedItem<TUniqueIdentifier, TPayload> item = null;
-            do
+            //Enumerate data, and Wait for the specified time for it to flow...
+            await foreach (var item in dynamicReceiverQueue.AsAsyncEnumerable(receiveWaitPerItemTimeout))
             {
-                //Set Item to Null to ensure old items don't create an infinite loop...
-                item = null;
-                var cancellationSource = new CancellationTokenSource(receiveWaitPerItemTimeout);
-
-                try
-                {
-                    item = await dynamicReceiverQueue.TakeAsync(cancellationSource.Token);
-                }
-                catch (OperationCanceledException cancelExc) when (cancelExc.CancellationToken == cancellationSource.Token)
-                {
-                    //DO NOTHING as our operation should cancel gracefully unless otherwise specified!
-                    if (throwExceptionOnCancellation)
-                        throw;
-                }
-
-                //Return the item IF we have one...
-                if (item != null)
-                    yield return item;
-
-            } while (item != null);
+                yield return item;
+            }
         }
 
         /// <summary>
@@ -245,16 +228,8 @@ namespace SqlTransactionalOutbox.AzureServiceBus.Receiving
         ///  Azure Service Bus.  Note, using this queue means that ALL Items will automatically be acknowledged as
         ///  as successfully received with no ability to Reject/Abandon them.
         /// </summary>
-        /// <param name="topicPath"></param>
-        /// <param name="subscriptionName"></param>
-        public virtual async Task<SqlTransactionalOutboxReceiverQueue<TUniqueIdentifier, TPayload>> CreateAsyncReceiverQueueAsync(
-            string topicPath,
-            string subscriptionName
-        )
+        protected virtual async Task<SqlTransactionalOutboxReceiverQueue<TUniqueIdentifier, TPayload>> CreateReceiverQueueAsync()
         {
-            topicPath.AssertNotNullOrWhiteSpace(nameof(topicPath));
-            subscriptionName.AssertNotNullOrWhiteSpace(nameof(subscriptionName));
-
             //Initialize the producer/consumer queue for asynchronously & dynamically receiving items produced from the
             //  Azure Service Bus by being populated from our handler.
             var dynamicAsyncReceiverQueue = new SqlTransactionalOutboxReceiverQueue<TUniqueIdentifier, TPayload>(
@@ -368,7 +343,6 @@ namespace SqlTransactionalOutbox.AzureServiceBus.Receiving
             return sessionProcessingClient;
         }
 
-
         protected virtual ServiceBusProcessor GetAzureServiceBusProcessor()
         {
             //Configure additional options...
@@ -409,44 +383,29 @@ namespace SqlTransactionalOutbox.AzureServiceBus.Receiving
                 case ProcessMessageEventArgs messageEventArgs:
                     try
                     {
-                        azureServiceBusReceivedItem = new AzureServiceBusReceivedItem<TUniqueIdentifier, TPayload>(
-                            messageEventArgs: messageEventArgs,
-                            outboxItemFactory: this.OutboxItemFactory
-                        );
+                        azureServiceBusReceivedItem = new AzureServiceBusReceivedItem<TUniqueIdentifier, TPayload>(messageEventArgs, this.OutboxItemFactory);
                     }
                     catch (Exception exc)
                     {
                         if (deadLetterOnFailureToInitialize)
-                            await messageEventArgs.DeadLetterMessageAsync(
-                                messageEventArgs.Message,
-                                initializationErrorMessage,
-                                exc.GetMessagesRecursively()
-                            );
+                            await messageEventArgs.DeadLetterMessageAsync(messageEventArgs.Message, initializationErrorMessage, exc.GetMessagesRecursively());
                         
                         throw;
                     }
-
                     break;
+                
                 case ProcessSessionMessageEventArgs sessionMessageEventArgs:
                     try
                     {
-                        azureServiceBusReceivedItem = new AzureServiceBusReceivedItem<TUniqueIdentifier, TPayload>(
-                            sessionMessageEventArgs: sessionMessageEventArgs,
-                            outboxItemFactory: this.OutboxItemFactory
-                        );
+                        azureServiceBusReceivedItem = new AzureServiceBusReceivedItem<TUniqueIdentifier, TPayload>(sessionMessageEventArgs, this.OutboxItemFactory);
                     }
                     catch (Exception exc)
                     {
                         if (deadLetterOnFailureToInitialize)
-                            await sessionMessageEventArgs.DeadLetterMessageAsync(
-                                sessionMessageEventArgs.Message,
-                                initializationErrorMessage,
-                                exc.GetMessagesRecursively()
-                            );
+                            await sessionMessageEventArgs.DeadLetterMessageAsync(sessionMessageEventArgs.Message, initializationErrorMessage, exc.GetMessagesRecursively());
                         
                         throw;
                     }
-
                     break;
             }
 
