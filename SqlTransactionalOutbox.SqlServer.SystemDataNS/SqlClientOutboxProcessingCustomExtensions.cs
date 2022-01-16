@@ -22,7 +22,7 @@ namespace SqlTransactionalOutbox.SqlServer.SystemDataNS
             outboxPublisher.AssertNotNull(nameof(outboxPublisher));
             processingOptions.AssertNotNull(nameof(processingOptions));
 
-            await using var outboxTransaction = (SqlTransaction)(await sqlConnection.BeginTransactionAsync());
+            await using var outboxTransaction = (SqlTransaction)(await sqlConnection.BeginTransactionAsync().ConfigureAwait(false));
             try
             {
                 var results = await outboxTransaction
@@ -42,7 +42,6 @@ namespace SqlTransactionalOutbox.SqlServer.SystemDataNS
                 await outboxTransaction.RollbackAsync().ConfigureAwait(false);
                 throw;
             }
-
         }
 
         public static async Task<ISqlTransactionalOutboxProcessingResults<Guid>> ProcessPendingOutboxItemsAsync(

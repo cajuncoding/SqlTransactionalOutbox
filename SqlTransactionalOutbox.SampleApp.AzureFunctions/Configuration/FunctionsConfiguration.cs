@@ -2,6 +2,7 @@
 
 namespace SqlTransactionalOutbox.SampleApp.AzureFunctions
 {
+    //Always a good idea to abstract away or encapsulate the core/base reading of config values...
     public class FunctionsConfiguration
     {
         private const int _defaultMaxPublishingRetryAttempts = 25;
@@ -14,12 +15,18 @@ namespace SqlTransactionalOutbox.SampleApp.AzureFunctions
             AzureServiceBusConnectionString = GetStringValue(nameof(AzureServiceBusConnectionString));
             OutboxMaxPublishingRetryAttempts = GetIntValue(nameof(OutboxMaxPublishingRetryAttempts), _defaultMaxPublishingRetryAttempts);
             OutboxMaxTimeToLiveTimeSpan = TimeSpan.FromDays(GetIntValue("OutboxMaxTimeToLiveDays", _defaultMaxPublishingTTLDays));
-            OutboxHistoryToKeepTimeSpan = TimeSpan.FromDays(GetIntValue("OutboxHistoryToKeepDays", _defaultMaxPublishingTTLDays));
+            OutboxHistoryToKeepTimeSpan = TimeSpan.FromDays(GetIntValue("OutboxHistoryToKeepDays", _defaultHistoryToKeepDays));
+        }
+
+        //Always a good idea to abstract away or encapsulate the core/base reading of config values...
+        private static string ReadConfigValue(string key)
+        {
+            return Environment.GetEnvironmentVariable(key);
         }
 
         private static string GetStringValue(string key)
         {
-            var value = Environment.GetEnvironmentVariable(key)?.Trim();
+            var value = ReadConfigValue(key)?.Trim();
             return value;
         }
 

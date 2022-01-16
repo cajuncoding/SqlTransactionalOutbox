@@ -9,6 +9,10 @@ namespace SqlTransactionalOutbox
         private static readonly Type _stringType = typeof(string);
         private static readonly Type _jTokenType = typeof(JToken);
         //private static readonly Type _jObjecgtType = typeof(JObject);
+        private static JsonSerializerSettings _jsonSettings = new JsonSerializerSettings()
+        {
+            NullValueHandling = NullValueHandling.Ignore
+        };
 
         public string SerializePayload<TPayload>(TPayload payload)
         {
@@ -21,7 +25,7 @@ namespace SqlTransactionalOutbox
                 default:
                 {
                     //Use Json as Default Serialization for the vast majority (if not all) use cases...
-                    var serializedResult = JsonConvert.SerializeObject(payload);
+                    var serializedResult = JsonConvert.SerializeObject(payload, _jsonSettings);
                     return serializedResult;
                 }
             }
@@ -41,7 +45,7 @@ namespace SqlTransactionalOutbox
             else
             {
                 //Use Json as Default Serialization for the vast majority (if not all) use cases...
-                var deserializedResult = JsonConvert.DeserializeObject<TPayload>(payload);
+                var deserializedResult = JsonConvert.DeserializeObject<TPayload>(payload, _jsonSettings);
                 return deserializedResult;
             }
         }

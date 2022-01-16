@@ -48,7 +48,9 @@ namespace SqlTransactionalOutbox.SampleApp.AzureFunctions.Functions
             //************************************************************
             //*** Execute Cleanup of Historical Outbox Data...
             //************************************************************
-            await sqlConnection.CleanupHistoricalOutboxItemsAsync(FunctionsConfiguration.OutboxHistoryToKeepTimeSpan);
+            await sqlConnection
+                .CleanupHistoricalOutboxItemsAsync(FunctionsConfiguration.OutboxHistoryToKeepTimeSpan)
+                .ConfigureAwait(false);
         }
     }
 }
