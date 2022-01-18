@@ -7,7 +7,7 @@ using SqlTransactionalOutbox.CustomExtensions;
 
 namespace SqlTransactionalOutbox.SqlServer.MicrosoftDataNS
 {
-    public class AspNetOutboxProcessingAgent : IAsyncDisposable
+    public class AsyncThreadOutboxProcessingAgent : IAsyncDisposable
     {
         private object _padLock = new object();
 
@@ -25,7 +25,7 @@ namespace SqlTransactionalOutbox.SqlServer.MicrosoftDataNS
 
         public long ExecutionCount { get; protected set; }
 
-        public AspNetOutboxProcessingAgent(
+        public AsyncThreadOutboxProcessingAgent(
             TimeSpan processingIntervalTimeSpan,
             string sqlConnectionString,
             ISqlTransactionalOutboxPublisher<Guid> outboxPublisher,
@@ -33,7 +33,7 @@ namespace SqlTransactionalOutbox.SqlServer.MicrosoftDataNS
         ) : this(processingIntervalTimeSpan, TimeSpan.Zero, sqlConnectionString, outboxPublisher, outboxProcessingOptions)
         { }
 
-        public AspNetOutboxProcessingAgent(
+        public AsyncThreadOutboxProcessingAgent(
             TimeSpan processingIntervalTimeSpan,
             TimeSpan historyToKeepTimeSpan,
             string sqlConnectionString,

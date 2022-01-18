@@ -1,6 +1,7 @@
 ﻿using System;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using SqlTransactionalOutbox.Utilities;
 
 namespace SqlTransactionalOutbox
 {
@@ -8,11 +9,7 @@ namespace SqlTransactionalOutbox
     {
         private static readonly Type _stringType = typeof(string);
         private static readonly Type _jTokenType = typeof(JToken);
-        //private static readonly Type _jObjecgtType = typeof(JObject);
-        private static JsonSerializerSettings _jsonSettings = new JsonSerializerSettings()
-        {
-            NullValueHandling = NullValueHandling.Ignore
-        };
+        //private static readonly Type _jObjectType = typeof(JObject);
 
         public string SerializePayload<TPayload>(TPayload payload)
         {
@@ -20,12 +17,15 @@ namespace SqlTransactionalOutbox
             {
                 case string stringPayload:
                     return stringPayload;
-                case JToken jsonPayload:
-                    return jsonPayload.ToString();
+                //BBernard - 01/18/2022
+                //NOTE: TO ensure that our JsonSerializer Settings are applies we can't use ToString(), but
+                //      normal JsonConvert.SerializeObject() handles the JToken just fine!
+                //case JToken jsonPayload:
+                //    return jsonPayload.ToString();
                 default:
                 {
                     //Use Json as Default Serialization for the vast majority (if not all) use cases...
-                    var serializedResult = JsonConvert.SerializeObject(payload, _jsonSettings);
+                    var serializedResult = JsonConvert.SerializeObject(payload, PayloadBuilder.OutboxJsonSerializerSettings);
                     return serializedResult;
                 }
             }
@@ -45,7 +45,7 @@ namespace SqlTransactionalOutbox
             else
             {
                 //Use Json as Default Serialization for the vast majority (if not all) use cases...
-                var deserializedResult = JsonConvert.DeserializeObject<TPayload>(payload, _jsonSettings);
+                var deserializedResult = JsonConvert.DeserializeObject<TPayload>(payload, PayloadBuilder.OutboxJsonSerializerSettings);
                 return deserializedResult;
             }
         }

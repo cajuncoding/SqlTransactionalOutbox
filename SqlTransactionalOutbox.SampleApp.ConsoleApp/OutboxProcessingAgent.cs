@@ -17,7 +17,7 @@ namespace SqlTransactionalOutbox.SampleApp.ConsoleApp
         protected ISqlTransactionalOutboxPublisher<Guid> OutboxPublisher { get; set; }
 
         //  NOTE: this is AsyncDisposable!
-        protected AspNetOutboxProcessingAgent OutboxProcessingAgent { get; set; }
+        protected AsyncThreadOutboxProcessingAgent OutboxProcessingAgent { get; set; }
 
         public OutboxProcessor(SampleAppConfig configSettings)
         {
@@ -43,7 +43,7 @@ namespace SqlTransactionalOutbox.SampleApp.ConsoleApp
 
             //Finally We Need the Processing Agent to process the Outbox on a background (Async) thread...
             //  NOTE: this is AsyncDisposable so we Keep a Reference for Disposal!
-            OutboxProcessingAgent = new AspNetOutboxProcessingAgent(
+            OutboxProcessingAgent = new AsyncThreadOutboxProcessingAgent(
                 TimeSpan.FromSeconds(20),
                 TimeSpan.FromDays(1),
                 configSettings.SqlConnectionString,
