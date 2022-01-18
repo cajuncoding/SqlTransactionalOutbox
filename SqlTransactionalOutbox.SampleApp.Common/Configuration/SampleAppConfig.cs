@@ -3,13 +3,13 @@
 namespace SqlTransactionalOutbox.SampleApp.AzureFunctions
 {
     //Always a good idea to abstract away or encapsulate the core/base reading of config values...
-    public class FunctionsConfiguration
+    public class SampleAppConfig
     {
         private const int _defaultMaxPublishingRetryAttempts = 25;
         private const int _defaultMaxPublishingTTLDays = 10;
         private const int _defaultHistoryToKeepDays = 30;
 
-        static FunctionsConfiguration()
+        static SampleAppConfig()
         {
             SqlConnectionString = GetStringValue(nameof(SqlConnectionString));
             AzureServiceBusConnectionString = GetStringValue(nameof(AzureServiceBusConnectionString));

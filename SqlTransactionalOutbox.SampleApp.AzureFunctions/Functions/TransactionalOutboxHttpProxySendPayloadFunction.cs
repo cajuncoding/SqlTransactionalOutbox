@@ -13,14 +13,14 @@ using SqlTransactionalOutbox.Utilities;
 
 namespace SqlTransactionalOutbox.SampleApp.AzureFunctions
 {
-    public class TransactionalOutboxHttpProxyFunction
+    public class TransactionalOutboxHttpProxySendPayloadFunction
     {
         [FunctionName("SendPayload")]
         public async Task<IActionResult> Run(
             [HttpTrigger(AuthorizationLevel.Anonymous, "get", "post", Route = null)] HttpRequest req,
             ILogger log)
         {
-            log.LogInformation($"HTTP [{nameof(TransactionalOutboxHttpProxyFunction)}].");
+            log.LogInformation($"HTTP [{nameof(TransactionalOutboxHttpProxySendPayloadFunction)}].");
             
             //Initialize the Payload from the Body as Json!
             var jsonText = await req.ReadAsStringAsync();
@@ -31,7 +31,7 @@ namespace SqlTransactionalOutbox.SampleApp.AzureFunctions
             var queryLookup = req.Query.ToLookup(k => k.Key, v => v.Value.FirstOrDefault());
             payloadBuilder.ApplyValues(queryLookup, false);
 
-            var sqlConnection = new SqlConnection(FunctionsConfiguration.SqlConnectionString);
+            await using var sqlConnection = new SqlConnection(SampleAppConfig.SqlConnectionString);
             await sqlConnection.OpenAsync();
 
             //************************************************************

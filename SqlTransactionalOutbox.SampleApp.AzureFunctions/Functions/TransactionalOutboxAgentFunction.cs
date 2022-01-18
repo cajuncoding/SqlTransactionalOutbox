@@ -16,7 +16,7 @@ namespace SqlTransactionalOutbox.SampleApp.AzureFunctions.Functions
             log.LogInformation($"Transactional Outbox Agent initiating process at: {DateTime.Now}");
 
             var azureServiceBusPublisher = new DefaultAzureServiceBusOutboxPublisher(
-                FunctionsConfiguration.AzureServiceBusConnectionString,
+                SampleAppConfig.AzureServiceBusConnectionString,
                 new AzureServiceBusPublishingOptions()
                 {
                     SenderApplicationName = $"{typeof(TransactionalOutboxAgentFunction).Assembly.GetName().Name}.{nameof(TransactionalOutboxAgentFunction)}",
@@ -31,14 +31,14 @@ namespace SqlTransactionalOutbox.SampleApp.AzureFunctions.Functions
                 FifoEnforcedPublishingEnabled = true, //The Service Bus Topic is Session Enabled so we must processes it with FIFO Processing Enabled!
                 LogDebugCallback = (m) => log.LogDebug(m),
                 LogErrorCallback = (e) => log.LogError(e, "Transactional Outbox Processing Exception"),
-                MaxPublishingAttempts = FunctionsConfiguration.OutboxMaxPublishingRetryAttempts,
-                TimeSpanToLive = FunctionsConfiguration.OutboxMaxTimeToLiveTimeSpan
+                MaxPublishingAttempts = SampleAppConfig.OutboxMaxPublishingRetryAttempts,
+                TimeSpanToLive = SampleAppConfig.OutboxMaxTimeToLiveTimeSpan
             };
 
             //************************************************************
             //*** Execute processing of the Transactional Outbox...
             //************************************************************
-            var sqlConnection = new SqlConnection(FunctionsConfiguration.SqlConnectionString);
+            await using var sqlConnection = new SqlConnection(SampleAppConfig.SqlConnectionString);
             await sqlConnection.OpenAsync().ConfigureAwait(false);
 
             await sqlConnection
@@ -49,7 +49,7 @@ namespace SqlTransactionalOutbox.SampleApp.AzureFunctions.Functions
             //*** Execute Cleanup of Historical Outbox Data...
             //************************************************************
             await sqlConnection
-                .CleanupHistoricalOutboxItemsAsync(FunctionsConfiguration.OutboxHistoryToKeepTimeSpan)
+                .CleanupHistoricalOutboxItemsAsync(SampleAppConfig.OutboxHistoryToKeepTimeSpan)
                 .ConfigureAwait(false);
         }
     }

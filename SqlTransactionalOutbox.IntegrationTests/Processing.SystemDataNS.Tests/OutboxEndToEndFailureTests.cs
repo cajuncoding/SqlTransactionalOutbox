@@ -25,7 +25,7 @@ namespace SqlTransactionalOutbox.IntegrationTests.SystemDataNS
             var expectedTotalExpiredCount = 0;
 
             //*****************************************************************************************
-            //* STEP 1 - Prepare/Clear the Queue Table and populate initial Set of items (expected to Faile/Expire)
+            //* STEP 1 - Prepare/Clear the Queue Table and populate initial Set of items (expected to Fail/Expire)
             //              then wait for them to expire...
             //*****************************************************************************************
 
