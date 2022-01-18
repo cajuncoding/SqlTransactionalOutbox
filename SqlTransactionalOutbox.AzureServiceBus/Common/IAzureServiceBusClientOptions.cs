@@ -17,6 +17,6 @@ namespace SqlTransactionalOutbox.AzureServiceBus.Common
         /// <summary>
         /// A hook/callback for handling error/exception logging.
         /// </summary>
-        Action<Exception> LogErrorCallback { get; set; }
+        Action<Exception> ErrorHandlerCallback { get; set; }
     }
 }

@@ -239,7 +239,7 @@ namespace SqlTransactionalOutbox
             //Short circuit if we are configured to Throw the Error or if Enforce FIFO processing is enabled!
             if (throwExceptionOnFailure)
             {
-                options.LogErrorCallback?.Invoke(processingException);
+                options.ErrorHandlerCallback?.Invoke(processingException);
 
                 //If configured to throw an error then we Attempt to update the item before throwing exception
                 // because normally it would have been updated in bulk if exceptions were suppressed.
@@ -279,7 +279,7 @@ namespace SqlTransactionalOutbox
             }
 
             //Log the latest initialized exception with details...
-            options.LogErrorCallback?.Invoke(processingException);
+            options.ErrorHandlerCallback?.Invoke(processingException);
         }
     }
 }

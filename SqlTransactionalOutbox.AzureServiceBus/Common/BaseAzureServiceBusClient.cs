@@ -8,8 +8,9 @@ namespace SqlTransactionalOutbox.AzureServiceBus.Common
 {
     public abstract class BaseAzureServiceBusClient: IAsyncDisposable
     {
-        protected ServiceBusClient AzureServiceBusClient { get; set; }
         protected bool DisposingEnabled { get; set; } = false;
+
+        protected ServiceBusClient AzureServiceBusClient { get; set; }
 
         public string ServiceBusTopic { get; set; }
 

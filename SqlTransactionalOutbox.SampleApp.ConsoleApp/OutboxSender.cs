@@ -11,16 +11,24 @@ using SqlTransactionalOutbox.Utilities;
 
 namespace SqlTransactionalOutbox.SampleApp.ConsoleApp
 {
+    /// <summary>
+    ///******************************************************************************************
+    /// 1. SENDING Messages via the Sql Transactional Outbox
+    /// 
+    ///  We Need a Payload Sender to populate the Outbox with messages/payloads...
+    ///  NOTE: this is a wrapper class to simplify this code and encapsulate Connection Handling!
+    ///******************************************************************************************
+    /// </summary>
     public class OutboxSender
     {
         public string ServiceBusTopic { get; }
 
         public string SqlConnectionString { get; set; }
 
-        public OutboxSender(string topic, string sqlConnectionString)
+        public OutboxSender(SampleAppConfig settings)
         {
-            this.ServiceBusTopic = topic;
-            this.SqlConnectionString = sqlConnectionString;
+            this.ServiceBusTopic = settings.AzureServiceBusTopic;
+            this.SqlConnectionString = settings.SqlConnectionString;
         }
 
         public async Task<ISqlTransactionalOutboxItem<Guid>> SendMessageAsync(string message)

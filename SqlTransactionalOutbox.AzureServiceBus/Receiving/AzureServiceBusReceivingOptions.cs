@@ -33,7 +33,7 @@ namespace SqlTransactionalOutbox.AzureServiceBus.Receiving
         /// <summary>
         /// A hook/callback for handling error/exception logging.
         /// </summary>
-        public Action<Exception> LogErrorCallback { get; set; } = null;
+        public Action<Exception> ErrorHandlerCallback { get; set; } = null;
 
     }
 }

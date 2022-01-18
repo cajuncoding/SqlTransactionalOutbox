@@ -115,6 +115,7 @@ namespace SqlTransactionalOutbox.AzureServiceBus.Receiving
                 azureServiceBusMessage.ContentType,
                 this.OutboxItemFactory.ParsePayload,
                 isFifoProcessingEnabled: isFifoProcessingEnabled,
+                subject: azureServiceBusMessage.Subject,
                 fifoGroupingIdentifier: azureServiceBusMessage.SessionId,
                 correlationId: azureServiceBusMessage.CorrelationId
             );

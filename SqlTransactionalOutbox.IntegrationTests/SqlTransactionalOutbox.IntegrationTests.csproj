@@ -17,13 +17,15 @@
   <ItemGroup>
     <ProjectReference Include="..\SqlTransactionalOutbox.AzureServiceBus\SqlTransactionalOutbox.AzureServiceBus.csproj" />
     <ProjectReference Include="..\SqlTransactionalOutbox.Common\SqlTransactionalOutbox.Common.csproj" />
+    <ProjectReference Include="..\SqlTransactionalOutbox.SampleApp.Common\SqlTransactionalOutbox.SampleApp.Common.csproj" />
     <ProjectReference Include="..\SqlTransactionalOutbox.SqlServer.MicrosoftDataNS\SqlTransactionalOutbox.SqlServer.MicrosoftDataNS.csproj" />
     <ProjectReference Include="..\SqlTransactionalOutbox.SqlServer.SystemDataNS\SqlTransactionalOutbox.SqlServer.SystemDataNS.csproj" />
   </ItemGroup>
 
   <ItemGroup>
-    <None Update="appsettings.json">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    <None Update="local.settings.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>Never</CopyToPublishDirectory>
     </None>
   </ItemGroup>
 

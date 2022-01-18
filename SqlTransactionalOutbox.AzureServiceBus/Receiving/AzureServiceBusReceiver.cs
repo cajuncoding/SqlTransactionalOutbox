@@ -280,7 +280,7 @@ namespace SqlTransactionalOutbox.AzureServiceBus.Receiving
                                                      " It must be Dead lettered to prevent blocking of the Service Bus as it will never be" +
                                                      " processed successfully.", exc);
 
-                this.Options.LogErrorCallback?.Invoke(messageException);
+                this.Options.ErrorHandlerCallback?.Invoke(messageException);
             }
 
             //IF the Received Item is successfully initialized then process it!
@@ -299,7 +299,7 @@ namespace SqlTransactionalOutbox.AzureServiceBus.Receiving
                 }
                 catch (Exception exc)
                 {
-                    this.Options.LogErrorCallback?.Invoke(exc);
+                    this.Options.ErrorHandlerCallback?.Invoke(exc);
 
                     //Always attempt to Reject/Abandon the message if any unhandled exceptions are thrown...
                     if (!azureServiceBusReceivedItem.IsStatusFinalized)
@@ -420,10 +420,10 @@ namespace SqlTransactionalOutbox.AzureServiceBus.Receiving
             var logException = new Exception(message, args.Exception);
 
             //Throw the exception if we can't Log it...
-            if(this.Options.LogErrorCallback == null)
+            if(this.Options.ErrorHandlerCallback == null)
                 Debug.WriteLine(logException.GetMessagesRecursively());
             else
-                this.Options.LogErrorCallback(logException);
+                this.Options.ErrorHandlerCallback(logException);
 
             return Task.CompletedTask;
         }

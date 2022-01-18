@@ -1,0 +1,8 @@
+{
+  "Values": {
+    "SqlConnectionString": "{{CONNECTION STRING GOES HERE}}",
+    "AzureServiceBusConnectionString": "{{AZURE SERVICE BUS CONNECTION STRING GOES HERE}}",
+    "AzureServiceBusTopic": "SqlTransactionalOutbox/Integration-Tests",
+    "AzureServiceBusSubscription": "dev-local"
+  }
+}

@@ -10,13 +10,16 @@ using SqlTransactionalOutbox.CustomExtensions;
 
 namespace SqlTransactionalOutbox.SampleApp.AzureFunctions
 {
-    public class AzureServiceBusIntegrationTopicHandlerFunction
+    //******************************************************************************************
+    // 3. RECEIVING Messages that were Published via AzureServiceBus
+    //******************************************************************************************
+    public class TransactionalOutboxFifoReceiverFunction
     {
-        [FunctionName(nameof(AzureServiceBusIntegrationTopicHandlerFunction))]
+        [FunctionName(nameof(TransactionalOutboxFifoReceiverFunction))]
         public Task Run(
             [ServiceBusTrigger(
-                topicName: "%ServiceBus-IntegrationTest-Topic%",
-                subscriptionName: "%ServiceBus-IntegrationTest-Subscription%", 
+                topicName: "%AzureServiceBusTopic%",
+                subscriptionName: "%AzureServiceBusSubscription%", 
                 //NOTE: Config Expression syntax not needed for Connection:
                 Connection = "AzureServiceBusConnectionString",
                 //NOTE: Sessions are used to support FIFO Enforced Processing with Azure Service Bus.
@@ -32,7 +35,7 @@ namespace SqlTransactionalOutbox.SampleApp.AzureFunctions
                 var receivedItem = serviceBusMessage.ToOutboxReceivedItem<string>();
 
                 logger.LogInformation($"Azure Service Bus Message Received at [{DateTimeOffset.Now}]:" +
-                    $"{Environment.NewLine} - Subject: [{receivedItem.AzureServiceBusMessage.Subject}]" +
+                    $"{Environment.NewLine} - Subject: [{receivedItem.Subject}]" +
                     $"{Environment.NewLine} - UniqueIdentifier: [{receivedItem.UniqueIdentifier}]" +
                     $"{Environment.NewLine} - Content Type: [{receivedItem.ContentType}]" +
                     $"{Environment.NewLine} - Correlation ID: [{receivedItem.CorrelationId}]" +

@@ -14,6 +14,7 @@ namespace SqlTransactionalOutbox.Receiving
         public ISqlTransactionalOutboxItem<TUniqueIdentifier> PublishedItem { get; protected set; }
         public TUniqueIdentifier UniqueIdentifier { get; protected set; }
         public string ContentType { get; protected set; }
+        public string Subject { get; protected set; }
         public string PayloadSerializedBody => PublishedItem?.Payload;
         public string CorrelationId { get; protected set; }
 
@@ -38,6 +39,7 @@ namespace SqlTransactionalOutbox.Receiving
             ILookup<string, object> headersLookup,
             string contentType,
             Func<ISqlTransactionalOutboxItem<TUniqueIdentifier>, TPayloadBody> parsePayloadFunc,
+            string subject = null,
             bool enableFifoEnforcedReceiving = false,
             string fifoGroupingIdentifier = null,
             string correlationId = null
@@ -48,9 +50,10 @@ namespace SqlTransactionalOutbox.Receiving
                 headersLookup,
                 contentType,
                 parsePayloadFunc,
-                enableFifoEnforcedReceiving,
-                fifoGroupingIdentifier,
-                correlationId
+                isFifoProcessingEnabled: enableFifoEnforcedReceiving,
+                subject: subject,
+                fifoGroupingIdentifier: fifoGroupingIdentifier,
+                correlationId: correlationId
             );
         }
 
@@ -60,10 +63,13 @@ namespace SqlTransactionalOutbox.Receiving
             string contentType,
             Func<ISqlTransactionalOutboxItem<TUniqueIdentifier>, TPayloadBody> parsePayloadFunc,
             bool isFifoProcessingEnabled,
+            string subject = null,
             string fifoGroupingIdentifier = null,
             string correlationId = null
         )
         {
+            Subject = subject;// Optional; Null if not specified or not supported.
+
             PublishedItem = outboxItem.AssertNotNull(nameof(outboxItem));
             HeadersLookup = headersLookup.AssertNotNull(nameof(headersLookup));
 
@@ -112,7 +118,7 @@ namespace SqlTransactionalOutbox.Receiving
                 this.Status = OutboxReceivedItemProcessingStatus.RejectAndAbandon;
                 IsStatusFinalized = true;
             }
-            IsStatusFinalized = true;
+            
             return Task.CompletedTask;
         }
 

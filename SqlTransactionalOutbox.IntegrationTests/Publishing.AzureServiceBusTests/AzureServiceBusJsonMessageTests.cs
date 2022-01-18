@@ -14,8 +14,6 @@ namespace SqlTransactionalOutbox.IntegrationTests
     [TestClass]
     public class AzureServiceBusJsonMessageTests
     {
-        public const string IntegrationTestTopic = "SqlTransactionalOutbox/Integration-Tests";
-        public const string IntegrationTestSubscriptionName = "dev-local";
         public static TimeSpan IntegrationTestServiceBusDeliveryWaitTimeSpan = TimeSpan.FromSeconds(15);
 
         public TestContext TestContext { get; set; }
@@ -49,7 +47,7 @@ namespace SqlTransactionalOutbox.IntegrationTests
                 status: OutboxItemStatus.Pending.ToString(),
                 fifoGroupingIdentifier: testPayload.FifoGroupingId,
                 publishAttempts: 0,
-                publishTarget: IntegrationTestTopic,
+                publishTarget: TestConfiguration.AzureServiceBusTopic,
                 serializedPayload: jsonPayload
             );
 
@@ -61,7 +59,7 @@ namespace SqlTransactionalOutbox.IntegrationTests
                 new AzureServiceBusPublishingOptions()
                 {
                     LogDebugCallback = s => TestContext.WriteLine(s),
-                    LogErrorCallback = e => TestContext.WriteLine(e.Message + e.InnerException?.Message)
+                    ErrorHandlerCallback = e => TestContext.WriteLine(e.Message + e.InnerException?.Message)
                 }
             );
 
@@ -88,7 +86,7 @@ namespace SqlTransactionalOutbox.IntegrationTests
             //*****************************************************************************************
             var testPayload = new
             {
-                PublishTarget = IntegrationTestTopic,
+                PublishTarget = TestConfiguration.AzureServiceBusTopic,
                 To = "CajunCoding",
                 FifoGroupingId = nameof(TestAzureServiceBusDirectPublishingAndReceiving),
                 ContentType = MessageContentTypes.PlainText,
@@ -121,7 +119,7 @@ namespace SqlTransactionalOutbox.IntegrationTests
                 new AzureServiceBusPublishingOptions()
                 {
                     LogDebugCallback = s => TestContext.WriteLine(s),
-                    LogErrorCallback = e => TestContext.WriteLine(e.Message + e.InnerException?.Message)
+                    ErrorHandlerCallback = e => TestContext.WriteLine(e.Message + e.InnerException?.Message)
                 }
             );
 
@@ -129,7 +127,7 @@ namespace SqlTransactionalOutbox.IntegrationTests
             {
                 FifoEnforcedPublishingEnabled = true,
                 LogDebugCallback = s => TestContext.WriteLine(s),
-                LogErrorCallback = e => TestContext.WriteLine(e.Message + e.InnerException?.Message),
+                ErrorHandlerCallback = e => TestContext.WriteLine(e.Message + e.InnerException?.Message),
                 MaxPublishingAttempts = 1,
                 TimeSpanToLive = TimeSpan.FromMinutes(5)
             });
@@ -146,13 +144,13 @@ namespace SqlTransactionalOutbox.IntegrationTests
             //* Attempt to Retrieve/Receive the Message & Validate after Arrival!
             //*****************************************************************************************
             await using var azureServiceBusReceiver = new DefaultFifoAzureServiceBusReceiver<string>(
-                TestConfiguration.AzureServiceBusConnectionString, 
-                IntegrationTestTopic,
-                IntegrationTestSubscriptionName,
+                TestConfiguration.AzureServiceBusConnectionString,
+                TestConfiguration.AzureServiceBusTopic,
+                TestConfiguration.AzureServiceBusSubscription,
                 options: new AzureServiceBusReceivingOptions()
                 {
                     LogDebugCallback = (message) => Debug.WriteLine(message),
-                    LogErrorCallback = (exc) => Debug.WriteLine($"ERROR: {Environment.NewLine}{exc.GetMessagesRecursively()}")
+                    ErrorHandlerCallback = (exc) => Debug.WriteLine($"ERROR: {Environment.NewLine}{exc.GetMessagesRecursively()}")
                 }
             );
 

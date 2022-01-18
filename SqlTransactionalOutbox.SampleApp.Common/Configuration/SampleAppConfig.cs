@@ -1,4 +1,6 @@
-﻿using System;
+﻿#nullable disable
+using System;
+using System.Runtime.CompilerServices;
 
 namespace SqlTransactionalOutbox.SampleApp.AzureFunctions
 {
@@ -9,28 +11,33 @@ namespace SqlTransactionalOutbox.SampleApp.AzureFunctions
         private const int _defaultMaxPublishingTTLDays = 10;
         private const int _defaultHistoryToKeepDays = 30;
 
-        static SampleAppConfig()
+        private const string _defaultServiceBusTopic = "SqlTransactionalOutbox/Integration-Tests";
+        private const string _defaultServiceBusSubscription = "dev-local";
+
+        public SampleAppConfig()
         {
             SqlConnectionString = GetStringValue(nameof(SqlConnectionString));
             AzureServiceBusConnectionString = GetStringValue(nameof(AzureServiceBusConnectionString));
+            AzureServiceBusTopic = GetStringValue(nameof(AzureServiceBusTopic), _defaultServiceBusTopic);
+            AzureServiceBusSubscription = GetStringValue(nameof(AzureServiceBusSubscription), _defaultServiceBusSubscription);
             OutboxMaxPublishingRetryAttempts = GetIntValue(nameof(OutboxMaxPublishingRetryAttempts), _defaultMaxPublishingRetryAttempts);
             OutboxMaxTimeToLiveTimeSpan = TimeSpan.FromDays(GetIntValue("OutboxMaxTimeToLiveDays", _defaultMaxPublishingTTLDays));
             OutboxHistoryToKeepTimeSpan = TimeSpan.FromDays(GetIntValue("OutboxHistoryToKeepDays", _defaultHistoryToKeepDays));
         }
 
         //Always a good idea to abstract away or encapsulate the core/base reading of config values...
-        private static string ReadConfigValue(string key)
+        private string ReadConfigValue(string key)
         {
             return Environment.GetEnvironmentVariable(key);
         }
 
-        private static string GetStringValue(string key)
+        private string GetStringValue(string key, string defaultValue = null)
         {
             var value = ReadConfigValue(key)?.Trim();
-            return value;
+            return string.IsNullOrWhiteSpace(value) ? defaultValue : value;
         }
 
-        private static int GetIntValue(string key, int defaultValue = default)
+        private int GetIntValue(string key, int defaultValue = default)
         {
             var value = int.TryParse(GetStringValue(key), out int intValue)
                 ? intValue
@@ -39,10 +46,12 @@ namespace SqlTransactionalOutbox.SampleApp.AzureFunctions
             return value;
         }
 
-        public static string SqlConnectionString { get; }
-        public static string AzureServiceBusConnectionString { get; }
-        public static int OutboxMaxPublishingRetryAttempts { get; }
-        public  static TimeSpan OutboxMaxTimeToLiveTimeSpan { get; }
-        public static TimeSpan OutboxHistoryToKeepTimeSpan { get; }
+        public string SqlConnectionString { get; }
+        public string AzureServiceBusConnectionString { get; }
+        public string AzureServiceBusTopic { get; }
+        public string AzureServiceBusSubscription { get; }
+        public int OutboxMaxPublishingRetryAttempts { get; }
+        public TimeSpan OutboxMaxTimeToLiveTimeSpan { get; }
+        public TimeSpan OutboxHistoryToKeepTimeSpan { get; }
     }
 }

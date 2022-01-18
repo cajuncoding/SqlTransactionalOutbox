@@ -57,14 +57,21 @@ namespace SqlTransactionalOutbox.SqlServer.MicrosoftDataNS
             this.ProcessingTask = Task.Run(async () =>
             {
                 long executionCount = 0;
-                while (!cancellationToken.IsCancellationRequested)
+                try
                 {
-                    //Wait for the next iteration to Process the Outbox...
-                    await Task.Delay(this.ProcessingIntervalTimespan, cancellationToken);
+                    while (!cancellationToken.IsCancellationRequested)
+                    {
+                        //Wait for the next iteration to Process the Outbox...
+                        await Task.Delay(this.ProcessingIntervalTimespan, cancellationToken);
 
-                    //Executing processing after waiting the specified time...
-                    await ExecuteSqlTransactionalOutboxProcessingInternalAsync();
-                    executionCount++;
+                        //Executing processing after waiting the specified time...
+                        await ExecuteSqlTransactionalOutboxProcessingInternalAsync();
+                        executionCount++;
+                    }
+                }
+                catch (TaskCanceledException) 
+                {
+                    //Handle Cancellation Gracefully and do nothing...
                 }
 
                 return executionCount;
@@ -118,6 +125,10 @@ namespace SqlTransactionalOutbox.SqlServer.MicrosoftDataNS
         public async ValueTask DisposeAsync()
         {
             await this.StopAsync();
+            
+            //Finally cleanup other Disposable items (that WE Own)...
+            //NOTE: We do NOT Dispose of items injected via Constructor as the ownership is not ours...
+            this.CancellationTokenSource?.Dispose();
         }
     }
 }
