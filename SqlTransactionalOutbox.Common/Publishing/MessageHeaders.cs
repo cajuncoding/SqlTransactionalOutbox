@@ -20,11 +20,11 @@ namespace SqlTransactionalOutbox.Publishing
         public const string ReplyToSessionId = "replyToSessionId";
         public const string PartitionKey = "partitionKey";
         public const string ContentType = "contentType";
-        public const string Subject = "subject"; // Convenience Alias for Label
-        public const string Label = "label";
-        public const string Headers = "headers";
-        public const string UserProperties = "userProperties";
-
+        public const string Subject = "subject"; 
+        public const string Label = "label"; // Backwards Compatible Alias for Subject (prior to migrating to Azure.Messaging.ServiceBus API.
+        public const string AppProperties = "appProperties";
+        public const string Headers = "headers"; //Convenience Alias for AppProperties or UserProperties for more generic naming.
+        public const string UserProperties = "userProperties"; // Backwards Compatible Alias for Subject (prior to migrating to Azure.Messaging.ServiceBus API.
     }
 
     public class MessageHeaders

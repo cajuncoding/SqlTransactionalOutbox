@@ -71,8 +71,7 @@ namespace SqlTransactionalOutbox.SqlServer.MicrosoftDataNS
         )
         {
             sqlConnection.AssertSqlConnectionIsValid();
-            await using var outboxTransaction = (SqlTransaction)(await sqlConnection.BeginTransactionAsync());
-            
+            await using var outboxTransaction = (SqlTransaction)(await sqlConnection.BeginTransactionAsync().ConfigureAwait(false));
             try
             {
                 var results = await outboxTransaction
@@ -106,7 +105,7 @@ namespace SqlTransactionalOutbox.SqlServer.MicrosoftDataNS
         )
         {
             sqlConnection.AssertSqlConnectionIsValid();
-            await using var outboxTransaction = (SqlTransaction)(await sqlConnection.BeginTransactionAsync());
+            await using var outboxTransaction = (SqlTransaction)(await sqlConnection.BeginTransactionAsync().ConfigureAwait(false));
             
             try
             {
@@ -140,7 +139,7 @@ namespace SqlTransactionalOutbox.SqlServer.MicrosoftDataNS
         )
         {
             sqlConnection.AssertSqlConnectionIsValid();
-            await using var outboxTransaction = (SqlTransaction)(await sqlConnection.BeginTransactionAsync());
+            await using var outboxTransaction = (SqlTransaction)(await sqlConnection.BeginTransactionAsync().ConfigureAwait(false));
             
             try
             {
@@ -205,7 +204,7 @@ namespace SqlTransactionalOutbox.SqlServer.MicrosoftDataNS
         /// <typeparam name="TPayload"></typeparam>
         /// <param name="sqlTransaction"></param>
         /// <param name="publishTarget"></param>
-        /// <param name="jsonPayload"></param>
+        /// <param name="payload"></param>
         /// <param name="fifoGroupingIdentifier"></param>
         /// <returns></returns>
         public static async Task<ISqlTransactionalOutboxItem<Guid>> AddTransactionalOutboxPendingItemAsync<TPayload>(

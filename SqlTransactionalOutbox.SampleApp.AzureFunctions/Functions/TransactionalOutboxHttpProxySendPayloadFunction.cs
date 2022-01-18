@@ -8,21 +8,24 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
-using SqlTransactionalOutbox.AzureServiceBus;
 using SqlTransactionalOutbox.SqlServer.MicrosoftDataNS;
 using SqlTransactionalOutbox.Utilities;
 
 namespace SqlTransactionalOutbox.SampleApp.AzureFunctions
 {
-    public class TransactionalOutboxHttpProxyFunction
+    public class TransactionalOutboxHttpProxySendPayloadFunction
     {
+        //******************************************************************************************
+        // 1. SENDING Messages via the Sql Transactional Outbox
+        //******************************************************************************************
         [FunctionName("SendPayload")]
         public async Task<IActionResult> Run(
             [HttpTrigger(AuthorizationLevel.Anonymous, "get", "post", Route = null)] HttpRequest req,
             ILogger log)
         {
-            log.LogInformation($"HTTP [{nameof(TransactionalOutboxHttpProxyFunction)}].");
-            
+            log.LogInformation($"HTTP [{nameof(TransactionalOutboxHttpProxySendPayloadFunction)}].");
+            var configSettings = new SampleAppConfig();
+
             //Initialize the Payload from the Body as Json!
             var jsonText = await req.ReadAsStringAsync();
             var payloadBuilder = PayloadBuilder.FromJsonSafely(jsonText);
@@ -32,7 +35,7 @@ namespace SqlTransactionalOutbox.SampleApp.AzureFunctions
             var queryLookup = req.Query.ToLookup(k => k.Key, v => v.Value.FirstOrDefault());
             payloadBuilder.ApplyValues(queryLookup, false);
 
-            var sqlConnection = new SqlConnection(FunctionsConfiguration.SqlConnectionString);
+            await using var sqlConnection = new SqlConnection(configSettings.SqlConnectionString);
             await sqlConnection.OpenAsync();
 
             //************************************************************
@@ -41,7 +44,8 @@ namespace SqlTransactionalOutbox.SampleApp.AzureFunctions
             var outboxItem = await sqlConnection.AddTransactionalOutboxPendingItemAsync(
                 publishTarget: payloadBuilder.PublishTarget,
                 payload: payloadBuilder.ToJObject(),
-                fifoGroupingIdentifier: payloadBuilder.FifoGroupingId
+                //It's always a good idea to ensure that a FIFO Group Id/Name is specified for any FIFO Subscriptions that may receive the messages...
+                fifoGroupingIdentifier: payloadBuilder.FifoGroupingId ?? "DefaultFifoGroup"
             ).ConfigureAwait(false);
 
             //Log results and return response to the client...

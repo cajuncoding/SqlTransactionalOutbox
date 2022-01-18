@@ -76,7 +76,6 @@ namespace SqlTransactionalOutbox.Tests
             );
         }
 
-
         public static void AssertOutboxItemMatchesReceivedItem(
             ISqlTransactionalOutboxItem<Guid> outboxItem,
             ISqlTransactionalOutboxReceivedItem<Guid, string> receivedItem

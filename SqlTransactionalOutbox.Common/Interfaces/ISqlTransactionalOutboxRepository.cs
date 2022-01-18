@@ -5,7 +5,7 @@ using System.Threading.Tasks;
 
 namespace SqlTransactionalOutbox
 {
-    public interface ISqlTransactionalOutboxRepository<TUniqueIdentifier, TPayload>
+    public interface ISqlTransactionalOutboxRepository<TUniqueIdentifier, in TPayload>
     {
         Task<List<ISqlTransactionalOutboxItem<TUniqueIdentifier>>> InsertNewOutboxItemsAsync(
             IEnumerable<ISqlTransactionalOutboxInsertionItem<TPayload>> outboxItems, 
@@ -23,6 +23,8 @@ namespace SqlTransactionalOutbox
         );
 
         Task CleanupOutboxHistoricalItemsAsync(TimeSpan historyTimeToKeepTimeSpan);
+
+        Task IncrementPublishAttemptsForAllItemsByStatusAsync(OutboxItemStatus status);
 
         Task<IAsyncDisposable> AcquireDistributedProcessingMutexAsync();
     }

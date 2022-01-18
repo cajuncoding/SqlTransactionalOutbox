@@ -1,35 +1,38 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Text;
 using System.Threading.Tasks;
-using Microsoft.Azure.ServiceBus;
-using Microsoft.Azure.ServiceBus.Core;
+using Azure.Messaging.ServiceBus;
 using Newtonsoft.Json.Linq;
-using SqlTransactionalOutbox.AzureServiceBus.Caching;
 using SqlTransactionalOutbox.AzureServiceBus.Common;
+using SqlTransactionalOutbox.CustomExtensions;
 using SqlTransactionalOutbox.JsonExtensions;
 using SqlTransactionalOutbox.Publishing;
 
 
 namespace SqlTransactionalOutbox.AzureServiceBus.Publishing
 {
-    public class BaseAzureServiceBusPublisher<TUniqueIdentifier> : 
-        BaseAzureServiceBusClient, ISqlTransactionalOutboxPublisher<TUniqueIdentifier>
+    public class BaseAzureServiceBusPublisher<TUniqueIdentifier> : BaseAzureServiceBusClient, ISqlTransactionalOutboxPublisher<TUniqueIdentifier>, IAsyncDisposable
     {
-        public string ConnectionString { get; }
         public AzureServiceBusPublishingOptions Options { get; }
         public string SenderApplicationName { get; protected set; }
-        protected AzureSenderClientCache SenderClientCache { get; }
 
         public BaseAzureServiceBusPublisher(
             string azureServiceBusConnectionString,
             AzureServiceBusPublishingOptions options = null
+        ) : this(InitAzureServiceBusConnection(azureServiceBusConnectionString, options), options)
+        {
+            DisposingEnabled = true;
+        }
+
+        public BaseAzureServiceBusPublisher(
+            ServiceBusClient azureServiceBusClient,
+            AzureServiceBusPublishingOptions options = null
         )
         {
             this.Options = options ?? new AzureServiceBusPublishingOptions();
-
-            this.ConnectionString = azureServiceBusConnectionString;
+            this.AzureServiceBusClient = azureServiceBusClient.AssertNotNull(nameof(azureServiceBusClient));
             this.SenderApplicationName = Options.SenderApplicationName;
-            this.SenderClientCache = new AzureSenderClientCache();
         }
 
         public async Task PublishOutboxItemAsync(
@@ -50,34 +53,21 @@ namespace SqlTransactionalOutbox.AzureServiceBus.Publishing
             }
 
             Options.LogDebugCallback?.Invoke($"Initializing Sender Client for Topic [{outboxItem.PublishTarget}]...");
-            var senderClient = SenderClientCache.InitializeClient(
-                publishingTarget: outboxItem.PublishTarget, 
-                newSenderClientFactory: () => CreateNewAzureServiceBusSenderClient(outboxItem.PublishTarget)
-            );
+            await using var senderClient = this.AzureServiceBusClient.CreateSender(outboxItem.PublishTarget);
 
             var uniqueIdString = ConvertUniqueIdentifierToString(outboxItem.UniqueIdentifier);
-            Options.LogDebugCallback?.Invoke($"Sending the Message [{message.Label}] for outbox item [{uniqueIdString}]...");
+            Options.LogDebugCallback?.Invoke($"Sending the Message [{message.Subject}] for outbox item [{uniqueIdString}]...");
 
-            await senderClient.SendAsync(message);
+            await senderClient.SendMessageAsync(message);
 
-            Options.LogDebugCallback?.Invoke($"Azure Service Bus message [{message.Label}] has been published successfully.");
+            Options.LogDebugCallback?.Invoke($"Azure Service Bus message [{message.Subject}] has been published successfully.");
         }
 
-        protected virtual ISenderClient CreateNewAzureServiceBusSenderClient(string publishingTarget)
-        {
-            var senderClient = new TopicClient(this.ConnectionString, publishingTarget, Options.RetryPolicy);
-            
-            //Enable dynamic configuration if specified...
-            this.ClientConfigurationFunc?.Invoke(senderClient);
-
-            return senderClient;
-        }
-
-        protected virtual Message CreateEventBusMessage(ISqlTransactionalOutboxItem<TUniqueIdentifier> outboxItem)
+        protected virtual ServiceBusMessage CreateEventBusMessage(ISqlTransactionalOutboxItem<TUniqueIdentifier> outboxItem)
         {
             var uniqueIdString = ConvertUniqueIdentifierToString(outboxItem.UniqueIdentifier);
             var defaultLabel = $"[PublishedBy={Options.SenderApplicationName}][MessageId={uniqueIdString}]";
-            Message message = null;
+            ServiceBusMessage message = null;
 
             Options.LogDebugCallback?.Invoke($"Creating Azure Message Object from [{uniqueIdString}]...");
 
@@ -97,7 +87,7 @@ namespace SqlTransactionalOutbox.AzureServiceBus.Publishing
                 fifoGroupingId ??= GetJsonValueSafely(json, JsonMessageFields.FifoGroupingId, (string)null)
                                              ?? GetJsonValueSafely(json, JsonMessageFields.SessionId, (string)null);
 
-                message = new Message
+                message = new ServiceBusMessage
                 {
                     MessageId = uniqueIdString,
                     SessionId = fifoGroupingId,
@@ -110,22 +100,24 @@ namespace SqlTransactionalOutbox.AzureServiceBus.Publishing
                     //Transaction related Partition Key... unused so disabling this to minimize risk.
                     //ViaPartitionKey = sessionId ?? GetJsonValueSafely(json, "viaPartitionKey", string.Empty),
                     ContentType = GetJsonValueSafely(json, JsonMessageFields.ContentType, MessageContentTypes.Json),
-                    Label = GetJsonValueSafely(json, JsonMessageFields.Label, defaultLabel)
+                    Subject = GetJsonValueSafely<string>(json, JsonMessageFields.Subject)
+                                ?? GetJsonValueSafely(json, JsonMessageFields.Label, defaultLabel)
                 };
 
                 //Initialize the Body from dynamic Json if defined, or fallback to the entire body...
                 var messageBody = GetJsonValueSafely(json, JsonMessageFields.Body, outboxItem.Payload);
-                message.Body = ConvertPublishingPayloadToBytes(messageBody);
+                message.Body = new BinaryData(ConvertPublishingPayloadToBytes(messageBody));
 
                 //Populate HeadersLookup/User Properties if defined dynamically...
                 var headers = GetJsonValueSafely<JObject>(json, JsonMessageFields.Headers)
-                              ?? GetJsonValueSafely<JObject>(json, JsonMessageFields.UserProperties);
+                                        ?? GetJsonValueSafely<JObject>(json, JsonMessageFields.AppProperties)
+                                        ?? GetJsonValueSafely<JObject>(json, JsonMessageFields.UserProperties);
 
                 if (headers != null)
                 {
                     foreach (JProperty prop in headers.Properties())
                     {
-                        message.UserProperties.Add(
+                        message.ApplicationProperties.Add(
                             MessageHeaders.ToHeader(prop.Name.ToLower()), 
                             prop.Value.ToString()
                         );
@@ -136,26 +128,27 @@ namespace SqlTransactionalOutbox.AzureServiceBus.Publishing
             else
             //Process as a string with no additional dynamic fields...
             {
-                Options.LogDebugCallback?.Invoke($"Payload for [{uniqueIdString}] is is plain text.");
+                Options.LogDebugCallback?.Invoke($"Payload for [{uniqueIdString}] is in plain text format.");
 
-                message = new Message
+                message = new ServiceBusMessage
                 {
                     MessageId = uniqueIdString,
                     SessionId = fifoGroupingId,
                     CorrelationId = string.Empty,
-                    Label = defaultLabel,
+                    Subject = defaultLabel,
                     ContentType = MessageContentTypes.PlainText,
-                    Body = ConvertPublishingPayloadToBytes(outboxItem.Payload)
+                    Body = new BinaryData(ConvertPublishingPayloadToBytes(outboxItem.Payload))
                 };
             }
 
             //Add all default headers/user-properties...
-            message.UserProperties.Add(MessageHeaders.ProcessorType, nameof(SqlTransactionalOutbox));
-            message.UserProperties.Add(MessageHeaders.ProcessorSender, this.SenderApplicationName);
-            message.UserProperties.Add(MessageHeaders.OutboxUniqueIdentifier, uniqueIdString);
-            message.UserProperties.Add(MessageHeaders.OutboxCreatedDateUtc, outboxItem.CreatedDateTimeUtc);
-            message.UserProperties.Add(MessageHeaders.OutboxPublishingAttempts, outboxItem.PublishAttempts);
-            message.UserProperties.Add(MessageHeaders.OutboxPublishingTarget, outboxItem.PublishTarget);
+            var messageProps = message.ApplicationProperties;
+            messageProps.TryAdd(MessageHeaders.ProcessorType, nameof(SqlTransactionalOutbox));
+            messageProps.TryAdd(MessageHeaders.ProcessorSender, this.SenderApplicationName);
+            messageProps.TryAdd(MessageHeaders.OutboxUniqueIdentifier, uniqueIdString);
+            messageProps.TryAdd(MessageHeaders.OutboxCreatedDateUtc, outboxItem.CreatedDateTimeUtc);
+            messageProps.TryAdd(MessageHeaders.OutboxPublishingAttempts, outboxItem.PublishAttempts);
+            messageProps.TryAdd(MessageHeaders.OutboxPublishingTarget, outboxItem.PublishTarget);
             
             return message;
         }
@@ -198,6 +191,5 @@ namespace SqlTransactionalOutbox.AzureServiceBus.Publishing
                 return null;
             }
         }
-
     }
 }

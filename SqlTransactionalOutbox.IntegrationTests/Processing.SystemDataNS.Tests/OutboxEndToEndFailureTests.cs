@@ -21,19 +21,29 @@ namespace SqlTransactionalOutbox.IntegrationTests.SystemDataNS
             var timeToLiveTimeSpan = TimeSpan.FromSeconds(5);
             var testHarnessPublisher = new TestHarnessSqlTransactionalOutboxPublisher();
 
-            //*****************************************************************************************
-            //* STEP 1 - Prepare/Clear the Queue Table
-            //*****************************************************************************************
-            await SystemDataSqlTestHelpers.PopulateTransactionalOutboxTestDataAsync(failedItemTestDataSizeByBatch);
+            var expectedTotalSuccessCount = 0;
+            var expectedTotalExpiredCount = 0;
 
             //*****************************************************************************************
-            //* STEP 2 - Add a Second & Third batch of items with different TTL
+            //* STEP 1 - Prepare/Clear the Queue Table and populate initial Set of items (expected to Fail/Expire)
+            //              then wait for them to expire...
             //*****************************************************************************************
-            await Task.Delay(timeToLiveTimeSpan + TimeSpan.FromMilliseconds(500));
+
+            await SystemDataSqlTestHelpers.PopulateTransactionalOutboxTestDataAsync(failedItemTestDataSizeByBatch);
+            expectedTotalExpiredCount += failedItemTestDataSizeByBatch;
+
+            await Task.Delay(timeToLiveTimeSpan + TimeSpan.FromSeconds(1));
+
+            //*****************************************************************************************
+            //* STEP 2 - Add a Second & Third batch of items with different insertion Timestamps to
+            //              ensure only the first set expire as expected...
+            //*****************************************************************************************
             await SystemDataSqlTestHelpers.PopulateTransactionalOutboxTestDataAsync(successfulItemTestDataSize, false);
+            expectedTotalSuccessCount += successfulItemTestDataSize;
 
             //Insert in a second batch to force different Creation Dates at the DB level...
             await SystemDataSqlTestHelpers.PopulateTransactionalOutboxTestDataAsync(successfulItemTestDataSize, false);
+            expectedTotalSuccessCount += successfulItemTestDataSize;
 
             //*****************************************************************************************
             //* STEP 2 - Process Outbox and get Results
@@ -47,8 +57,8 @@ namespace SqlTransactionalOutbox.IntegrationTests.SystemDataNS
             //*****************************************************************************************
             //* STEP 3 - Validate Results returned!
             //*****************************************************************************************
-            Assert.AreEqual(3, processingResults.FailedItems.Count);
-            Assert.AreEqual(successfulItemTestDataSize * 2, processingResults.SuccessfullyPublishedItems.Count);
+            Assert.AreEqual(expectedTotalExpiredCount, processingResults.FailedItems.Count);
+            Assert.AreEqual(expectedTotalSuccessCount, processingResults.SuccessfullyPublishedItems.Count);
 
             //We expect all items to be processed before any item is failed....
             //So the First Item will be repeated as the 10'th item after the next 9 are also attempted...
@@ -67,15 +77,17 @@ namespace SqlTransactionalOutbox.IntegrationTests.SystemDataNS
             //*****************************************************************************************
             await using var sqlTransaction2 = (SqlTransaction)await sqlConnection.BeginTransactionAsync().ConfigureAwait(false);
             var outboxProcessor = new DefaultSqlServerTransactionalOutboxProcessor<string>(sqlTransaction2, testHarnessPublisher);
-
             var outboxRepository = outboxProcessor.OutboxRepository;
+
             var successfulItems = await outboxRepository.RetrieveOutboxItemsAsync(OutboxItemStatus.Successful);
+            Assert.AreEqual(expectedTotalSuccessCount, successfulItems.Count);
             successfulItems.ForEach(i =>
             {
                 Assert.AreEqual(OutboxItemStatus.Successful, i.Status);
             });
 
             var failedItems = await outboxRepository.RetrieveOutboxItemsAsync(OutboxItemStatus.FailedExpired);
+            Assert.AreEqual(expectedTotalExpiredCount, failedItems.Count);
             processingResults.FailedItems.ForEach(i =>
             {
                 Assert.AreEqual(OutboxItemStatus.FailedExpired, i.Status);

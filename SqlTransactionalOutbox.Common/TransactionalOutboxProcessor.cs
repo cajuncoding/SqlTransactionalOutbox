@@ -26,7 +26,6 @@ namespace SqlTransactionalOutbox
             this.OutboxPublisher = outboxPublisher ?? throw new ArgumentNullException(nameof(OutboxPublisher));
         }
 
-       
         public virtual async Task<ISqlTransactionalOutboxProcessingResults<TUniqueIdentifier>> ProcessPendingOutboxItemsAsync(
             OutboxProcessingOptions processingOptions = null,
             bool throwExceptionOnFailure = false
@@ -39,7 +38,7 @@ namespace SqlTransactionalOutbox
 
             //Retrieve items to e processed from the Repository (ALL Pending items available for publishing attempt!)
             var pendingOutboxItems = await OutboxRepository.RetrieveOutboxItemsAsync(
-                OutboxItemStatus.Pending, 
+                OutboxItemStatus.Pending,
                 options.ItemProcessingBatchSize
             ).ConfigureAwait(false);
 
@@ -73,9 +72,9 @@ namespace SqlTransactionalOutbox
                 const string mutexErrorMessage = "Distributed Mutex Lock could not be acquired; processing will not continue.";
                 options.LogDebugCallback?.Invoke(mutexErrorMessage);
 
-                if (throwExceptionOnFailure) 
+                if (throwExceptionOnFailure)
                     throw new Exception(mutexErrorMessage);
-                
+
                 return results;
             }
 
@@ -84,12 +83,12 @@ namespace SqlTransactionalOutbox
             //      this ensures that we guarantee at-least-once delivery because the item will be retried at a later point
             //      if anything fails with the update.
             await ProcessOutboxItemsInternalAsync(
-                pendingOutboxItems, 
-                options, 
-                results, 
+                pendingOutboxItems,
+                options,
+                results,
                 throwExceptionOnFailure
             ).ConfigureAwait(false);
-
+            
             return results;
         }
 
@@ -240,7 +239,7 @@ namespace SqlTransactionalOutbox
             //Short circuit if we are configured to Throw the Error or if Enforce FIFO processing is enabled!
             if (throwExceptionOnFailure)
             {
-                options.LogErrorCallback?.Invoke(processingException);
+                options.ErrorHandlerCallback?.Invoke(processingException);
 
                 //If configured to throw an error then we Attempt to update the item before throwing exception
                 // because normally it would have been updated in bulk if exceptions were suppressed.
@@ -280,7 +279,7 @@ namespace SqlTransactionalOutbox
             }
 
             //Log the latest initialized exception with details...
-            options.LogErrorCallback?.Invoke(processingException);
+            options.ErrorHandlerCallback?.Invoke(processingException);
         }
     }
 }

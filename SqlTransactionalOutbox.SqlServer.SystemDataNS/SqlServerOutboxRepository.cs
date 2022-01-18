@@ -56,12 +56,12 @@ namespace SqlTransactionalOutbox.SqlServer.SystemDataNS
 
                 var outboxItem = OutboxItemFactory.CreateExistingOutboxItem(
                     uniqueIdentifier: ConvertUniqueIdentifierFromDb(sqlReader),
-                    status: (string)sqlReader[OutboxTableConfig.StatusFieldName],
-                    fifoGroupingIdentifier: (string)sqlReader[OutboxTableConfig.FifoGroupingIdentifier],
+                    status: sqlReader[OutboxTableConfig.StatusFieldName] as string,
+                    fifoGroupingIdentifier: sqlReader[OutboxTableConfig.FifoGroupingIdentifier] as string,
                     publishAttempts: (int)sqlReader[OutboxTableConfig.PublishAttemptsFieldName],
                     createdDateTimeUtc: new DateTimeOffset(createdDateUtcFromDb, TimeSpan.Zero),
-                    publishTarget: (string)sqlReader[OutboxTableConfig.PublishTargetFieldName],
-                    serializedPayload: (string)sqlReader[OutboxTableConfig.PayloadFieldName]
+                    publishTarget: sqlReader[OutboxTableConfig.PublishTargetFieldName] as string,
+                    serializedPayload: sqlReader[OutboxTableConfig.PayloadFieldName] as string
                 );
 
                 results.Add(outboxItem);
@@ -79,6 +79,17 @@ namespace SqlTransactionalOutbox.SqlServer.SystemDataNS
 
             await using var sqlCmd = CreateSqlCommand(sql);
             AddParam(sqlCmd, purgeHistoryParamName, purgeHistoryBeforeDate, SqlDbType.DateTime2);
+
+            await sqlCmd.ExecuteNonQueryAsync().ConfigureAwait(false);
+        }
+
+        public virtual async Task IncrementPublishAttemptsForAllItemsByStatusAsync(OutboxItemStatus status)
+        {
+            var statusParamName = OutboxTableConfig.StatusFieldName;
+            var sql = QueryBuilder.BuildSqlForBulkPublishAttemptsIncrementByStatus(statusParamName);
+
+            await using var sqlCmd = CreateSqlCommand(sql);
+            AddParam(sqlCmd, statusParamName, status.ToString(), SqlDbType.VarChar);
 
             await sqlCmd.ExecuteNonQueryAsync().ConfigureAwait(false);
         }
