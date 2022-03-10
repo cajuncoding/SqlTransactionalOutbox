@@ -71,7 +71,7 @@ namespace SqlTransactionalOutbox.SqlServer.SystemDataNS
         )
         {
             sqlConnection.AssertSqlConnectionIsValid();
-            await using var outboxTransaction = (SqlTransaction)(await sqlConnection.BeginTransactionAsync());
+            await using var outboxTransaction = (SqlTransaction)(await sqlConnection.BeginTransactionAsync().ConfigureAwait(false));
 
             try
             {
@@ -106,7 +106,7 @@ namespace SqlTransactionalOutbox.SqlServer.SystemDataNS
         )
         {
             sqlConnection.AssertSqlConnectionIsValid();
-            await using var outboxTransaction = (SqlTransaction)(await sqlConnection.BeginTransactionAsync());
+            await using var outboxTransaction = (SqlTransaction)(await sqlConnection.BeginTransactionAsync().ConfigureAwait(false));
 
             try
             {
@@ -140,7 +140,7 @@ namespace SqlTransactionalOutbox.SqlServer.SystemDataNS
         )
         {
             sqlConnection.AssertSqlConnectionIsValid();
-            await using var outboxTransaction = (SqlTransaction)(await sqlConnection.BeginTransactionAsync());
+            await using var outboxTransaction = (SqlTransaction)(await sqlConnection.BeginTransactionAsync().ConfigureAwait(false));
 
             try
             {

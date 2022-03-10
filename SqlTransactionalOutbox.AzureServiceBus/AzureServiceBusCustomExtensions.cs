@@ -1,5 +1,5 @@
 ﻿using System;
-using Microsoft.Azure.ServiceBus;
+using Azure.Messaging.ServiceBus;
 using SqlTransactionalOutbox.AzureServiceBus.Receiving;
 
 namespace SqlTransactionalOutbox.AzureServiceBus
@@ -15,7 +15,7 @@ namespace SqlTransactionalOutbox.AzureServiceBus
         /// <param name="serviceBusMessage"></param>
         /// <returns></returns>
         public static AzureServiceBusReceivedItem<Guid, TParseBody> ToOutboxReceivedItem<TParseBody>(
-            this Message serviceBusMessage
+            this ServiceBusReceivedMessage serviceBusMessage
         )
         {
             var receivedItem = new DefaultAzureServiceBusReceivedItem<TParseBody>(serviceBusMessage);

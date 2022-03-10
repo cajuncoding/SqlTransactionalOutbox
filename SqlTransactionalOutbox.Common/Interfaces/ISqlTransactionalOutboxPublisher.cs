@@ -5,7 +5,7 @@ using System.Threading.Tasks;
 
 namespace SqlTransactionalOutbox
 {
-    public interface ISqlTransactionalOutboxPublisher<TUniqueIdentifier>
+    public interface ISqlTransactionalOutboxPublisher<TUniqueIdentifier>: IAsyncDisposable
     {
         Task PublishOutboxItemAsync(
             ISqlTransactionalOutboxItem<TUniqueIdentifier> outboxItem, 

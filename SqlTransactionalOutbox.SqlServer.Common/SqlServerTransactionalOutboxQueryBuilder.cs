@@ -48,6 +48,18 @@ namespace SqlTransactionalOutbox.SqlServer.Common
             return sql;
         }
 
+        public virtual string BuildSqlForBulkPublishAttemptsIncrementByStatus(string statusParamName = "status")
+        {
+            var publishAttemptsField = ToSqlFieldName(OutboxTableConfig.PublishAttemptsFieldName);
+            var sql = @$"
+                UPDATE {BuildTableName()}
+                SET {publishAttemptsField} = ({publishAttemptsField} + 1)
+                WHERE {ToSqlFieldName(OutboxTableConfig.StatusFieldName)} = {ToSqlParamName(statusParamName)};
+            ";
+
+            return sql;
+        }
+
         /// <summary>
         /// NOTE: In Sql Server, we ignore date/time values provided (if provided) because
         ///       the value is critical to enforcing FIFO processing. Instead

@@ -24,6 +24,10 @@ namespace SqlTransactionalOutbox
         
         public string FifoGroupingIdentifier { get; }
 
+        string Subject { get; }
+
+        public TPayloadBody ParsedBody { get; }
+
         TPayloadBody ParsePayloadBody();
 
         Task AcknowledgeSuccessfulReceiptAsync();

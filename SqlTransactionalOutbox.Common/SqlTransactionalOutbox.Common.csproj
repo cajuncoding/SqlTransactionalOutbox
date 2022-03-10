@@ -3,7 +3,7 @@
   <PropertyGroup>
     <TargetFramework>netstandard2.1</TargetFramework>
     <RootNamespace>SqlTransactionalOutbox</RootNamespace>
-    <Version>0.0.3</Version>
+    <Version>1.0.0</Version>
     <Authors>BBernard / CajunCoding</Authors>
     <Copyright>Copyright © 2021</Copyright>
     <Description>The Common interfaces and base/shared components for the SqlTransactionalOutbox framework.
@@ -14,17 +14,30 @@ A lightweight library &amp; framework for implementing the Transactional Outbox 
     <PackageProjectUrl>https://github.com/cajuncoding/SqlTransactionalOutbox</PackageProjectUrl>
     <RepositoryUrl>https://github.com/cajuncoding/SqlTransactionalOutbox</RepositoryUrl>
     <PackageTags>sql server sqlserver sql-server transactional outbox transactional-outbox outbox-pattern microservice eventservices event-services event-notifications azure service bus azurefunctions azure-functions</PackageTags>
-    <PackageReleaseNotes>Updates (non-breaking):
-- Add Convenience Method for PayloadBuilder.FromObject().
-- Add lazy loaded convenience property ParsedBody to OutboxReceivedItem.
+    <PackageReleaseNotes>Release Notes:
+		- (Breaking Changes) Fully migrated to Azure.Messaging.ServiceBus SDK/Library for future support; other AzureServiceBus libraries are all fully deprecated by Microsoft.
+		- The main breaking change is now the use of ServiceBusReceivedMessage vs deprecated Message object.
+		- All Interfaces and the genearl abstraction are still valid so code updates are straightforward.
+		- This now enables Azure Functions v4 (with .Net 6) to work as expected with AzureServiceBus bindings (requires ServiceBusReceivedMessage).
+		- Also fixed several bugs/issues, and optimized Options and Naming which may also have some small Breaking Changes.
+		- Improved Error Handling when Processing of Outbox has unexpected Exceptions.
+		- Also added a new Default implementation for AsyncThreadOutboxProcessingAgent (to run the Processing in an async Thread; ideal for AspNet Applications).
+		- Improved Json serialization to eliminate unnecessary storing of Null properties and consistently use camelCase Json.
+		- Added full Console Sample Application (in Github Source) that provides Demo of the full lifecycle of the Sql Transactional Outbox.
 
-Prior Release Notes:
-- Initial BETA release for core interfaces and shared components; supports default implementations of SQL Server transactional outbox &amp; Azure Service Bus publishing.
+		Prior Release Notes:
+		- Add Convenience Method for PayloadBuilder.FromObject().
+		- Add lazy loaded convenience property ParsedBody to OutboxReceivedItem.
+		- Initial BETA release for core interfaces and shared components; supports default implementations of SQL Server transactional outbox &amp; Azure Service Bus publishing.
 </PackageReleaseNotes>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Newtonsoft.Json" Version="12.0.3" />
+    <None Include="..\README.md" Link="README.md" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.1" />
   </ItemGroup>
 
 </Project>

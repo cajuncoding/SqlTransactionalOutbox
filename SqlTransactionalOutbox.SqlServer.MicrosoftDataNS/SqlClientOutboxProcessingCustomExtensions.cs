@@ -22,12 +22,12 @@ namespace SqlTransactionalOutbox.SqlServer.MicrosoftDataNS
             outboxPublisher.AssertNotNull(nameof(outboxPublisher));
             processingOptions.AssertNotNull(nameof(processingOptions));
 
-            await using var outboxTransaction = (SqlTransaction)(await sqlConnection.BeginTransactionAsync());
+            await using var outboxTransaction = (SqlTransaction)(await sqlConnection.BeginTransactionAsync().ConfigureAwait(false));
             try
             {
                 var results = await outboxTransaction
                     .ProcessPendingOutboxItemsAsync(
-                        outboxPublisher: outboxPublisher, 
+                        outboxPublisher: outboxPublisher,
                         processingOptions: processingOptions,
                         throwExceptionOnFailure: throwExceptionOnFailure
                     )
@@ -37,12 +37,27 @@ namespace SqlTransactionalOutbox.SqlServer.MicrosoftDataNS
 
                 return results;
             }
-            catch (Exception)
+            catch (Exception exc)
             {
+                //FIRST Rollback any pending changes...
                 await outboxTransaction.RollbackAsync().ConfigureAwait(false);
+
+                try
+                {
+                    //THEN Attempt any Mitigating Actions for the Issue...
+                    //IF WE have issues retrieving the new items from the DB then we attempt to increment the
+                    //  Publish Attempts in case there is an issue with the entry that is causing failures, so
+                    //  that any potential problematic items will eventually be failed out and skipped.
+                    await sqlConnection.IncrementPublishAttemptsForAllPendingItemsAsync(outboxPublisher).ConfigureAwait(false);
+                }
+                catch (Exception mitigationExc)
+                {
+                    throw new AggregateException(new[] { exc, mitigationExc });
+                }
+
+                //FINALLY Re-throw to ensure we don't black hole the issue...
                 throw;
             }
-
         }
 
         public static async Task<ISqlTransactionalOutboxProcessingResults<Guid>> ProcessPendingOutboxItemsAsync(
@@ -63,11 +78,28 @@ namespace SqlTransactionalOutbox.SqlServer.MicrosoftDataNS
             var results = await outboxProcessor
                 .ProcessPendingOutboxItemsAsync(processingOptions, throwExceptionOnFailure)
                 .ConfigureAwait(false);
-            
+
             return results;
         }
 
+        private static async Task IncrementPublishAttemptsForAllPendingItemsAsync(
+            this SqlConnection sqlConnection,
+            ISqlTransactionalOutboxPublisher<Guid> outboxPublisher
+        )
+        {
+            outboxPublisher.AssertNotNull(nameof(outboxPublisher));
 
+            await using var outboxTransaction = (SqlTransaction)(await sqlConnection.BeginTransactionAsync().ConfigureAwait(false));
+
+            var outboxProcessor = new DefaultSqlServerTransactionalOutboxProcessor<string>(outboxTransaction, outboxPublisher);
+            var outboxRepository = outboxProcessor.OutboxRepository;
+            
+            await outboxRepository
+                .IncrementPublishAttemptsForAllItemsByStatusAsync(OutboxItemStatus.Pending)
+                .ConfigureAwait(false);
+
+            await outboxTransaction.CommitAsync();
+        }
 
     }
 }

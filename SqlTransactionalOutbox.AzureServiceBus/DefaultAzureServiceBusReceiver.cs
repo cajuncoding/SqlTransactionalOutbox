@@ -8,16 +8,19 @@ namespace SqlTransactionalOutbox.AzureServiceBus
     public class DefaultAzureServiceBusReceiver<TPayload>: AzureServiceBusReceiver<Guid, TPayload>
     {
         public DefaultAzureServiceBusReceiver(
-            string azureServiceBusConnectionString, 
+            string azureServiceBusConnectionString,
+            string serviceBusTopic,
+            string serviceBusSubscription,
             ISqlTransactionalOutboxItemFactory<Guid, TPayload> outboxItemFactory = null,
             AzureServiceBusReceivingOptions options = null
         )
         : base(
-            azureServiceBusConnectionString, 
+            azureServiceBusConnectionString,
+            serviceBusTopic,
+            serviceBusSubscription,
             outboxItemFactory ?? new DefaultOutboxItemFactory<TPayload>(),
             options
         )
-        {
-        }
+        { }
     }
 }

@@ -1,17 +1,13 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Reflection;
-using System.Text;
-using Microsoft.Azure.ServiceBus;
+using Azure.Messaging.ServiceBus;
+using SqlTransactionalOutbox.AzureServiceBus.Common;
 
 namespace SqlTransactionalOutbox.AzureServiceBus
 {
-    public class AzureServiceBusPublishingOptions
+    public class AzureServiceBusPublishingOptions : IAzureServiceBusClientOptions
     {
-        /// <summary>
-        /// The Retry Policy to be used when publishing to Azure Event Bus
-        /// </summary>
-        public RetryPolicy RetryPolicy { get; set; } = RetryPolicy.Default;
+        public ServiceBusClientOptions ServiceBusClientOptions { get; set; } = new ServiceBusClientOptions();
 
         /// <summary>
         /// Configure if there should be validation when attempting to parse the Payload
@@ -38,6 +34,6 @@ namespace SqlTransactionalOutbox.AzureServiceBus
         /// <summary>
         /// A hook/callback for handling error/exception logging.
         /// </summary>
-        public Action<Exception> LogErrorCallback { get; set; } = null;
+        public Action<Exception> ErrorHandlerCallback { get; set; } = null;
     }
 }

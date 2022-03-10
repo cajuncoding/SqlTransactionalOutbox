@@ -1,7 +1,7 @@
 ﻿using System;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using SqlTransactionalOutbox.JsonExtensions;
-using SqlTransactionalOutbox.Publishing;
+using SqlTransactionalOutbox.Tests;
 using SqlTransactionalOutbox.Utilities;
 
 namespace SqlTransactionalOutbox.IntegrationTests
@@ -15,18 +15,18 @@ namespace SqlTransactionalOutbox.IntegrationTests
         public void TestPayloadBuilderFromJsonWithPlainTextBody()
         {
             //TODO: Add ALL Field options...
-            var jsonText = @"
-                {
-                    ""topic"": ""SqlTransactionalOutbox/Integration-Tests"",
+            var jsonText = $@"
+                {{
+                    ""topic"": ""{TestConfiguration.AzureServiceBusTopic}"",
                     ""fifoGroupingId"": ""HttpProxy-IntegrationTest"",
                     ""to"": ""CajunCoding"",
                     ""body"": ""Testing Json Payload from HttpProxy""
-                }            
+                }}            
             ";
 
             var payloadBuilder = PayloadBuilder.FromJsonSafely(jsonText);
 
-            Assert.AreEqual("SqlTransactionalOutbox/Integration-Tests", payloadBuilder.PublishTarget);
+            Assert.AreEqual(TestConfiguration.AzureServiceBusTopic, payloadBuilder.PublishTarget);
             Assert.AreEqual("HttpProxy-IntegrationTest", payloadBuilder.FifoGroupingId);
             Assert.AreEqual("CajunCoding", payloadBuilder.To);
             Assert.AreEqual("Testing Json Payload from HttpProxy", payloadBuilder.Body);
@@ -35,19 +35,19 @@ namespace SqlTransactionalOutbox.IntegrationTests
         [TestMethod]
         public void TestPayloadBuilderFromJsonToJObject()
         {
-            var jsonText = @"
-                {
-                    ""publishTopic"": ""SqlTransactionalOutbox/Integration-Tests"",
+            var jsonText = $@"
+                {{
+                    ""publishTopic"": ""{TestConfiguration.AzureServiceBusTopic}"",
                     ""fifoGroupingId"": ""HttpProxy-IntegrationTest"",
                     ""to"": ""CajunCoding"",
                     ""body"": ""Testing Json Payload from HttpProxy""
-                }            
+                }}            
             ";
 
             var payloadBuilder = PayloadBuilder.FromJsonSafely(jsonText);
             var jsonPayload = payloadBuilder.ToJObject();
 
-            Assert.AreEqual("SqlTransactionalOutbox/Integration-Tests", jsonPayload.ValueSafely<string>(nameof(PayloadBuilder.PublishTarget)));
+            Assert.AreEqual(TestConfiguration.AzureServiceBusTopic, jsonPayload.ValueSafely<string>(nameof(PayloadBuilder.PublishTarget)));
             Assert.AreEqual("HttpProxy-IntegrationTest", jsonPayload.ValueSafely<string>(nameof(PayloadBuilder.FifoGroupingId)));
             Assert.AreEqual("CajunCoding", jsonPayload.ValueSafely<string>(nameof(PayloadBuilder.To)));
             Assert.AreEqual("Testing Json Payload from HttpProxy", jsonPayload.ValueSafely<string>(nameof(PayloadBuilder.Body)));
@@ -59,7 +59,7 @@ namespace SqlTransactionalOutbox.IntegrationTests
             //TODO: Add ALL Field options...
             var tempObject = new
             {
-                Topic = "SqlTransactionalOutbox/Integration-Tests",
+                Topic = TestConfiguration.AzureServiceBusTopic,
                 FifoGroupingId = "HttpProxy-IntegrationTest",
                 To = "CajunCoding",
                 Body = "Testing Json Payload from HttpProxy"
@@ -67,7 +67,7 @@ namespace SqlTransactionalOutbox.IntegrationTests
 
             var payloadBuilder = PayloadBuilder.FromObject(tempObject);
 
-            Assert.AreEqual("SqlTransactionalOutbox/Integration-Tests", payloadBuilder.PublishTarget);
+            Assert.AreEqual(TestConfiguration.AzureServiceBusTopic, payloadBuilder.PublishTarget);
             Assert.AreEqual("HttpProxy-IntegrationTest", payloadBuilder.FifoGroupingId);
             Assert.AreEqual("CajunCoding", payloadBuilder.To);
             Assert.AreEqual("Testing Json Payload from HttpProxy", payloadBuilder.Body);

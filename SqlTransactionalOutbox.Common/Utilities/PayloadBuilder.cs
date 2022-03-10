@@ -1,9 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using Newtonsoft.Json.Serialization;
 using SqlTransactionalOutbox.CustomExtensions;
 using SqlTransactionalOutbox.JsonExtensions;
 using SqlTransactionalOutbox.Publishing;
@@ -12,6 +12,17 @@ namespace SqlTransactionalOutbox.Utilities
 {
     public class PayloadBuilder
     {
+        public static JsonSerializerSettings OutboxJsonSerializerSettings { get; set; } = new JsonSerializerSettings()
+        {
+            ContractResolver = new DefaultContractResolver
+            {
+                NamingStrategy = new CamelCaseNamingStrategy()
+            },
+            NullValueHandling = NullValueHandling.Ignore
+        };
+
+        public static JsonSerializer OutboxJsonSerializer { get; set; } = JsonSerializer.Create(OutboxJsonSerializerSettings);
+
         public string PublishTarget { get; set; }
         public string To { get; set; }
         public string FifoGroupingId { get; set; }
@@ -27,7 +38,7 @@ namespace SqlTransactionalOutbox.Utilities
         {
             var payload = new PayloadBuilder();
 
-            var json = JObject.FromObject(obj);
+            var json = JObject.FromObject(obj, OutboxJsonSerializer);
             payload.ApplyValues(json);
 
             return payload;
@@ -123,7 +134,7 @@ namespace SqlTransactionalOutbox.Utilities
         /// <returns></returns>
         public JObject ToJObject()
         {
-            var json = JObject.FromObject(this);
+            var json = JObject.FromObject(this, OutboxJsonSerializer);
             return json;
         }
 

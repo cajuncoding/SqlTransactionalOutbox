@@ -1,0 +1,13 @@
+{
+  "IsEncrypted": false,
+  "Values": {
+    "AzureWebJobsStorage": "UseDevelopmentStorage=true",
+    "FUNCTIONS_WORKER_RUNTIME": "dotnet",
+    "FUNCTIONS_EXTENSION_VERSION": "~4",
+    "TransactionalOutboxAgentCronSchedule": "*/30 * * * * *", //Every 30 Seconds
+    "ServiceBus-IntegrationTest-Topic": "SqlTransactionalOutbox/Integration-Tests",
+    "ServiceBus-IntegrationTest-Subscription": "dev-local",
+    "SqlConnectionString": "{{CONNECTION STRING GOES HERE}}",
+    "AzureServiceBusConnectionString": "{{AZURE SERVICE BUS CONNECTION STRING GOES HERE}}" 
+  }
+}

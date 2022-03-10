@@ -20,5 +20,11 @@ namespace SqlTransactionalOutbox.Publishing
         {
             return PublishingDelegateFunc.Invoke(outboxItem, isFifoEnforcedProcessingEnabled);
         }
+
+        public ValueTask DisposeAsync()
+        {
+            //Do Nothing
+            return new ValueTask();
+        }
     }
 }

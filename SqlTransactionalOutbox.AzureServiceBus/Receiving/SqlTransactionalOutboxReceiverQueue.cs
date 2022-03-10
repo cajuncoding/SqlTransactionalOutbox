@@ -31,7 +31,6 @@ namespace SqlTransactionalOutbox.AzureServiceBus.Receiving
             CancellationToken cancellationToken = default
         )
         {
-            //TODO: Implement CancellationToken wrapper with Timeout To Cancel!
             var item = await ChannelQueue.Reader.ReadAsync(cancellationToken).ConfigureAwait(false);
             return item;
         }
@@ -41,7 +40,42 @@ namespace SqlTransactionalOutbox.AzureServiceBus.Receiving
             return await ChannelQueue.Reader.WaitToReadAsync(cancellationToken);
         }
 
-        public virtual async IAsyncEnumerable<ISqlTransactionalOutboxReceivedItem<TUniqueIdentifier, TPayload>> AsEnumerableAsync(
+        /// <summary>
+        /// Enumerate 
+        /// </summary>
+        /// <param name="receiveWaitPerItemTimeout"></param>
+        /// <returns></returns>
+        public virtual async IAsyncEnumerable<ISqlTransactionalOutboxReceivedItem<TUniqueIdentifier, TPayload>> AsAsyncEnumerable(
+            TimeSpan receiveWaitPerItemTimeout
+        )
+        {
+            ISqlTransactionalOutboxReceivedItem<TUniqueIdentifier, TPayload> item = null;
+            do
+            {
+                var cancellationSource = new CancellationTokenSource(receiveWaitPerItemTimeout);
+                try
+                {
+                    item = await TakeAsync(cancellationSource.Token);
+                }
+                catch (OperationCanceledException cancelExc) when (cancelExc.CancellationToken == cancellationSource.Token)
+                {
+                    //Set Item to Null to ensure old items don't create an infinite loop...
+                    item = null;
+                }
+
+                //Return the item IF we have one...
+                if (item != null)
+                    yield return item;
+
+            } while (item != null);
+        }
+
+        /// <summary>
+        /// Enumerate until the Cancellation Token provided signals to stop.
+        /// </summary>
+        /// <param name="cancellationToken"></param>
+        /// <returns></returns>
+        public virtual async IAsyncEnumerable<ISqlTransactionalOutboxReceivedItem<TUniqueIdentifier, TPayload>> AsAsyncEnumerable(
             [EnumeratorCancellation] CancellationToken cancellationToken = default
         )
         {

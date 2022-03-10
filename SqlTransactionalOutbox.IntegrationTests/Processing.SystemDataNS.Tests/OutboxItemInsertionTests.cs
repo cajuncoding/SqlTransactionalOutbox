@@ -39,7 +39,7 @@ namespace SqlTransactionalOutbox.IntegrationTests.SystemDataNS
                 .AddTransactionalOutboxPendingItemListAsync(warmupTestItems)
                 .ConfigureAwait(false);
             timer.Stop();
-            
+
             TestContext?.WriteLine($"Benchmark Execution Inserted [{executionResults.Count}] items in [{timer.Elapsed.ToElapsedTimeDescriptiveFormat()}].");
         }
 
@@ -57,7 +57,7 @@ namespace SqlTransactionalOutbox.IntegrationTests.SystemDataNS
 
             //Execute
             var timer = Stopwatch.StartNew();
-            
+
             var insertedResults = await sqlConnection
                 .AddTransactionalOutboxPendingItemListAsync(outboxTestItems)
                 .ConfigureAwait(false);
@@ -97,28 +97,31 @@ namespace SqlTransactionalOutbox.IntegrationTests.SystemDataNS
             //Add Item 1!
             var insertedResult1 = await sqlConnection
                 .AddTransactionalOutboxPendingItemAsync(
-                    outboxTestItems[0].PublishingTarget,
-                    outboxTestItems[0].PublishingPayload,
-                    outboxTestItems[0].FifoGroupingIdentifier
+                    publishTarget: outboxTestItems[0].PublishingTarget,
+                    payload: outboxTestItems[0].PublishingPayload,
+                    fifoGroupingIdentifier: outboxTestItems[0].FifoGroupingIdentifier
                 )
                 .ConfigureAwait(false);
 
             TestContext?.WriteLine($"Inserted First Item in [{timer.Elapsed.ToElapsedTimeDescriptiveFormat()}].");
             Assert.IsNotNull(insertedResult1);
             Assert.IsNotNull(insertedResult1.UniqueIdentifier);
+            Assert.IsNotNull(insertedResult1.FifoGroupingIdentifier);
             Assert.AreEqual(DateTime.UtcNow.Date, insertedResult1.CreatedDateTimeUtc.Date);
 
             //Add Item 2 (No FifoGroupingIdentifier)!
             var insertedResult2 = await sqlConnection
                 .AddTransactionalOutboxPendingItemAsync(
-                    outboxTestItems[1].PublishingTarget,
-                    outboxTestItems[1].PublishingPayload
+                    publishTarget: outboxTestItems[1].PublishingTarget,
+                    payload: outboxTestItems[1].PublishingPayload,
+                    fifoGroupingIdentifier: outboxTestItems[1].FifoGroupingIdentifier
                 )
                 .ConfigureAwait(false);
 
             TestContext?.WriteLine($"Inserted First Item in [{timer.Elapsed.ToElapsedTimeDescriptiveFormat()}].");
             Assert.IsNotNull(insertedResult2);
             Assert.IsNotNull(insertedResult2.UniqueIdentifier);
+            Assert.IsNotNull(insertedResult2.FifoGroupingIdentifier);
             Assert.AreEqual(DateTime.UtcNow.Date, insertedResult2.CreatedDateTimeUtc.Date);
 
             timer.Stop();
