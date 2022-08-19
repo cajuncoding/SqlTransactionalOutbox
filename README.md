@@ -65,6 +65,34 @@ the values you need.
     });
 ```
 
+## Database Schema:
+The schema used for the SQL Server implementation is as follows.  This is also stored in the project here:
+(SqlTransactionalOutbox.SqlServer.Common => _SqlScript => TransactionalOutboxSqlScript.sql)
+[https://github.com/cajuncoding/SqlTransactionalOutbox/blob/main/SqlTransactionalOutbox.SqlServer.Common/_SqlScript/TransactionalOutboxSqlScript.sql]
+```sql
+    CREATE SCHEMA notifications;
+    GO
+
+    --DROP TABLE [notifications].[TransactionalOutboxQueue];
+    CREATE TABLE [notifications].[TransactionalOutboxQueue] (
+	    [Id] INT IDENTITY NOT NULL PRIMARY KEY,
+	    [UniqueIdentifier] UNIQUEIDENTIFIER NOT NULL,
+	    [FifoGroupingIdentifier] VARCHAR(200) NULL,
+	    [Status] VARCHAR(50) NOT NULL,
+	    [CreatedDateTimeUtc] DATETIME2 NOT NULL DEFAULT SysUtcDateTime(),
+	    [PublishAttempts] INT NOT NULL DEFAULT 0,
+	    [PublishTarget] VARCHAR(200) NOT NULL, -- Topic and/or Queue name
+	    [Payload] NVARCHAR(MAX), -- Generic Payload supporting Implementation specific processing (e.g. Json)
+    );
+    GO
+
+    CREATE NONCLUSTERED INDEX [IDX_TransactionalOutboxQueue_UniqueIdentifier] ON [notifications].[TransactionalOutboxQueue] ([UniqueIdentifier]);
+    GO
+
+    CREATE NONCLUSTERED INDEX [IDX_TransactionalOutboxQueue_Status] ON [notifications].[TransactionalOutboxQueue] ([Status]);
+    GO
+```
+
 ## Documentation TODOs:
 Provide documentation for:
  - Transactional Outbox Pattern summary/overview

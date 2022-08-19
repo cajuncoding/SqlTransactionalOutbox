@@ -2,7 +2,6 @@
 GO
 
 --DROP TABLE [notifications].[TransactionalOutboxQueue];
-
 CREATE TABLE [notifications].[TransactionalOutboxQueue] (
 	[Id] INT IDENTITY NOT NULL PRIMARY KEY,
 	[UniqueIdentifier] UNIQUEIDENTIFIER NOT NULL,
@@ -11,7 +10,7 @@ CREATE TABLE [notifications].[TransactionalOutboxQueue] (
 	[CreatedDateTimeUtc] DATETIME2 NOT NULL DEFAULT SysUtcDateTime(),
 	[PublishAttempts] INT NOT NULL DEFAULT 0,
 	[PublishTarget] VARCHAR(200) NOT NULL, -- Topic and/or Queue name
-	[Payload] NVARCHAR(MAX), -- Payload genercially processed by an implementation (e.g. Json)
+	[Payload] NVARCHAR(MAX), -- Generic Payload supporting Implementation specific processing (e.g. Json)
 );
 GO
 
