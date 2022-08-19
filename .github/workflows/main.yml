@@ -33,31 +33,31 @@ jobs:
       #    echo Add other actions to build,
       #    echo test, and deploy your project.
       - name: "Publish NuGet: SqlTransactionalOutbox.Common"
-        uses: brandedoutcast/publish-nuget@v2.5.5
+        uses: alirezanet/publish-nuget@v3.0.4
         with:
           # Filepath of the project to be packaged, relative to root of repository
           PROJECT_FILE_PATH: SqlTransactionalOutbox.Common/SqlTransactionalOutbox.Common.csproj
           NUGET_KEY: ${{secrets.NUGET_API_KEY}}
       - name: "Publish NuGet: SqlTransactionalOutbox.SqlServer.Common"
-        uses: brandedoutcast/publish-nuget@v2.5.5
+        uses: alirezanet/publish-nuget@v3.0.4
         with:
           # Filepath of the project to be packaged, relative to root of repository
           PROJECT_FILE_PATH: SqlTransactionalOutbox.SqlServer.Common/SqlTransactionalOutbox.SqlServer.Common.csproj
           NUGET_KEY: ${{secrets.NUGET_API_KEY}}
       - name: "Publish NuGet: SqlTransactionalOutbox.SqlServer.MicrosoftDataNS"
-        uses: brandedoutcast/publish-nuget@v2.5.5
+        uses: alirezanet/publish-nuget@v3.0.4
         with:
           # Filepath of the project to be packaged, relative to root of repository
           PROJECT_FILE_PATH: SqlTransactionalOutbox.SqlServer.MicrosoftDataNS/SqlTransactionalOutbox.SqlServer.MicrosoftDataNS.csproj
           NUGET_KEY: ${{secrets.NUGET_API_KEY}}
       - name: "Publish NuGet: SqlTransactionalOutbox.SqlServer.SystemDataNS"
-        uses: brandedoutcast/publish-nuget@v2.5.5
+        uses: alirezanet/publish-nuget@v3.0.4
         with:
           # Filepath of the project to be packaged, relative to root of repository
           PROJECT_FILE_PATH: SqlTransactionalOutbox.SqlServer.SystemDataNS/SqlTransactionalOutbox.SqlServer.SystemDataNS.csproj
           NUGET_KEY: ${{secrets.NUGET_API_KEY}}
       - name: "Publish NuGet: SqlTransactionalOutbox.AzureServiceBus"
-        uses: brandedoutcast/publish-nuget@v2.5.5
+        uses: alirezanet/publish-nuget@v3.0.4
         with:
           # Filepath of the project to be packaged, relative to root of repository
           PROJECT_FILE_PATH: SqlTransactionalOutbox.AzureServiceBus/SqlTransactionalOutbox.AzureServiceBus.csproj
