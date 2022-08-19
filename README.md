@@ -17,6 +17,9 @@ then I do love-me-some-coffee!*
 <img src="https://cdn.buymeacoffee.com/buttons/default-orange.png" alt="Buy Me A Coffee" height="41" width="174">
 </a>
 
+## Release Notes v1.0.1:
+- Improved support for customizing OutboxTable Configuration and Distributed Mutex Lock settings via SqlTransactionalOutboxInitializer.Configure() initialization.
+
 ## Release Notes v1.0.0:
 - (Breaking Changes) Fully migrated (refactored) to now use `Azure.Messaging.ServiceBus` SDK/Library for future support; other Azure Service Bus libraries are all now fully deprecated by Microsoft.
 - The main breaking change is now the use of ServiceBusReceivedMessage vs deprecated Message object.
@@ -30,6 +33,37 @@ then I do love-me-some-coffee!*
 
 ### Prior Release Notes
 - BETA Release v0.0.1: The library is current being shared/released in a _Beta_ form. It is being actively used for a variety of projects, and as the confidence in the functionality and stability increases through testing we will update and provide a full release. Release notes and detais will be posted here as needed.
+
+## Initialization
+The Sql Transactional Outbox provides uses several default values that can be customized at initialization
+so that all the convenience methods (e.g. Sql Connection/Transaction custom extensions) work as expected with 
+the values you need.
+*NOTE: This should only be done in your applications' startup/initialization (e.g. application root, Program.cs, Startup.cs, etc.).*
+
+```csharp
+    //This is the global SqlTransactionalOutbox initializer that allows configuring custom settings to be used...
+    //NOTE: Not all values need to be specified, any values that are not specified (e.g. or are set to null)
+    //      will retain the default values.
+    SqlTransactionalOutboxInitializer.Configure(config =>
+    {
+        config.WithOutboxTableConfig(new OutboxTableConfig(
+                transactionalOutboxSchemaName: "...",
+                transactionalOutboxTableName: "...",
+                pkeyFieldName: "...",
+                payloadFieldName: "...",
+                uniqueIdentifierFieldName: "...",
+                fifoGroupingIdentifier: "...",
+                statusFieldName: "...",
+                publishTargetFieldName: "...",
+                publishAttemptsFieldName: "...",
+                createdDateTimeUtcFieldName: "..."
+            ))
+            .WithDistributedMutexLockSettings(
+                lockAcquisitionTimeoutSeconds: 1,
+                lockNamePrefix: "..."
+            );
+    });
+```
 
 ## Documentation TODOs:
 Provide documentation for:
