@@ -1,16 +1,12 @@
 ﻿using System;
-using System.Collections.Generic;
 using Microsoft.Data.SqlClient;
-using System.Text;
 using System.Threading.Tasks;
-using Newtonsoft.Json.Linq;
 using SqlTransactionalOutbox.CustomExtensions;
 
 namespace SqlTransactionalOutbox.SqlServer.MicrosoftDataNS
 {
     public static class SqlClientOutboxProcessingCustomExtensions
     {
-
         public static async Task<ISqlTransactionalOutboxProcessingResults<Guid>> ProcessPendingOutboxItemsAsync(
             this SqlConnection sqlConnection,
             ISqlTransactionalOutboxPublisher<Guid> outboxPublisher,

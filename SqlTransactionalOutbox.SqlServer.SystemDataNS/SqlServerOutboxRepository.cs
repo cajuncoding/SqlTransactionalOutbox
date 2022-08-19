@@ -18,9 +18,9 @@ namespace SqlTransactionalOutbox.SqlServer.SystemDataNS
 
         public SqlServerOutboxRepository(
             SqlTransaction sqlTransaction,
-            ISqlTransactionalOutboxTableConfig outboxTableConfig = null,
+            ISqlTransactionalOutboxTableConfig outboxTableConfig,
             ISqlTransactionalOutboxItemFactory<TUniqueIdentifier, TPayload> outboxItemFactory = null,
-            int distributedMutexAcquisitionTimeoutSeconds = Defaults.DistributedMutexAcquisitionTimeoutSeconds
+            int? distributedMutexAcquisitionTimeoutSeconds = null
         )
         {
             SqlTransaction = sqlTransaction ??
@@ -32,7 +32,7 @@ namespace SqlTransactionalOutbox.SqlServer.SystemDataNS
             base.Init(
                 outboxTableConfig: outboxTableConfig.AssertNotNull(nameof(outboxTableConfig)),
                 outboxItemFactory: outboxItemFactory.AssertNotNull(nameof(outboxItemFactory)),
-                distributedMutexAcquisitionTimeoutSeconds
+                distributedMutexAcquisitionTimeoutSeconds ?? SqlTransactionalOutboxDefaults.DistributedMutexAcquisitionTimeoutSeconds
             );
         }
 
