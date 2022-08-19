@@ -44,7 +44,7 @@ namespace SqlTransactionalOutbox
         /// <summary>
         /// Determine if we should enforce FIFO Publishing order which requires the use of
         /// a distributed application mutex lock to ensure that only one processor can execute
-        /// at any time -- eliminating risk of parallel and potential impacts to processing order.
+        /// at any time -- eliminating risk of parallel processing and other potential impacts to processing order.
         /// </summary>
         public bool FifoEnforcedPublishingEnabled { get; set; } = false;
 

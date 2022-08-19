@@ -3,7 +3,7 @@
   <PropertyGroup>
     <TargetFramework>netstandard2.1</TargetFramework>
     <RootNamespace>SqlTransactionalOutbox.AzureServiceBus</RootNamespace>
-    <Version>1.0.0</Version>
+    <Version>1.0.1</Version>
     <Authors>BBernard / CajunCoding</Authors>
     <Copyright>Copyright © 2021</Copyright>
     <Description>The Azure Service Bus publishing/messaging &amp; receiving implementation of the SqlTransactionalOutbox framework.
@@ -14,7 +14,11 @@ A lightweight library &amp; framework for implementing the Transactional Outbox 
     <PackageProjectUrl>https://github.com/cajuncoding/SqlTransactionalOutbox</PackageProjectUrl>
     <RepositoryUrl>https://github.com/cajuncoding/SqlTransactionalOutbox</RepositoryUrl>
     <PackageTags>sql server sqlserver sql-server transactional outbox transactional-outbox outbox-pattern microservice eventservices event-services event-notifications azure service bus azurefunctions azure-functions</PackageTags>
-    <PackageReleaseNotes>Release Notes:
+    <PackageReleaseNotes>
+		Release Notes:
+		- Bump version along with SqlTransactionalOutbox.Common.
+
+		Prior Release Notes:
 		- (Breaking Changes) Fully migrated to Azure.Messaging.ServiceBus SDK/Library for future support; other AzureServiceBus libraries are all fully deprecated by Microsoft.
 		- The main breaking change is now the use of ServiceBusReceivedMessage vs deprecated Message object.
 		- All Interfaces and the genearl abstraction are still valid so code updates are straightforward.
@@ -24,8 +28,6 @@ A lightweight library &amp; framework for implementing the Transactional Outbox 
 		- Also added a new Default implementation for AsyncThreadOutboxProcessingAgent (to run the Processing in an async Thread; ideal for AspNet Applications).
 		- Improved Json serialization to eliminate unnecessary storing of Null properties and consistently use camelCase Json.
 		- Added full Console Sample Application (in Github Source) that provides Demo of the full lifecycle of the Sql Transactional Outbox.
-
-		Prior Release Notes:
 		- Bump version of SqlTransactionalOutbox.Common.
 		- Initial BETA release for default implementations of Azure Service Bus publishing &amp; receiving of transactional outbox items.
     </PackageReleaseNotes>

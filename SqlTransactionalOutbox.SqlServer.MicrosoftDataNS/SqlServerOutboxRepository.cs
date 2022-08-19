@@ -20,7 +20,7 @@ namespace SqlTransactionalOutbox.SqlServer.MicrosoftDataNS
             SqlTransaction sqlTransaction, 
             ISqlTransactionalOutboxTableConfig outboxTableConfig = null,
             ISqlTransactionalOutboxItemFactory<TUniqueIdentifier, TPayload> outboxItemFactory = null,
-            int distributedMutexAcquisitionTimeoutSeconds = Defaults.DistributedMutexAcquisitionTimeoutSeconds
+            int? distributedMutexAcquisitionTimeoutSeconds = null
         )
         {
             SqlTransaction = sqlTransaction ?? 
@@ -32,7 +32,7 @@ namespace SqlTransactionalOutbox.SqlServer.MicrosoftDataNS
             base.Init(
                 outboxTableConfig: outboxTableConfig.AssertNotNull(nameof(outboxTableConfig)), 
                 outboxItemFactory: outboxItemFactory.AssertNotNull(nameof(outboxItemFactory)), 
-                distributedMutexAcquisitionTimeoutSeconds
+                distributedMutexAcquisitionTimeoutSeconds ?? SqlTransactionalOutboxDefaults.DistributedMutexAcquisitionTimeoutSeconds
             );
         }
 

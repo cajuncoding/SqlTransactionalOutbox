@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using SqlTransactionalOutbox.CustomExtensions;
 
 namespace SqlTransactionalOutbox.SqlServer.Common
 {
@@ -11,7 +12,7 @@ namespace SqlTransactionalOutbox.SqlServer.Common
 
         public SqlServerTransactionalOutboxQueryBuilder(ISqlTransactionalOutboxTableConfig outboxTableConfig)
         {
-            this.OutboxTableConfig = outboxTableConfig ?? new OutboxTableConfig();
+            this.OutboxTableConfig = outboxTableConfig.AssertNotNull(nameof(outboxTableConfig));
         }
 
         public virtual string BuildSqlForRetrieveOutboxItemsByStatus(OutboxItemStatus status, int maxBatchSize = -1, string statusParamName = "status")

@@ -5,7 +5,7 @@ using SqlTransactionalOutbox.IntegrationTests.ConfigurationTests;
 namespace SqlTransactionalOutbox.IntegrationTests
 {
     [TestClass]
-    public class OutboxTableConfigTests
+    public class InitializationTests
     {
         public TestContext TestContext { get; set; }
 
@@ -16,50 +16,6 @@ namespace SqlTransactionalOutbox.IntegrationTests
         {
             //Ensure that our Configuration matches the Default values which all tests to assume...
             SqlTransactionalOutboxInitializer.Configure(c => c.ResetToDefaults());
-        }
-
-        [TestMethod]
-        public void TestCustomImplementationOfOutboxTableConfigOverrides()
-        {
-            var defaultTableConfig = SqlTransactionalOutboxDefaults.OutboxTableConfig;
-            var customSchemaTableConfig = new CustomSchemaNameOutboxTableConfig(CustomSchemaName);
-
-            //Validate Class references
-            Assert.AreEqual(CustomSchemaName, customSchemaTableConfig.TransactionalOutboxSchemaName);
-            Assert.AreEqual(OutboxTableConfig.DefaultTransactionalOutboxSchemaName, defaultTableConfig.TransactionalOutboxSchemaName);
-            Assert.AreNotEqual(defaultTableConfig.TransactionalOutboxSchemaName, customSchemaTableConfig.TransactionalOutboxSchemaName);
-            Assert.AreEqual(defaultTableConfig.TransactionalOutboxTableName, customSchemaTableConfig.TransactionalOutboxTableName);
-
-            //Validate Interface Cast references
-
-            var defaultTableConfigAsInterface = (ISqlTransactionalOutboxTableConfig)defaultTableConfig;
-            var customOutboxTableConfigAsInterface = (ISqlTransactionalOutboxTableConfig)customSchemaTableConfig;
-            Assert.AreEqual(CustomSchemaName, customOutboxTableConfigAsInterface.TransactionalOutboxSchemaName);
-            Assert.AreEqual(OutboxTableConfig.DefaultTransactionalOutboxSchemaName, defaultTableConfigAsInterface.TransactionalOutboxSchemaName);
-            Assert.AreNotEqual(defaultTableConfigAsInterface.TransactionalOutboxSchemaName, customOutboxTableConfigAsInterface.TransactionalOutboxSchemaName);
-            Assert.AreEqual(defaultTableConfigAsInterface.TransactionalOutboxTableName, customOutboxTableConfigAsInterface.TransactionalOutboxTableName);
-        }
-
-        [TestMethod]
-        public void TestBuiltInOutboxTableConfigOverridesByConstructor()
-        {
-            var defaultTableConfig = SqlTransactionalOutboxDefaults.OutboxTableConfig;
-            var customSchemaTableConfig = new OutboxTableConfig(transactionalOutboxSchemaName: CustomSchemaName);
-
-            //Validate Class references
-            Assert.AreEqual(CustomSchemaName, customSchemaTableConfig.TransactionalOutboxSchemaName);
-            Assert.AreEqual(OutboxTableConfig.DefaultTransactionalOutboxSchemaName, defaultTableConfig.TransactionalOutboxSchemaName);
-            Assert.AreNotEqual(defaultTableConfig.TransactionalOutboxSchemaName, customSchemaTableConfig.TransactionalOutboxSchemaName);
-            Assert.AreEqual(defaultTableConfig.TransactionalOutboxTableName, customSchemaTableConfig.TransactionalOutboxTableName);
-
-            //Validate Interface Cast references
-
-            var defaultTableConfigAsInterface = (ISqlTransactionalOutboxTableConfig)defaultTableConfig;
-            var customOutboxTableConfigAsInterface = (ISqlTransactionalOutboxTableConfig)customSchemaTableConfig;
-            Assert.AreEqual(CustomSchemaName, customOutboxTableConfigAsInterface.TransactionalOutboxSchemaName);
-            Assert.AreEqual(OutboxTableConfig.DefaultTransactionalOutboxSchemaName, defaultTableConfigAsInterface.TransactionalOutboxSchemaName);
-            Assert.AreNotEqual(defaultTableConfigAsInterface.TransactionalOutboxSchemaName, customOutboxTableConfigAsInterface.TransactionalOutboxSchemaName);
-            Assert.AreEqual(defaultTableConfigAsInterface.TransactionalOutboxTableName, customOutboxTableConfigAsInterface.TransactionalOutboxTableName);
         }
 
         [TestMethod]

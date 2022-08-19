@@ -14,7 +14,7 @@ namespace SqlTransactionalOutbox.SqlServer.Common
         protected void Init(
             ISqlTransactionalOutboxTableConfig outboxTableConfig,
             ISqlTransactionalOutboxItemFactory<TUniqueIdentifier, TPayload> outboxItemFactory,
-            int distributedMutexAcquisitionTimeoutSeconds = Defaults.DistributedMutexAcquisitionTimeoutSeconds
+            int distributedMutexAcquisitionTimeoutSeconds
         )
         {
             //Possible Dependencies
@@ -23,7 +23,7 @@ namespace SqlTransactionalOutbox.SqlServer.Common
 
             //Default Known setup for Sql Server...
             QueryBuilder = new SqlServerTransactionalOutboxQueryBuilder<TUniqueIdentifier>(outboxTableConfig); 
-            DistributedMutexLockName = $"SqlServerTransactionalOutboxProcessor::{QueryBuilder.BuildTableName()}";
+            DistributedMutexLockName = $"{SqlTransactionalOutboxDefaults.DistributeMutexLockPrefix}{QueryBuilder.BuildTableName()}";
             DistributedMutexAcquisitionTimeoutSeconds = distributedMutexAcquisitionTimeoutSeconds;
         }
 

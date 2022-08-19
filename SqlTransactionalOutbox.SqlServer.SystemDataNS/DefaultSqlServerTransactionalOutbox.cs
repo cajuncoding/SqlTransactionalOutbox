@@ -8,7 +8,7 @@ namespace SqlTransactionalOutbox.SqlServer.SystemDataNS
     {
         public DefaultSqlServerTransactionalOutbox(
             SqlTransaction sqlTransaction,
-            int distributedMutexAcquisitionTimeoutSeconds = Defaults.DistributedMutexAcquisitionTimeoutSeconds
+            int? distributedMutexAcquisitionTimeoutSeconds = null
         )
         : base (
             new DefaultSqlServerOutboxRepository<TPayload>(sqlTransaction, distributedMutexAcquisitionTimeoutSeconds: distributedMutexAcquisitionTimeoutSeconds)
