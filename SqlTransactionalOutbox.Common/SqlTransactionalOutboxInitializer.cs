@@ -6,9 +6,16 @@ namespace SqlTransactionalOutbox
 {
     public static class SqlTransactionalOutboxDefaults
     {
-        public static ISqlTransactionalOutboxTableConfig OutboxTableConfig { get; internal set; } = new OutboxTableConfig();
-        public static int DistributedMutexAcquisitionTimeoutSeconds { get; internal set; } = 1;
-        public static string DistributeMutexLockPrefix { get; internal set; } = "SqlServerTransactionalOutboxProcessor::";
+        static SqlTransactionalOutboxDefaults()
+        {
+            //Initialize all Default Values!
+            //NOTE: We use the Reset method for consistency while enabling re-use via Unit Tests, etc. so that the State can be reset at any time!
+            SqlTransactionalOutboxInitializer.Configure(c => c.ResetToDefaults());
+        }
+
+        public static ISqlTransactionalOutboxTableConfig OutboxTableConfig { get; internal set; }
+        public static int DistributedMutexAcquisitionTimeoutSeconds { get; internal set; }
+        public static string DistributeMutexLockPrefix { get; internal set; }
     }
 
     public class SqlTransactionalOutboxInitializer
@@ -33,6 +40,20 @@ namespace SqlTransactionalOutbox
             /// </summary>
             internal ConfigBuilder()
             { }
+
+            /// <summary>
+            /// Initialize/Reset all configuration values to original Default values.
+            /// </summary>
+            /// <returns></returns>
+            public ConfigBuilder ResetToDefaults()
+            {
+                return this
+                    .WithOutboxTableConfig(new OutboxTableConfig())
+                    .WithDistributedMutexLockSettings(
+                        lockNamePrefix: "SqlServerTransactionalOutboxProcessor::",
+                        lockAcquisitionTimeoutSeconds: 1
+                    );
+            }
 
             /// <summary>
             /// Initialize the global default settings for the OutboxTableConfig which will be supported by all convenience methods (e.g. Sql Custom Extensions)!
