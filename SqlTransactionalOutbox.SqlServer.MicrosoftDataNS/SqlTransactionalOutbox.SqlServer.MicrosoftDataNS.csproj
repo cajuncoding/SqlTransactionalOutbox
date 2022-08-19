@@ -3,7 +3,7 @@
   <PropertyGroup>
     <TargetFramework>netstandard2.1</TargetFramework>
     <RootNamespace>SqlTransactionalOutbox.SqlServer</RootNamespace>
-    <Version>1.0.0</Version>
+    <Version>1.0.1</Version>
     <Authors>BBernard / CajunCoding</Authors>
     <Copyright>Copyright © 2021</Copyright>
     <Description>The SQL Server outbox implementation of SqlTransactionalOutbox framework using the new Microsoft.Data.SqlClient libraries.
@@ -14,11 +14,13 @@ A lightweight library &amp; framework for implementing the Transactional Outbox 
     <PackageProjectUrl>https://github.com/cajuncoding/SqlTransactionalOutbox</PackageProjectUrl>
     <RepositoryUrl>https://github.com/cajuncoding/SqlTransactionalOutbox</RepositoryUrl>
     <PackageTags>sql server sqlserver sql-server transactional outbox transactional-outbox outbox-pattern microservice eventservices event-services event-notifications azure service bus azurefunctions azure-functions</PackageTags>
-    <PackageReleaseNotes>Release Notes:
-		- Also fixed several bugs/issues with Database loading of Null values.
-		- Improved Error Handling when Processing of Outbox has unexpected Exceptions.
+    <PackageReleaseNotes>
+		Release Notes:
+		- Improved support for customizing OutboxTable Configuration and Distributed Mutex Lock settings via SqlTransactionalOutboxInitializer.Configure() initialization.
 
 		Prior Release Notes:
+		- Also fixed several bugs/issues with Database loading of Null values.
+		- Improved Error Handling when Processing of Outbox has unexpected Exceptions.
 		- Bump version of SqlTransactionalOutbox.Common.
 		- Fix bug with Null values not being set correctly when Adding/Updating Outbox Items.
 		- Initial BETA release for default implementations of SQL Server transactional outbox.
