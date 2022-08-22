@@ -18,6 +18,13 @@ namespace SqlTransactionalOutbox.IntegrationTests
             SqlTransactionalOutboxInitializer.Configure(c => c.ResetToDefaults());
         }
 
+        [TestCleanup]
+        public void Cleanup()
+        {
+            //Ensure that our Configuration matches the Default values which all tests to assume...
+            SqlTransactionalOutboxInitializer.Configure(c => c.ResetToDefaults());
+        }
+
         [TestMethod]
         public void TestCustomImplementationOfOutboxTableConfigOverrides()
         {

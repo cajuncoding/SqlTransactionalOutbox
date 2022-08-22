@@ -3,7 +3,7 @@
   <PropertyGroup>
     <TargetFramework>netstandard2.1</TargetFramework>
     <RootNamespace>SqlTransactionalOutbox.AzureServiceBus</RootNamespace>
-    <Version>1.0.1</Version>
+    <Version>1.0.2</Version>
     <Authors>BBernard / CajunCoding</Authors>
     <Copyright>Copyright © 2021</Copyright>
     <Description>The Azure Service Bus publishing/messaging &amp; receiving implementation of the SqlTransactionalOutbox framework.
@@ -16,7 +16,7 @@ A lightweight library &amp; framework for implementing the Transactional Outbox 
     <PackageTags>sql server sqlserver sql-server transactional outbox transactional-outbox outbox-pattern microservice eventservices event-services event-notifications azure service bus azurefunctions azure-functions</PackageTags>
     <PackageReleaseNotes>
 		Release Notes:
-		- Bump version along with SqlTransactionalOutbox.Common.
+		- Bump version for new Release.
 
 		Prior Release Notes:
 		- (Breaking Changes) Fully migrated to Azure.Messaging.ServiceBus SDK/Library for future support; other AzureServiceBus libraries are all fully deprecated by Microsoft.
