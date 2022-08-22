@@ -3,7 +3,7 @@
   <PropertyGroup>
     <TargetFramework>netstandard2.1</TargetFramework>
     <RootNamespace>SqlTransactionalOutbox</RootNamespace>
-    <Version>1.0.1</Version>
+    <Version>1.0.2</Version>
     <Authors>BBernard / CajunCoding</Authors>
     <Copyright>Copyright © 2021</Copyright>
     <Description>The Common interfaces and base/shared components for the SqlTransactionalOutbox framework.
@@ -16,9 +16,10 @@ A lightweight library &amp; framework for implementing the Transactional Outbox 
     <PackageTags>sql server sqlserver sql-server transactional outbox transactional-outbox outbox-pattern microservice eventservices event-services event-notifications azure service bus azurefunctions azure-functions</PackageTags>
     <PackageReleaseNotes>
 		Release Notes:
-		- Improved support for customizing OutboxTable Configuration and Distributed Mutex Lock settings via SqlTransactionalOutboxInitializer.Configure() initialization.
+		- Bump version for new Release.
 
 		Prior Release Notes:
+		- Improved support for customizing OutboxTable Configuration and Distributed Mutex Lock settings via SqlTransactionalOutboxInitializer.Configure() initialization.
 		- (Breaking Changes) Fully migrated to Azure.Messaging.ServiceBus SDK/Library for future support; other AzureServiceBus libraries are all fully deprecated by Microsoft.
 		- The main breaking change is now the use of ServiceBusReceivedMessage vs deprecated Message object.
 		- All Interfaces and the genearl abstraction are still valid so code updates are straightforward.

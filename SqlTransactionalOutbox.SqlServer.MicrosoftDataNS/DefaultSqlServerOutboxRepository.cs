@@ -13,7 +13,7 @@ namespace SqlTransactionalOutbox.SqlServer.MicrosoftDataNS
         ) 
         : base (
             sqlTransaction: sqlTransaction,
-            outboxTableConfig: outboxTableConfig ?? new OutboxTableConfig(),
+            outboxTableConfig: outboxTableConfig ?? SqlTransactionalOutboxDefaults.OutboxTableConfig,
             outboxItemFactory: outboxItemFactory ?? new DefaultOutboxItemFactory<TPayload>(),
             distributedMutexAcquisitionTimeoutSeconds
         )

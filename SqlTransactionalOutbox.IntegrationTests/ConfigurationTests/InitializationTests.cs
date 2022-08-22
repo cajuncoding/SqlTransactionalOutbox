@@ -1,6 +1,8 @@
 ﻿using System;
+using Microsoft.Data.SqlClient;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using SqlTransactionalOutbox.IntegrationTests.ConfigurationTests;
+using SqlTransactionalOutbox.SqlServer.MicrosoftDataNS;
 
 namespace SqlTransactionalOutbox.IntegrationTests
 {
@@ -13,6 +15,13 @@ namespace SqlTransactionalOutbox.IntegrationTests
 
         [TestInitialize]
         public void Initialize()
+        {
+            //Ensure that our Configuration matches the Default values which all tests to assume...
+            SqlTransactionalOutboxInitializer.Configure(c => c.ResetToDefaults());
+        }
+
+        [TestCleanup]
+        public void Cleanup()
         {
             //Ensure that our Configuration matches the Default values which all tests to assume...
             SqlTransactionalOutboxInitializer.Configure(c => c.ResetToDefaults());
