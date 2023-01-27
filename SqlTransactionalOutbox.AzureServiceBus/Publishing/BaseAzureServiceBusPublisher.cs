@@ -116,12 +116,7 @@ namespace SqlTransactionalOutbox.AzureServiceBus.Publishing
                 if (headers != null)
                 {
                     foreach (JProperty prop in headers.Properties())
-                    {
-                        message.ApplicationProperties.Add(
-                            MessageHeaders.ToHeader(prop.Name.ToLower()), 
-                            prop.Value.ToString()
-                        );
-                    }
+                        message.ApplicationProperties.Add(MessageHeaders.ToHeader(prop.Name.ToLower()), prop.Value.ToString());
                 }
 
             }

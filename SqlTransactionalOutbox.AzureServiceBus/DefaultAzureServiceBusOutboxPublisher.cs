@@ -1,7 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
+using Azure.Messaging.ServiceBus;
 using SqlTransactionalOutbox.AzureServiceBus.Publishing;
+using SqlTransactionalOutbox.Publishing;
 
 namespace SqlTransactionalOutbox.AzureServiceBus
 {
@@ -18,5 +20,5 @@ namespace SqlTransactionalOutbox.AzureServiceBus
         {
             //All logic is currently in the Base Constructor
         }
-}
+    }
 }
