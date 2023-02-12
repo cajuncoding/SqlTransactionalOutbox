@@ -6,8 +6,12 @@ One of the main goals was to offer support for running in serverless environment
 The library is completely interface based and extremely modular. In addition, all existing class methods are exposed as virtual methods to make it easy to customize existing implementations as needed, but ultimately we hope that the default implementations will work for the majority of use cases.
 
 ### Nuget Package (>=netstandard2.1)
-To use this in your project, add the [GraphQL.PreprocessingExtensions](https://www.nuget.org/packages/GraphQL.PreProcessingExtensions/) 
-NuGet package to your project, wire up your Starup middleware, and inject / instantiate params in your resolvers as outlined below...
+To use this in your project, add the following packages:
+- SQL Server Outbox: [SqlTransactionalOutbox.SqlServer.MicrosoftDataNS](https://www.nuget.org/packages/SqlTransactionalOutbox.SqlServer.MicrosoftDataNS/)
+- Azure Service Bus Messaging: [SqlTransactionalOutbox.AzureServiceBus](https://www.nuget.org/packages/SqlTransactionalOutbox.AzureServiceBus/)
+
+Or for your own customized implementations via Interfaces: [SqlTransactionalOutbox.Common](https://www.nuget.org/packages/SqlTransactionalOutbox.Common/)
+
 
 ### [Buy me a Coffee ☕](https://www.buymeacoffee.com/cajuncoding)
 *I'm happy to share with the community, but if you find this useful (e.g for professional use), and are so inclinded,
