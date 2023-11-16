@@ -12,6 +12,8 @@ To use this in your project, add the following packages:
 
 Or for your own customized implementations via Interfaces: [SqlTransactionalOutbox.Common](https://www.nuget.org/packages/SqlTransactionalOutbox.Common/)
 
+### Give Star 🌟
+**If you like this project and/or use it the please give it a Star 🌟 (c'mon it's free, and it'll help others find the project)!**
 
 ### [Buy me a Coffee ☕](https://www.buymeacoffee.com/cajuncoding)
 *I'm happy to share with the community, but if you find this useful (e.g for professional use), and are so inclinded,
