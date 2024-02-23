@@ -17,6 +17,13 @@ then I do love-me-some-coffee!*
 <img src="https://cdn.buymeacoffee.com/buttons/default-orange.png" alt="Buy Me A Coffee" height="41" width="174">
 </a>
 
+## Release Notes v1.0.3:
+- Update Microsoft.Data.SqlClient package to new version to resolve vulnerability risks in older version.
+- Update System.Data.SqlClient package to new version to resolve vulnerability risks in older version.
+
+## Release Notes v1.0.2:
+- Fix bug in DefaultSqlServerOutboxRepository to use new customizable global configuration as Default.
+
 ## Release Notes v1.0.1:
 - Improved support for customizing OutboxTable Configuration and Distributed Mutex Lock settings via SqlTransactionalOutboxInitializer.Configure() initialization.
 
