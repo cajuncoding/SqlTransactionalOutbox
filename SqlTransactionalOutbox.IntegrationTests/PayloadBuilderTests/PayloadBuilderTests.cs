@@ -111,5 +111,37 @@ namespace SqlTransactionalOutbox.IntegrationTests
             Assert.IsTrue(originalBody.Guids.SequenceEqual(payloadBody.Guids));
             Assert.AreEqual(originalBody.IsThisABoolean, payloadBody.IsThisABoolean);
         }
+
+
+        [TestMethod]
+        public void TestPayloadBuilderDirectlyToCreatingPayloads()
+        {
+            var complexBodyModel = new ComplexBody(
+                Message: "This is a complex Body Payload...",
+                Ids: new[] { 1, 2, 3 },
+                Guids: new[] { Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid() },
+                IsThisABoolean: true
+            );
+
+            var payloadBuilder = new PayloadBuilder()
+            {
+                PublishTarget = TestConfiguration.AzureServiceBusTopic, // aka Topic for Azure Service Bus!
+                FifoGroupingId = "HttpProxy-IntegrationTest",
+                To = "CajunCoding",
+                Body = JsonConvert.SerializeObject(complexBodyModel)
+            };
+
+            Assert.AreEqual(TestConfiguration.AzureServiceBusTopic, payloadBuilder.PublishTarget);
+            Assert.AreEqual("HttpProxy-IntegrationTest", payloadBuilder.FifoGroupingId);
+            Assert.AreEqual("CajunCoding", payloadBuilder.To);
+
+            //Compare and Validate the Complex Body values...
+            var originalBody = complexBodyModel;
+            var payloadBody = JsonConvert.DeserializeObject<ComplexBody>(payloadBuilder.Body);
+            Assert.AreEqual(originalBody.Message, payloadBody.Message);
+            Assert.IsTrue(originalBody.Ids.SequenceEqual(payloadBody.Ids));
+            Assert.IsTrue(originalBody.Guids.SequenceEqual(payloadBody.Guids));
+            Assert.AreEqual(originalBody.IsThisABoolean, payloadBody.IsThisABoolean);
+        }
     }
 }
