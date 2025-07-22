@@ -3,7 +3,7 @@
   <PropertyGroup>
     <TargetFramework>netstandard2.1</TargetFramework>
     <RootNamespace>SqlTransactionalOutbox.SqlServer</RootNamespace>
-    <Version>1.0.3</Version>
+    <Version>1.0.4</Version>
     <Authors>BBernard / CajunCoding</Authors>
     <Copyright>Copyright © 2021</Copyright>
     <Description>The SQL Server outbox implementation of SqlTransactionalOutbox framework using legacy System.Data.SqlClient libraries.
@@ -16,9 +16,10 @@ A lightweight library &amp; framework for implementing the Transactional Outbox 
     <PackageTags>sql server sqlserver sql-server transactional outbox transactional-outbox outbox-pattern microservice eventservices event-services event-notifications azure service bus azurefunctions azure-functions</PackageTags>
     <PackageReleaseNotes>
 		Release Notes:
-		- Update System.Data.SqlClient package to new version to resolve vulnerability risks in older version.
+		- Update Microsoft.Data.SqlClient package to new version to resolve vulnerability risks in older version.
 
 		Prior Release Notes:
+		- Update System.Data.SqlClient package to new version to resolve vulnerability risks in older version.
 		- Fix bug in DefaultSqlServerOutboxRepository to use new customizable global configuration as Default.
 		- Improved support for customizing OutboxTable Configuration and Distributed Mutex Lock settings via SqlTransactionalOutboxInitializer.Configure() initialization.
 		- Also fixed several bugs/issues with Database loading of Null values.
@@ -30,8 +31,8 @@ A lightweight library &amp; framework for implementing the Transactional Outbox 
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="SqlAppLockHelper.SystemData" Version="1.0.1" />
-    <PackageReference Include="System.Data.SqlClient" Version="4.8.6" />
+    <PackageReference Include="SqlAppLockHelper.SystemData" Version="1.0.3" />
+    <PackageReference Include="System.Data.SqlClient" Version="4.9.0" />
   </ItemGroup>
 
   <ItemGroup>

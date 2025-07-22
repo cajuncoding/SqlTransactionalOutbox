@@ -31,7 +31,7 @@ namespace SqlTransactionalOutbox.IntegrationTests.MicrosoftDataNS
             await MicrosoftDataSqlTestHelpers.PopulateTransactionalOutboxTestDataAsync(failedItemTestDataSizeByBatch);
             expectedTotalExpiredCount += failedItemTestDataSizeByBatch;
 
-            await Task.Delay(timeToLiveTimeSpan + TimeSpan.FromSeconds(1));
+            await Task.Delay(timeToLiveTimeSpan + TimeSpan.FromSeconds(3));
 
             //*****************************************************************************************
             //* STEP 2 - Add a Second & Third batch of items with different insertion Timestamps to
