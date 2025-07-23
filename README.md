@@ -104,6 +104,10 @@ The schema used for the SQL Server implementation is as follows.  This is also s
 
     CREATE NONCLUSTERED INDEX [IDX_TransactionalOutboxQueue_Status] ON [notifications].[TransactionalOutboxQueue] ([Status]);
     GO
+
+    --Create Index for efficient Cleanup of Historical items, otherwise cleanup query processing may unexpectedly take a significant amount of time once the table grows to tens of thousands...
+    CREATE NONCLUSTERED INDEX [IDX_TransactionalOutboxQueue_CreatedDateTimeUtc] ON [notifications].[TransactionalOutboxQueue] ([CreatedDateTimeUtc]);
+    GO
 ```
 
 ## Documentation TODOs:
