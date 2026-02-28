@@ -1,17 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
-using SqlTransactionalOutbox;
-using SqlTransactionalOutbox.IntegrationTests;
 using SqlTransactionalOutbox.Receiving;
-using SqlTransactionalOutbox.SqlServer.SystemDataNS;
-using SqlTransactionalOutbox.Tests;
 using SqlTransactionalOutbox.Utilities;
-using SystemData = System.Data.SqlClient;
-//using MicrosoftData = Microsoft.Data.SqlClient;
 
 namespace SqlTransactionalOutbox.Tests
 {

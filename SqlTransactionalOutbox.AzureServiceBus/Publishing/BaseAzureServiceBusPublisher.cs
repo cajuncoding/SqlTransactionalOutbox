@@ -79,13 +79,19 @@ namespace SqlTransactionalOutbox.AzureServiceBus.Publishing
             //Attempt to decode teh Message as JObject to see if it contains dynamically defined parameters
             //that need to be mapped into the message; otherwise if it's just a string we populate only the minimum.
             var json = ParsePayloadAsJsonSafely(outboxItem);
-            if (json != null)
+            if (json != null) //Process the payload as Json with potential dynamic parameters for the message...
             {
                 Options.LogDebugCallback?.Invoke($"Payload for [{uniqueIdString}] is valid Json; initializing dynamic Message Parameters from the Json root properties...");
 
                 //Get the session id; because it is needed to determine PartitionKey when defined...
                 fifoGroupingId ??= GetJsonValueSafely(json, JsonMessageFields.FifoGroupingId, (string)null)
-                                             ?? GetJsonValueSafely(json, JsonMessageFields.SessionId, (string)null);
+                    ?? GetJsonValueSafely(json, JsonMessageFields.SessionId, (string)null);
+
+                //Get the Scheduled Publish Time with dynamic fallback -- this is likely redundant as this is already handled when building hte Outbox Item,
+                //  but this is just in case it was not properly set at the Outbox Item level or if there is a need to override it dynamically via the Json Payload.
+                var scheduledPublishTime = outboxItem.ScheduledPublishDateTimeUtc
+                    ?? GetJsonValueSafely<DateTimeOffset?>(json, JsonMessageFields.ScheduledPublishDateTimeUtc)
+                    ?? GetJsonValueSafely<DateTimeOffset?>(json, JsonMessageFields.ScheduledPublishTime);
 
                 message = new ServiceBusMessage
                 {
@@ -100,9 +106,14 @@ namespace SqlTransactionalOutbox.AzureServiceBus.Publishing
                     //Transaction related Partition Key... unused so disabling this to minimize risk.
                     //ViaPartitionKey = sessionId ?? GetJsonValueSafely(json, "viaPartitionKey", string.Empty),
                     ContentType = GetJsonValueSafely(json, JsonMessageFields.ContentType, MessageContentTypes.Json),
-                    Subject = GetJsonValueSafely<string>(json, JsonMessageFields.Subject)
-                                ?? GetJsonValueSafely(json, JsonMessageFields.Label, defaultLabel)
+                    Subject = GetJsonValueSafely<string>(json, JsonMessageFields.Subject) ?? GetJsonValueSafely(json, JsonMessageFields.Label, defaultLabel)
                 };
+
+                //Scheduled Publish time is nullable, so we only set it if it is defined!
+                //NOTE: Any value in the past will be treated as "available for immediate delivery" by Azure Service Bus,
+                //      so there is no risk of setting a past time here if the value is not exact.
+                if (scheduledPublishTime.HasValue)
+                    message.ScheduledEnqueueTime = scheduledPublishTime.Value;
 
                 //Initialize the Body from dynamic Json if defined, or fallback to the entire body...
                 var messageBody = GetJsonValueSafely(json, JsonMessageFields.Body, outboxItem.Payload);
@@ -110,18 +121,15 @@ namespace SqlTransactionalOutbox.AzureServiceBus.Publishing
 
                 //Populate HeadersLookup/User Properties if defined dynamically...
                 var headers = GetJsonValueSafely<JObject>(json, JsonMessageFields.Headers)
-                                        ?? GetJsonValueSafely<JObject>(json, JsonMessageFields.AppProperties)
-                                        ?? GetJsonValueSafely<JObject>(json, JsonMessageFields.UserProperties);
+                    ?? GetJsonValueSafely<JObject>(json, JsonMessageFields.AppProperties)
+                    ?? GetJsonValueSafely<JObject>(json, JsonMessageFields.UserProperties);
 
                 if (headers != null)
-                {
                     foreach (JProperty prop in headers.Properties())
                         message.ApplicationProperties.Add(MessageHeaders.ToHeader(prop.Name.ToLower()), prop.Value.ToString());
-                }
 
             }
-            else
-            //Process as a string with no additional dynamic fields...
+            else //Process the payload as a raw string with no additional dynamic fields...
             {
                 Options.LogDebugCallback?.Invoke($"Payload for [{uniqueIdString}] is in plain text format.");
 
@@ -142,6 +150,10 @@ namespace SqlTransactionalOutbox.AzureServiceBus.Publishing
             messageProps.TryAdd(MessageHeaders.ProcessorSender, this.SenderApplicationName);
             messageProps.TryAdd(MessageHeaders.OutboxUniqueIdentifier, uniqueIdString);
             messageProps.TryAdd(MessageHeaders.OutboxCreatedDateUtc, outboxItem.CreatedDateTimeUtc);
+            messageProps.TryAdd(MessageHeaders.OutboxScheduledPublishDateUtc, outboxItem.ScheduledPublishDateTimeUtc.HasValue
+                ? outboxItem.ScheduledPublishDateTimeUtc.Value.ToIso8601RoundTripFormat()
+                : null
+            );
             messageProps.TryAdd(MessageHeaders.OutboxPublishingAttempts, outboxItem.PublishAttempts);
             messageProps.TryAdd(MessageHeaders.OutboxPublishingTarget, outboxItem.PublishTarget);
             
@@ -177,8 +189,7 @@ namespace SqlTransactionalOutbox.AzureServiceBus.Publishing
                 if (Options.ThrowExceptionOnJsonPayloadParseFailure)
                 {
                     throw new ArgumentException(
-                        $"Json parsing failure; the publishing payload for item [{outboxItem.UniqueIdentifier}] could not" +
-                        $" be be parsed as Json.", 
+                        $"Json parsing failure; the publishing payload for item [{outboxItem.UniqueIdentifier}] could not be be parsed as Json.", 
                         exc
                     );
                 }

@@ -1,8 +1,5 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Diagnostics;
-using System.Linq;
-using System.Text;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
@@ -10,13 +7,14 @@ namespace SqlTransactionalOutbox.JsonExtensions
 {
     public static class JsonHelpers
     {
-        public static JObject ParseSafely(string jsonText)
+        public static JObject ParseSafely(string jsonText, JsonSerializerSettings jsonSerializerSettings = null)
         {
             try
             {
                 if (IsDuckTypedJson(jsonText))
                 {
-                    var json = JObject.Parse(jsonText);
+
+                    var json = JsonConvert.DeserializeObject<JObject>(jsonText, jsonSerializerSettings);
                     return json;
                 }
             }

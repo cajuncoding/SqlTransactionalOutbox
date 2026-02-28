@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Xml;
 
 namespace SqlTransactionalOutbox
 {
@@ -55,5 +54,17 @@ namespace SqlTransactionalOutbox
         ///         derived with no risk of being out-of-sync from parallel processes.
         /// </summary>
         public DateTimeOffset CreatedDateTimeUtc { get; set; }
+
+        /// <summary>
+        /// Exact UTC Date & Time this Outbox Item is scheduled to be published; needs to be highly exact to help ensure FIFO ordered processing.
+        /// The delivery may not occur exactly at this time due to various factors (e.g. processing delays, etc.), but the precision of this 
+        ///     value is important to ensure that items are published in the correct order.
+        /// For example, within Azure Functions the Outbox likely runs on a Timer Trigger with a certain frequency (e.g. every 5 seconds) 
+        ///     it's unlikely they will be processed at the exact scheduled time. But they will be published within the timer iteration as the margin of error (e.g. +/- 5 seconds).
+        /// To provide better control the Outbox configuration options can be used to provide a buffer window (e.g. 10 seconds, or 30 seconds) to 
+        ///     for +/- processing allowing for items to be processed even slightly before or afte their scheduled time. 
+        ///     The default for this however is 0 seconds, meaning items will only be processed once their scheduled time has passed.
+        /// </summary>
+        public DateTimeOffset? ScheduledPublishDateTimeUtc { get; set; }
     }
 }

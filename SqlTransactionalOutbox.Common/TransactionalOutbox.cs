@@ -23,14 +23,15 @@ namespace SqlTransactionalOutbox
         public virtual async Task<ISqlTransactionalOutboxItem<TUniqueIdentifier>> InsertNewPendingOutboxItemAsync(
             string publishingTarget, 
             TPayload publishingPayload,
-            string fifoGroupingIdentifier = null
+            string fifoGroupingIdentifier = null,
+            DateTimeOffset? scheduledPublishDateTimeUtc = null
         )
         {
             //Store the outbox item using the Repository...
             var resultItems = await InsertNewPendingOutboxItemsAsync(
                 new List<ISqlTransactionalOutboxInsertionItem<TPayload>>()
                 {
-                    new OutboxInsertionItem<TPayload>(publishingTarget, publishingPayload, fifoGroupingIdentifier)
+                    new OutboxInsertionItem<TPayload>(publishingTarget, publishingPayload, fifoGroupingIdentifier, scheduledPublishDateTimeUtc)
                 }
             ).ConfigureAwait(false);
 

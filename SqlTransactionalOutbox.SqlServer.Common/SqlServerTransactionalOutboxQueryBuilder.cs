@@ -8,6 +8,8 @@ namespace SqlTransactionalOutbox.SqlServer.Common
 {
     public class SqlServerTransactionalOutboxQueryBuilder<TUniqueIdentifier>
     {
+        public const string DefaultOutboxStatusParamName = "OutboxStatus";
+
         public ISqlTransactionalOutboxTableConfig OutboxTableConfig { get; protected set; }
 
         public SqlServerTransactionalOutboxQueryBuilder(ISqlTransactionalOutboxTableConfig outboxTableConfig)
@@ -15,50 +17,70 @@ namespace SqlTransactionalOutbox.SqlServer.Common
             this.OutboxTableConfig = outboxTableConfig.AssertNotNull(nameof(outboxTableConfig));
         }
 
-        public virtual string BuildSqlForRetrieveOutboxItemsByStatus(OutboxItemStatus status, int maxBatchSize = -1, string statusParamName = "status")
+        public virtual string BuildSqlForRetrieveOutboxItemsByStatus(
+            OutboxItemStatus status,
+            int maxBatchSize = -1,
+            TimeSpan? scheduledPublishMargin = null,
+            string statusParamName = DefaultOutboxStatusParamName
+        )
         {
-            var sql = @$"
-                SELECT {(maxBatchSize > 0 ? string.Concat("TOP ", maxBatchSize) : "")}
+            var publishMargin = scheduledPublishMargin ?? TimeSpan.Zero;
+            var scheduledPublishDateTimeField = ToSqlFieldName(OutboxTableConfig.ScheduledPublishDateTimeUtcFieldName);
+            var statusField = ToSqlFieldName(OutboxTableConfig.StatusFieldName);
+
+            return @$"
+                SELECT {(maxBatchSize > 0 ? string.Concat("TOP ", maxBatchSize) : string.Empty)}
                     {ToSqlFieldName(OutboxTableConfig.UniqueIdentifierFieldName)},
                     {ToSqlFieldName(OutboxTableConfig.FifoGroupingIdentifier)},
                     {ToSqlFieldName(OutboxTableConfig.CreatedDateTimeUtcFieldName)},
-                    {ToSqlFieldName(OutboxTableConfig.StatusFieldName)},
+                    {scheduledPublishDateTimeField},
+                    {statusField},
                     {ToSqlFieldName(OutboxTableConfig.PublishAttemptsFieldName)},
                     {ToSqlFieldName(OutboxTableConfig.PublishTargetFieldName)},
                     {ToSqlFieldName(OutboxTableConfig.PayloadFieldName)}
                 FROM
                     {BuildTableName()}
                 WHERE
-                   {ToSqlFieldName(OutboxTableConfig.StatusFieldName)} = {ToSqlParamName(statusParamName)}
+                    {statusField} = {ToSqlParamName(statusParamName)}
+                    AND (
+                        --Only include Non-scheduled results or results with schedule time that has passed with the provided margin 
+                        --  of error to allow for early retrieval before the exact scheduled time -- by adding the margin time to 
+                        --  the Current Sys UTC time effectively looking into the future and pre-fetching based on the margin specified.
+                        {scheduledPublishDateTimeField} IS NULL
+                        OR {scheduledPublishDateTimeField} <= DateAdd(SECOND, {publishMargin.TotalSeconds}, SysUtcDateTime())
+                    )
                 ORDER BY
                     --Order by Created DateTime, and break any collisions using the PKey field (IDENTITY).
                     {ToSqlFieldName(OutboxTableConfig.CreatedDateTimeUtcFieldName)},
+                    {ToSqlFieldName(OutboxTableConfig.ScheduledPublishDateTimeUtcFieldName)},
                     {ToSqlFieldName(OutboxTableConfig.PKeyFieldName)};
             ";
-
-            return sql;
         }
 
-        public virtual string BuildSqlForHistoricalOutboxCleanup(string purgeHistoryBeforeDateParamName)
+        public virtual string BuildSqlForHistoricalOutboxCleanup(TimeSpan historyTimeToKeepTimeSpan)
         {
-            var sql = @$"
-                DELETE FROM {BuildTableName()}
-                WHERE {ToSqlFieldName(OutboxTableConfig.CreatedDateTimeUtcFieldName)} < {ToSqlParamName(purgeHistoryBeforeDateParamName)};
-            ";
+            var publishScheduledField = ToSqlFieldName(OutboxTableConfig.ScheduledPublishDateTimeUtcFieldName);
+            var historyToKeepSeconds = -1 * historyTimeToKeepTimeSpan.TotalSeconds;
 
-            return sql;
+            return @$"
+                DELETE FROM {BuildTableName()}
+                WHERE
+                    {ToSqlFieldName(OutboxTableConfig.CreatedDateTimeUtcFieldName)} < DateAdd(SECOND, {historyToKeepSeconds}, SysUtcDateTime())
+                    AND (
+                        {publishScheduledField} IS NULL
+                        OR {publishScheduledField} < DateAdd(SECOND, {historyToKeepSeconds}, SysUtcDateTime()
+                    )
+            ";
         }
 
-        public virtual string BuildSqlForBulkPublishAttemptsIncrementByStatus(string statusParamName = "status")
+        public virtual string BuildSqlForBulkPublishAttemptsIncrementByStatus(string statusParamName = DefaultOutboxStatusParamName)
         {
             var publishAttemptsField = ToSqlFieldName(OutboxTableConfig.PublishAttemptsFieldName);
-            var sql = @$"
+            return @$"
                 UPDATE {BuildTableName()}
                 SET {publishAttemptsField} = ({publishAttemptsField} + 1)
                 WHERE {ToSqlFieldName(OutboxTableConfig.StatusFieldName)} = {ToSqlParamName(statusParamName)};
             ";
-
-            return sql;
         }
 
         /// <summary>
@@ -85,13 +107,14 @@ namespace SqlTransactionalOutbox.SqlServer.Common
             var sqlStringBuilder = new StringBuilder();
 
             var sqlTransactionalOutboxTableFieldNames = @$"
-                    {ToSqlFieldName(OutboxTableConfig.UniqueIdentifierFieldName)},
-                    {ToSqlFieldName(OutboxTableConfig.FifoGroupingIdentifier)},
-                    {ToSqlFieldName(OutboxTableConfig.StatusFieldName)},
-                    {ToSqlFieldName(OutboxTableConfig.CreatedDateTimeUtcFieldName)},                    
-                    {ToSqlFieldName(OutboxTableConfig.PublishAttemptsFieldName)},
-                    {ToSqlFieldName(OutboxTableConfig.PublishTargetFieldName)},
-                    {ToSqlFieldName(OutboxTableConfig.PayloadFieldName)}
+                {ToSqlFieldName(OutboxTableConfig.UniqueIdentifierFieldName)},
+                {ToSqlFieldName(OutboxTableConfig.FifoGroupingIdentifier)},
+                {ToSqlFieldName(OutboxTableConfig.StatusFieldName)},
+                {ToSqlFieldName(OutboxTableConfig.CreatedDateTimeUtcFieldName)},
+                {ToSqlFieldName(OutboxTableConfig.ScheduledPublishDateTimeUtcFieldName)},
+                {ToSqlFieldName(OutboxTableConfig.PublishAttemptsFieldName)},
+                {ToSqlFieldName(OutboxTableConfig.PublishTargetFieldName)},
+                {ToSqlFieldName(OutboxTableConfig.PayloadFieldName)}
             ";
 
             sqlStringBuilder.Append(@$"
@@ -115,11 +138,12 @@ namespace SqlTransactionalOutbox.SqlServer.Common
                         {ToSqlParamName(OutboxTableConfig.UniqueIdentifierFieldName, index)},
                         {ToSqlParamName(OutboxTableConfig.FifoGroupingIdentifier, index)},
                         {ToSqlParamName(OutboxTableConfig.StatusFieldName, index)},
-                        SysUtcDateTime(),
+                        SysUtcDateTime(), --Auto Populate [CreatedDateTimeUtc]!
+                        {ToSqlParamName(OutboxTableConfig.ScheduledPublishDateTimeUtcFieldName, index)},
                         {ToSqlParamName(OutboxTableConfig.PublishAttemptsFieldName, index)},
                         {ToSqlParamName(OutboxTableConfig.PublishTargetFieldName, index)},
                         {ToSqlParamName(OutboxTableConfig.PayloadFieldName, index)},
-                        {index}
+                        {index} --[SortOrdinal] Temp Table field guarantees proper ordering!
                     )
                 ");
             }

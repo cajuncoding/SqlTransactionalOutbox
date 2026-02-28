@@ -27,7 +27,8 @@ namespace SqlTransactionalOutbox.SqlServer.MicrosoftDataNS
             this SqlConnection sqlConnection,
             string jsonText,
             string publishTopic = null,
-            string fifoGroupingIdentifier = null
+            string fifoGroupingIdentifier = null,
+            DateTimeOffset? scheduledPublishDateTimeUtc = null
         )
         {
             var payloadBuilder = PayloadBuilder.FromJsonSafely(jsonText);
@@ -37,6 +38,8 @@ namespace SqlTransactionalOutbox.SqlServer.MicrosoftDataNS
             var publishingTarget = publishTopic ?? payloadBuilder.PublishTarget;
             publishingTarget.AssertNotNullOrWhiteSpace(nameof(payloadBuilder.PublishTarget), "No Publishing Topic was defined in the Payload or as a parameter.");
 
+            var validatedScheduledPublishDateTimeUtc = scheduledPublishDateTimeUtc ?? payloadBuilder.ScheduledPublishDateTimeUtc;
+
             //FIFO Grouping Identifier may be defined in the Payload OR as a discrete parameter that overrides the payload,
             //  but it is OPTIONAL.
             var fifoGroupId = fifoGroupingIdentifier ?? payloadBuilder.FifoGroupingId;
@@ -45,7 +48,8 @@ namespace SqlTransactionalOutbox.SqlServer.MicrosoftDataNS
                 .AddTransactionalOutboxPendingItemAsync(
                     publishingTarget,
                     payloadBuilder.ToJObject(),
-                    fifoGroupId
+                    fifoGroupId,
+                    scheduledPublishDateTimeUtc: validatedScheduledPublishDateTimeUtc
                 )
                 .ConfigureAwait(false);
 
@@ -67,7 +71,8 @@ namespace SqlTransactionalOutbox.SqlServer.MicrosoftDataNS
             this SqlConnection sqlConnection,
             string publishTarget,
             TPayload payload,
-            string fifoGroupingIdentifier = null
+            string fifoGroupingIdentifier = null,
+            DateTimeOffset? scheduledPublishDateTimeUtc = null
         )
         {
             sqlConnection.AssertSqlConnectionIsValid();
@@ -75,13 +80,11 @@ namespace SqlTransactionalOutbox.SqlServer.MicrosoftDataNS
             try
             {
                 var results = await outboxTransaction
-                    .AddTransactionalOutboxPendingItemAsync(publishTarget, payload, fifoGroupingIdentifier)
+                    .AddTransactionalOutboxPendingItemAsync(publishTarget, payload, fifoGroupingIdentifier, scheduledPublishDateTimeUtc)
                     .ConfigureAwait(false);
 
                 await outboxTransaction.CommitAsync().ConfigureAwait(false);
-
                 return results;
-
             }
             catch (Exception)
             {
@@ -211,7 +214,8 @@ namespace SqlTransactionalOutbox.SqlServer.MicrosoftDataNS
             this SqlTransaction sqlTransaction,
             string publishTarget,
             TPayload payload,
-            string fifoGroupingIdentifier = null
+            string fifoGroupingIdentifier = null,
+            DateTimeOffset? scheduledPublishDateTimeUtc = null
         )
         {
             sqlTransaction.AssertSqlTransactionIsValid();
@@ -221,7 +225,8 @@ namespace SqlTransactionalOutbox.SqlServer.MicrosoftDataNS
             var outboxItem = await outbox.InsertNewPendingOutboxItemAsync(
                 publishingTarget: publishTarget,
                 publishingPayload: payload,
-                fifoGroupingIdentifier: fifoGroupingIdentifier
+                fifoGroupingIdentifier: fifoGroupingIdentifier,
+                scheduledPublishDateTimeUtc: scheduledPublishDateTimeUtc
             ).ConfigureAwait(false);
 
             return outboxItem;

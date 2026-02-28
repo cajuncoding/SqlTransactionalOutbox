@@ -1,8 +1,6 @@
 ﻿#nullable enable
 using System;
-using System.Collections.Generic;
 using System.Globalization;
-using System.Text;
 using SqlTransactionalOutbox.CustomExtensions;
 
 namespace SqlTransactionalOutbox
@@ -24,7 +22,8 @@ namespace SqlTransactionalOutbox
         public virtual ISqlTransactionalOutboxItem<TUniqueIdentifier> CreateNewOutboxItem(
             string publishingTarget,
             TPayload publishingPayload,
-            string? fifoGroupingIdentifier = null
+            string? fifoGroupingIdentifier = null,
+            DateTimeOffset? scheduledPublishDateTimeUtc = null
         )
         {
             //Validate key required values that are always user provided in this one place...
@@ -43,6 +42,7 @@ namespace SqlTransactionalOutbox
                 FifoGroupingIdentifier = fifoGroupingIdentifier,
                 PublishAttempts = 0,
                 CreatedDateTimeUtc = DateTimeOffset.UtcNow,
+                ScheduledPublishDateTimeUtc = scheduledPublishDateTimeUtc,
                 //Initialize client provided details
                 PublishTarget = publishingTarget,
                 Payload = serializedPayload
@@ -54,6 +54,7 @@ namespace SqlTransactionalOutbox
         public virtual ISqlTransactionalOutboxItem<TUniqueIdentifier> CreateExistingOutboxItem(
             string uniqueIdentifier,
             DateTimeOffset createdDateTimeUtc,
+            DateTimeOffset? scheduledPublishDateTimeUtc,
             string status,
             string fifoGroupingIdentifier,
             int publishAttempts,
@@ -66,6 +67,7 @@ namespace SqlTransactionalOutbox
             return CreateExistingOutboxItem(
                 UniqueIdentifierFactory.ParseUniqueIdentifier(uniqueIdentifier),
                 createdDateTimeUtc,
+                scheduledPublishDateTimeUtc,
                 status,
                 fifoGroupingIdentifier,
                 publishAttempts,
@@ -77,6 +79,7 @@ namespace SqlTransactionalOutbox
         public virtual ISqlTransactionalOutboxItem<TUniqueIdentifier> CreateExistingOutboxItem(
             TUniqueIdentifier uniqueIdentifier,
             DateTimeOffset createdDateTimeUtc,
+            DateTimeOffset? scheduledPublishDateTimeUtc,
             string status,
             string fifoGroupingIdentifier,
             int publishAttempts,
@@ -106,6 +109,7 @@ namespace SqlTransactionalOutbox
                 Status = Enum.Parse<OutboxItemStatus>(status),
                 PublishAttempts = publishAttempts,
                 CreatedDateTimeUtc = createdDateTimeUtc,
+                ScheduledPublishDateTimeUtc = scheduledPublishDateTimeUtc,
                 //Initialize client provided details
                 PublishTarget = publishTarget,
                 Payload = serializedPayload

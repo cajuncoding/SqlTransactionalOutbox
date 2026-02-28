@@ -1,7 +1,5 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
 using SqlTransactionalOutbox.CustomExtensions;
 
@@ -19,10 +17,9 @@ namespace SqlTransactionalOutbox.Receiving
         public string CorrelationId { get; protected set; }
 
         private TPayloadBody _parsedBody;
-
         public TPayloadBody ParsedBody => _parsedBody ??= ParsePayloadBody();
         
-        protected ILookup<string, object> HeadersLookup = null;
+        protected ILookup<string, object> HeadersLookup { get; set; } = null;
         protected bool IsDisposed { get; set; } = false;
         protected Func<ISqlTransactionalOutboxItem<TUniqueIdentifier>, TPayloadBody> ParsePayloadFunc { get; set; }
         
@@ -82,21 +79,11 @@ namespace SqlTransactionalOutbox.Receiving
             FifoGroupingIdentifier = fifoGroupingIdentifier;
         }
 
-        public TPayloadBody ParsePayloadBody()
-        {
-            var payload = ParsePayloadFunc(PublishedItem);
-            return payload;
-        }
+        public TPayloadBody ParsePayloadBody() => ParsePayloadFunc(PublishedItem);
 
-        public string GetPayloadSerializedBody()
-        {
-            return this.PayloadSerializedBody;
-        }
+        public string GetPayloadSerializedBody() => this.PayloadSerializedBody;
 
-        public T GetHeaderValue<T>(string headerKey, T defaultValue = default)
-        {
-            return (T)HeadersLookup[headerKey].FirstOrDefault() ?? defaultValue;
-        }
+        public T GetHeaderValue<T>(string headerKey, T defaultValue = default) => (T)HeadersLookup[headerKey].FirstOrDefault() ?? defaultValue;
 
         public virtual Task AcknowledgeSuccessfulReceiptAsync()
         {

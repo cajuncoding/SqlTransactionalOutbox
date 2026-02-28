@@ -21,7 +21,8 @@ namespace SqlTransactionalOutbox.SampleApp.AzureFunctions
         [FunctionName("SendPayload")]
         public async Task<IActionResult> Run(
             [HttpTrigger(AuthorizationLevel.Anonymous, "get", "post", Route = null)] HttpRequest req,
-            ILogger log)
+            ILogger log
+        )
         {
             log.LogInformation($"HTTP [{nameof(TransactionalOutboxHttpProxySendPayloadFunction)}].");
             var configSettings = new SampleAppConfig();
@@ -32,7 +33,7 @@ namespace SqlTransactionalOutbox.SampleApp.AzureFunctions
 
             //Apply fallback values from the QueryString
             //NOTE: this will only set values not already initialized from Json!
-            var queryLookup = req.Query.ToLookup(k => k.Key, v => v.Value.FirstOrDefault());
+            var queryLookup = req.Query.ToLookup(k => k.Key, v => v.Value.FirstOrDefault(), StringComparer.OrdinalIgnoreCase);
             payloadBuilder.ApplyValues(queryLookup, false);
 
             await using var sqlConnection = new SqlConnection(configSettings.SqlConnectionString);

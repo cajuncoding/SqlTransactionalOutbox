@@ -18,8 +18,8 @@ namespace SqlTransactionalOutbox
                 case string stringPayload:
                     return stringPayload;
                 //BBernard - 01/18/2022
-                //NOTE: TO ensure that our JsonSerializer Settings are applies we can't use ToString(), but
-                //      normal JsonConvert.SerializeObject() handles the JToken just fine!
+                //NOTE: TO ensure that our JsonSerializer Settings are applied we can't use ToString(), but
+                //      normal JsonConvert.SerializeObject() (in our default: case below) handles the JToken just fine!
                 //case JToken jsonPayload:
                 //    return jsonPayload.ToString();
                 default:

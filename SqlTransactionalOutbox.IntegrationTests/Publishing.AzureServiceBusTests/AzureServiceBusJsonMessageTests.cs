@@ -44,6 +44,7 @@ namespace SqlTransactionalOutbox.IntegrationTests
             var outboxItem = outboxItemFactory.CreateExistingOutboxItem(
                 uniqueIdentifier:uniqueIdGuidFactory.CreateUniqueIdentifier().ToString(),
                 createdDateTimeUtc: DateTimeOffset.UtcNow,
+                scheduledPublishDateTimeUtc: null,
                 status: OutboxItemStatus.Pending.ToString(),
                 fifoGroupingIdentifier: testPayload.FifoGroupingId,
                 publishAttempts: 0,

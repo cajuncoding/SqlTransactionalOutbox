@@ -5,6 +5,9 @@
     <Version>0.0.3</Version>
   </PropertyGroup>
   <ItemGroup>
+    <None Include="..\README.md" Link="README.md" />
+  </ItemGroup>
+  <ItemGroup>
     <PackageReference Include="Microsoft.Data.SqlClient" Version="6.0.2" />
     <PackageReference Include="Microsoft.NET.Sdk.Functions" Version="4.6.0" />
     <PackageReference Include="Microsoft.Azure.Functions.Extensions" Version="1.1.0" />

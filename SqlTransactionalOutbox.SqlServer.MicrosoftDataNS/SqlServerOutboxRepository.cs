@@ -42,7 +42,13 @@ namespace SqlTransactionalOutbox.SqlServer.MicrosoftDataNS
         )
         {
             var statusParamName = OutboxTableConfig.StatusFieldName;
-            var sql = QueryBuilder.BuildSqlForRetrieveOutboxItemsByStatus(status, maxBatchSize, statusParamName);
+            var scheduledPublishDateTimeParamName = OutboxTableConfig.ScheduledPublishDateTimeUtcFieldName;
+            var sql = QueryBuilder.BuildSqlForRetrieveOutboxItemsByStatus(
+                status,
+                maxBatchSize,
+                OutboxTableConfig.ScheduledPublishTimeMarginOfError,
+                statusParamName
+            );
 
             await using var sqlCmd = CreateSqlCommand(sql);
             AddParam(sqlCmd, statusParamName, status.ToString(), SqlDbType.VarChar);
@@ -53,6 +59,7 @@ namespace SqlTransactionalOutbox.SqlServer.MicrosoftDataNS
             while (await sqlReader.ReadAsync().ConfigureAwait(false))
             {
                 var createdDateUtcFromDb = (DateTime)sqlReader[OutboxTableConfig.CreatedDateTimeUtcFieldName];
+                var scheduledPublishDateUtcFromDb = (DateTime)sqlReader[OutboxTableConfig.ScheduledPublishDateTimeUtcFieldName];
 
                 var outboxItem = OutboxItemFactory.CreateExistingOutboxItem(
                     uniqueIdentifier: ConvertUniqueIdentifierFromDb(sqlReader),
@@ -60,6 +67,7 @@ namespace SqlTransactionalOutbox.SqlServer.MicrosoftDataNS
                     fifoGroupingIdentifier: sqlReader[OutboxTableConfig.FifoGroupingIdentifier] as string,
                     publishAttempts: (int)sqlReader[OutboxTableConfig.PublishAttemptsFieldName],
                     createdDateTimeUtc: new DateTimeOffset(createdDateUtcFromDb, TimeSpan.Zero),
+                    scheduledPublishDateTimeUtc: new DateTimeOffset(scheduledPublishDateUtcFromDb, TimeSpan.Zero),
                     publishTarget: sqlReader[OutboxTableConfig.PublishTargetFieldName] as string,
                     serializedPayload: sqlReader[OutboxTableConfig.PayloadFieldName] as string
                 );
@@ -72,14 +80,8 @@ namespace SqlTransactionalOutbox.SqlServer.MicrosoftDataNS
 
         public virtual async Task CleanupOutboxHistoricalItemsAsync(TimeSpan historyTimeToKeepTimeSpan)
         {
-            var purgeHistoryParamName = "@purgeHistoryBeforeDate";
-            var purgeHistoryBeforeDate = DateTime.UtcNow.Subtract(historyTimeToKeepTimeSpan);
-
-            var sql = QueryBuilder.BuildSqlForHistoricalOutboxCleanup(purgeHistoryParamName);
-            
+            var sql = QueryBuilder.BuildSqlForHistoricalOutboxCleanup(historyTimeToKeepTimeSpan);
             await using var sqlCmd = CreateSqlCommand(sql);
-            AddParam(sqlCmd, purgeHistoryParamName, purgeHistoryBeforeDate, SqlDbType.DateTime2);
-
             await sqlCmd.ExecuteNonQueryAsync().ConfigureAwait(false);
         }
 
@@ -95,18 +97,19 @@ namespace SqlTransactionalOutbox.SqlServer.MicrosoftDataNS
         }
 
         public virtual async Task<List<ISqlTransactionalOutboxItem<TUniqueIdentifier>>> InsertNewOutboxItemsAsync(
-            IEnumerable<ISqlTransactionalOutboxInsertionItem<TPayload>> outboxItems, 
+            IEnumerable<ISqlTransactionalOutboxInsertionItem<TPayload>> outboxInsertionItems, 
             int insertBatchSize = 20
         )
         {
             await using var sqlCmd = CreateSqlCommand(string.Empty);
 
             //Use the Outbox Item Factory to create a new Outbox Item with serialized payload.
-            var outboxItemsList = outboxItems.Select(
+            var outboxItemsList = outboxInsertionItems.Select(
                 i => OutboxItemFactory.CreateNewOutboxItem(
                     i.PublishingTarget, 
                     i.PublishingPayload,
-                    i.FifoGroupingIdentifier
+                    i.FifoGroupingIdentifier,
+                    i.ScheduledPublishDateTimeUtc
                 )
             ).ToList();
 
@@ -124,8 +127,9 @@ namespace SqlTransactionalOutbox.SqlServer.MicrosoftDataNS
                     var uniqueIdentifierForDb = ConvertUniqueIdentifierForDb(outboxItem.UniqueIdentifier);
                     AddParam(sqlCmd, OutboxTableConfig.UniqueIdentifierFieldName, uniqueIdentifierForDb, SqlDbType.UniqueIdentifier, batchIndex);
                     //NOTE: The for Sql Server, the CreatedDateTimeUtcField is automatically populated by Sql Server.
-                    //      this helps eliminate risks of datetime sequencing across servers or server-less environments.
+                    //      this helps eliminate risks of datetime sequencing across servers or serverless environments, etc.
                     ////AddParam(sqlCmd, OutboxTableConfig.CreatedDateTimeUtcFieldName, outboxItem.CreatedDateTimeUtc, batchIndex);
+                    AddParam(sqlCmd, OutboxTableConfig.ScheduledPublishDateTimeUtcFieldName, outboxItem.ScheduledPublishDateTimeUtc, SqlDbType.DateTime2, batchIndex);
                     AddParam(sqlCmd, OutboxTableConfig.FifoGroupingIdentifier, outboxItem.FifoGroupingIdentifier, SqlDbType.VarChar, batchIndex);
                     AddParam(sqlCmd, OutboxTableConfig.StatusFieldName, outboxItem.Status.ToString(), SqlDbType.VarChar, batchIndex);
                     AddParam(sqlCmd, OutboxTableConfig.PublishAttemptsFieldName, outboxItem.PublishAttempts, SqlDbType.Int, batchIndex);
@@ -137,7 +141,7 @@ namespace SqlTransactionalOutbox.SqlServer.MicrosoftDataNS
                 await using var sqlReader = await sqlCmd.ExecuteReaderAsync().ConfigureAwait(false);
 
                 //Since some fields are actually populated in the Database, we post-process to update the models with valid
-                //  values as returned from teh Insert process...
+                //  values as returned from the Insert process...
                 var outboxBatchLookup = batch.ToLookup(i => i.UniqueIdentifier);
                 while (await sqlReader.ReadAsync().ConfigureAwait(false))
                 {

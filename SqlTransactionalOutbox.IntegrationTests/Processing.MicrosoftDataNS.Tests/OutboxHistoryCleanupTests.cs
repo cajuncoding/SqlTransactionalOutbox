@@ -35,8 +35,8 @@ namespace SqlTransactionalOutbox.IntegrationTests.MicrosoftDataNS
                 .ConfigureAwait(false);
 
             //Assert
-            var purgedCount = await RetrievePendingItemsCountAsync(sqlConnection);
-            Assert.AreEqual(nonPurgedDataSize, purgedCount);
+            var newPendingNonPurgedCount = await RetrievePendingItemsCountAsync(sqlConnection);
+            Assert.AreEqual(nonPurgedDataSize, newPendingNonPurgedCount);
         }
 
         private async Task<int> RetrievePendingItemsCountAsync(SqlConnection sqlConnection)

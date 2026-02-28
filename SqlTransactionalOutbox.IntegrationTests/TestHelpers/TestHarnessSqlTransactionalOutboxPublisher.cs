@@ -11,8 +11,7 @@ namespace SqlTransactionalOutbox.IntegrationTests
     {
         public TestHarnessSqlTransactionalOutboxPublisher(
             Func<ISqlTransactionalOutboxItem<Guid>, bool, Task> publishingAction = null
-        )
-        : base(publishingAction ?? ((item, isFifoProcessingEnabled) =>
+        ) : base(publishingAction ?? ((item, isFifoProcessingEnabled) =>
             {
                 Debug.WriteLine($"[{nameof(TestHarnessSqlTransactionalOutboxPublisher)}] PUBLISHING: {item.Payload}");
                 return Task.CompletedTask;

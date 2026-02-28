@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -41,7 +40,8 @@ namespace SqlTransactionalOutbox.AzureServiceBus.Receiving
             this.SessionMessageEventArgs = sessionMessageEventArgs.AssertNotNull(nameof(sessionMessageEventArgs));
             this.AzureServiceBusMessage = sessionMessageEventArgs.Message;
             this.OutboxItemFactory = outboxItemFactory.AssertNotNull(nameof(outboxItemFactory));
-            
+
+            //By Definition in handling the ProcessSessionMessageEventArgs, we know that this is a FIFO Session based message as it uses Sessions...
             this.InitAzureServiceBusOutboxReceivedItem(isFifoProcessingEnabled: true);
         }
 
@@ -61,6 +61,7 @@ namespace SqlTransactionalOutbox.AzureServiceBus.Receiving
             this.AzureServiceBusMessage = messageEventArgs.Message;
             this.OutboxItemFactory = outboxItemFactory.AssertNotNull(nameof(outboxItemFactory));
 
+            //By Definition in handling the ProcessMessageEventArgs, we know that this is a NOTE a FIFO Session based message as it does not use Sessions...
             this.InitAzureServiceBusOutboxReceivedItem(isFifoProcessingEnabled: false);
         }
 
@@ -97,6 +98,7 @@ namespace SqlTransactionalOutbox.AzureServiceBus.Receiving
             var outboxItem = this.OutboxItemFactory.CreateExistingOutboxItem(
                 uniqueIdentifier: azureServiceBusMessage.MessageId,
                 createdDateTimeUtc: (DateTimeOffset)azureServiceBusMessage.ApplicationProperties[MessageHeaders.OutboxCreatedDateUtc],
+                scheduledPublishDateTimeUtc: (DateTimeOffset?)azureServiceBusMessage.ApplicationProperties[MessageHeaders.OutboxScheduledPublishDateUtc],
                 status: OutboxItemStatus.Successful.ToString(),
                 fifoGroupingIdentifier: azureServiceBusMessage.SessionId,
                 publishAttempts: (int)azureServiceBusMessage.ApplicationProperties[MessageHeaders.OutboxPublishingAttempts],
@@ -106,7 +108,8 @@ namespace SqlTransactionalOutbox.AzureServiceBus.Receiving
 
             var headersLookup = azureServiceBusMessage.ApplicationProperties?.ToLookup(
                 k => k.Key,
-                v => v.Value
+                v => v.Value,
+                StringComparer.OrdinalIgnoreCase
             );
 
             InitBaseOutboxReceivedItem(

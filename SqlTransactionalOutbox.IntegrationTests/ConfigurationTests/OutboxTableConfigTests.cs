@@ -38,7 +38,6 @@ namespace SqlTransactionalOutbox.IntegrationTests
             Assert.AreEqual(defaultTableConfig.TransactionalOutboxTableName, customSchemaTableConfig.TransactionalOutboxTableName);
 
             //Validate Interface Cast references
-
             var defaultTableConfigAsInterface = (ISqlTransactionalOutboxTableConfig)defaultTableConfig;
             var customOutboxTableConfigAsInterface = (ISqlTransactionalOutboxTableConfig)customSchemaTableConfig;
             Assert.AreEqual(CustomSchemaName, customOutboxTableConfigAsInterface.TransactionalOutboxSchemaName);
@@ -60,13 +59,33 @@ namespace SqlTransactionalOutbox.IntegrationTests
             Assert.AreEqual(defaultTableConfig.TransactionalOutboxTableName, customSchemaTableConfig.TransactionalOutboxTableName);
 
             //Validate Interface Cast references
-
             var defaultTableConfigAsInterface = (ISqlTransactionalOutboxTableConfig)defaultTableConfig;
             var customOutboxTableConfigAsInterface = (ISqlTransactionalOutboxTableConfig)customSchemaTableConfig;
             Assert.AreEqual(CustomSchemaName, customOutboxTableConfigAsInterface.TransactionalOutboxSchemaName);
             Assert.AreEqual(OutboxTableConfig.DefaultTransactionalOutboxSchemaName, defaultTableConfigAsInterface.TransactionalOutboxSchemaName);
             Assert.AreNotEqual(defaultTableConfigAsInterface.TransactionalOutboxSchemaName, customOutboxTableConfigAsInterface.TransactionalOutboxSchemaName);
             Assert.AreEqual(defaultTableConfigAsInterface.TransactionalOutboxTableName, customOutboxTableConfigAsInterface.TransactionalOutboxTableName);
+        }
+
+        [TestMethod]
+        public void TestSqlTransactionalOutboxInitializationConfigurationBuilderDefaultValues()
+        {
+            //Get initial Defaults for Distributed Mutex values...
+            var defaultTableConfig = SqlTransactionalOutboxDefaults.OutboxTableConfig;
+
+            //OutboxTableConfig settings...
+            Assert.AreEqual(OutboxTableConfig.DefaultTransactionalOutboxSchemaName, defaultTableConfig.TransactionalOutboxSchemaName);
+            Assert.AreEqual(OutboxTableConfig.DefaultTransactionalOutboxTableName, defaultTableConfig.TransactionalOutboxTableName);
+            Assert.AreEqual(OutboxTableConfig.DefaultPKeyFieldName, defaultTableConfig.PKeyFieldName);
+            Assert.AreEqual(nameof(OutboxProcessingItem<Guid>.Payload), defaultTableConfig.PayloadFieldName);
+            Assert.AreEqual(nameof(OutboxProcessingItem<Guid>.UniqueIdentifier), defaultTableConfig.UniqueIdentifierFieldName);
+            Assert.AreEqual(nameof(OutboxProcessingItem<Guid>.FifoGroupingIdentifier), defaultTableConfig.FifoGroupingIdentifier);
+            Assert.AreEqual(nameof(OutboxProcessingItem<Guid>.Status), defaultTableConfig.StatusFieldName);
+            Assert.AreEqual(nameof(OutboxProcessingItem<Guid>.PublishTarget), defaultTableConfig.PublishTargetFieldName);
+            Assert.AreEqual(nameof(OutboxProcessingItem<Guid>.PublishAttempts), defaultTableConfig.PublishAttemptsFieldName);
+            Assert.AreEqual(nameof(OutboxProcessingItem<Guid>.CreatedDateTimeUtc), defaultTableConfig.CreatedDateTimeUtcFieldName);
+            Assert.AreEqual(nameof(OutboxProcessingItem<Guid>.ScheduledPublishDateTimeUtc), defaultTableConfig.ScheduledPublishDateTimeUtcFieldName);
+            Assert.AreEqual(TimeSpan.Zero, defaultTableConfig.ScheduledPublishTimeMarginOfError);
         }
 
         [TestMethod]
@@ -82,7 +101,8 @@ namespace SqlTransactionalOutbox.IntegrationTests
             //Now use the global initializer to change and read the custom value setting...
             SqlTransactionalOutboxInitializer.Configure(config =>
             {
-                config.WithOutboxTableConfig(new OutboxTableConfig(
+                config
+                    .WithOutboxTableConfig(new OutboxTableConfig(
                         transactionalOutboxSchemaName: CustomSchemaName,
                         transactionalOutboxTableName: "OutboxTable",
                         pkeyFieldName: "PKeyField",
@@ -92,7 +112,9 @@ namespace SqlTransactionalOutbox.IntegrationTests
                         statusFieldName: "StatusField",
                         publishTargetFieldName: "PublishTargetField",
                         publishAttemptsFieldName: "PublishAttemptsField",
-                        createdDateTimeUtcFieldName: "CreatedField"
+                        createdDateTimeUtcFieldName: "CreatedField",
+                        scheduledPublishDateTimeUtcFieldName: "ScheduledField",
+                        scheduledPublishTimeMarginOfError: TimeSpan.FromSeconds(60)
                     ))
                     .WithDistributedMutexLockSettings(
                         lockAcquisitionTimeoutSeconds: 8,
@@ -113,6 +135,8 @@ namespace SqlTransactionalOutbox.IntegrationTests
             Assert.AreEqual("PublishTargetField", customSchemaTableConfig.PublishTargetFieldName);
             Assert.AreEqual("PublishAttemptsField", customSchemaTableConfig.PublishAttemptsFieldName);
             Assert.AreEqual("CreatedField", customSchemaTableConfig.CreatedDateTimeUtcFieldName);
+            Assert.AreEqual("ScheduledField", customSchemaTableConfig.ScheduledPublishDateTimeUtcFieldName);
+            Assert.AreEqual(TimeSpan.FromMinutes(1), customSchemaTableConfig.ScheduledPublishTimeMarginOfError);
 
             Assert.AreNotEqual(defaultTableConfig.TransactionalOutboxSchemaName, customSchemaTableConfig.TransactionalOutboxSchemaName);
             Assert.AreNotEqual(defaultTableConfig.TransactionalOutboxTableName, customSchemaTableConfig.TransactionalOutboxTableName);
@@ -124,7 +148,9 @@ namespace SqlTransactionalOutbox.IntegrationTests
             Assert.AreNotEqual(defaultTableConfig.PublishTargetFieldName, customSchemaTableConfig.PublishTargetFieldName);
             Assert.AreNotEqual(defaultTableConfig.PublishAttemptsFieldName, customSchemaTableConfig.PublishAttemptsFieldName);
             Assert.AreNotEqual(defaultTableConfig.CreatedDateTimeUtcFieldName, customSchemaTableConfig.CreatedDateTimeUtcFieldName);
+            Assert.AreNotEqual(defaultTableConfig.ScheduledPublishDateTimeUtcFieldName, customSchemaTableConfig.ScheduledPublishDateTimeUtcFieldName);
 
+            Assert.AreNotEqual(TimeSpan.Zero, customSchemaTableConfig.ScheduledPublishTimeMarginOfError);
             Assert.AreEqual(OutboxTableConfig.DefaultTransactionalOutboxSchemaName, defaultTableConfig.TransactionalOutboxSchemaName);
 
             //Distributed Mutex Lock settings...

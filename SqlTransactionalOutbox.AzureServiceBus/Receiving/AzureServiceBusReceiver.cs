@@ -1,11 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Azure.Messaging.ServiceBus;
-using Microsoft.Azure.Amqp.Serialization;
 using SqlTransactionalOutbox.AzureServiceBus.Common;
 using SqlTransactionalOutbox.CustomExtensions;
 using SqlTransactionalOutbox.Receiving;
