@@ -106,14 +106,13 @@ namespace SqlTransactionalOutbox.AzureServiceBus.Publishing
                     //Transaction related Partition Key... unused so disabling this to minimize risk.
                     //ViaPartitionKey = sessionId ?? GetJsonValueSafely(json, "viaPartitionKey", string.Empty),
                     ContentType = GetJsonValueSafely(json, JsonMessageFields.ContentType, MessageContentTypes.Json),
-                    Subject = GetJsonValueSafely<string>(json, JsonMessageFields.Subject) ?? GetJsonValueSafely(json, JsonMessageFields.Label, defaultLabel)
+                    Subject = GetJsonValueSafely<string>(json, JsonMessageFields.Subject) ?? GetJsonValueSafely(json, JsonMessageFields.Label, defaultLabel),
+                    //Scheduled Publish time is nullable, so when setting it we coalesce to default if null
+                    //  which matches the out-of-the-box behavior of Azure Service Bus.
+                    //NOTE: Any value in the past, including `default`, will be treated as "available for immediate delivery" by Azure Service Bus,
+                    //      so there is no risk of setting a past time here, or `default` if our value is null.
+                    ScheduledEnqueueTime = scheduledPublishTime ?? default
                 };
-
-                //Scheduled Publish time is nullable, so we only set it if it is defined!
-                //NOTE: Any value in the past will be treated as "available for immediate delivery" by Azure Service Bus,
-                //      so there is no risk of setting a past time here if the value is not exact.
-                if (scheduledPublishTime.HasValue)
-                    message.ScheduledEnqueueTime = scheduledPublishTime.Value;
 
                 //Initialize the Body from dynamic Json if defined, or fallback to the entire body...
                 var messageBody = GetJsonValueSafely(json, JsonMessageFields.Body, outboxItem.Payload);
