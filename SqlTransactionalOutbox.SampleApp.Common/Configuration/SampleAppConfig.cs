@@ -7,22 +7,18 @@ namespace SqlTransactionalOutbox.SampleApp.AzureFunctions
     //Always a good idea to abstract away or encapsulate the core/base reading of config values...
     public class SampleAppConfig
     {
-        private const int _defaultMaxPublishingRetryAttempts = 25;
-        private const int _defaultMaxPublishingTTLDays = 10;
-        private const int _defaultHistoryToKeepDays = 30;
-
-        private const string _defaultServiceBusTopic = "SqlTransactionalOutbox/Integration-Tests";
-        private const string _defaultServiceBusSubscription = "dev-local";
-
         public SampleAppConfig()
         {
+            //Required...
             SqlConnectionString = GetStringValue(nameof(SqlConnectionString));
             AzureServiceBusConnectionString = GetStringValue(nameof(AzureServiceBusConnectionString));
-            AzureServiceBusTopic = GetStringValue(nameof(AzureServiceBusTopic), _defaultServiceBusTopic);
-            AzureServiceBusSubscription = GetStringValue(nameof(AzureServiceBusSubscription), _defaultServiceBusSubscription);
-            OutboxMaxPublishingRetryAttempts = GetIntValue(nameof(OutboxMaxPublishingRetryAttempts), _defaultMaxPublishingRetryAttempts);
-            OutboxMaxTimeToLiveTimeSpan = TimeSpan.FromDays(GetIntValue("OutboxMaxTimeToLiveDays", _defaultMaxPublishingTTLDays));
-            OutboxHistoryToKeepTimeSpan = TimeSpan.FromDays(GetIntValue("OutboxHistoryToKeepDays", _defaultHistoryToKeepDays));
+            //Optional with Defaults...
+            AzureServiceBusTopic = GetStringValue(nameof(AzureServiceBusTopic), "SqlTransactionalOutbox/Integration-Tests");
+            AzureServiceBusSubscription = GetStringValue(nameof(AzureServiceBusSubscription), "dev-local");
+            OutboxMaxPublishingRetryAttempts = GetIntValue(nameof(OutboxMaxPublishingRetryAttempts), 25);
+            OutboxMaxTimeToLiveTimeSpan = TimeSpan.FromDays(GetIntValue("OutboxMaxTimeToLiveDays", 10));
+            OutboxHistoryToKeepTimeSpan = TimeSpan.FromDays(GetIntValue("OutboxHistoryToKeepDays", 30));
+            OutboxProcessingIntervalTimeSpan = TimeSpan.FromSeconds(GetIntValue("OutboxProcessingIntervalSeconds", 20));
         }
 
         //Always a good idea to abstract away or encapsulate the core/base reading of config values...
@@ -53,5 +49,6 @@ namespace SqlTransactionalOutbox.SampleApp.AzureFunctions
         public int OutboxMaxPublishingRetryAttempts { get; }
         public TimeSpan OutboxMaxTimeToLiveTimeSpan { get; }
         public TimeSpan OutboxHistoryToKeepTimeSpan { get; }
+        public TimeSpan OutboxProcessingIntervalTimeSpan { get; }
     }
 }

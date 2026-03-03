@@ -6,17 +6,15 @@ using SqlTransactionalOutbox.SqlServer.MicrosoftDataNS;
 
 namespace SqlTransactionalOutbox.SampleApp.ConsoleApp
 {
-    /// <summary>
+    ///*****************************************************************************************
+    /// PROCESSING & PUBLISHING Messages in the Sql Transactional Outbox to Azure Service Bus
     ///******************************************************************************************
-    /// 2. PROCESSING & PUBLISHING Messages in the Sql Transactional Outbox to Azure Service Bus
-    ///******************************************************************************************
-    /// </summary>
     public class OutboxProcessor : IAsyncDisposable
     {
-        //  NOTE: this is AsyncDisposable!
+        //NOTE: this is AsyncDisposable!
         protected ISqlTransactionalOutboxPublisher<Guid> OutboxPublisher { get; set; }
 
-        //  NOTE: this is AsyncDisposable!
+        //NOTE: this is AsyncDisposable!
         protected AsyncThreadOutboxProcessingAgent OutboxProcessingAgent { get; set; }
 
         public OutboxProcessor(SampleAppConfig configSettings)
@@ -42,12 +40,13 @@ namespace SqlTransactionalOutbox.SampleApp.ConsoleApp
             );
 
             //Finally We Need the Processing Agent to process the Outbox on a background (Async) thread...
-            //  NOTE: this is AsyncDisposable so we Keep a Reference for Disposal!
+            // NOTE: We can use the out-of-the-box provided in-memory processing agent that runs on an Async Thread.
+            // NOTE: this is AsyncDisposable so we Keep a Reference for Disposal!
             OutboxProcessingAgent = new AsyncThreadOutboxProcessingAgent(
-                TimeSpan.FromSeconds(20),
-                TimeSpan.FromDays(1),
-                configSettings.SqlConnectionString,
-                OutboxPublisher,
+                processingIntervalTimeSpan: configSettings.OutboxProcessingIntervalTimeSpan,
+                historyToKeepTimeSpan: configSettings.OutboxHistoryToKeepTimeSpan,
+                sqlConnectionString: configSettings.SqlConnectionString,
+                outboxPublisher: OutboxPublisher,
                 //We Need Processing Options for the Agent...
                 outboxProcessingOptions: new OutboxProcessingOptions()
                 {
@@ -59,7 +58,6 @@ namespace SqlTransactionalOutbox.SampleApp.ConsoleApp
                     TimeSpanToLive = configSettings.OutboxMaxTimeToLiveTimeSpan
                 }
             );
-
         }
 
         public async Task StartProcessingAsync()
@@ -67,6 +65,7 @@ namespace SqlTransactionalOutbox.SampleApp.ConsoleApp
             //RUN The ProcessingAgent!
             await OutboxProcessingAgent.StartAsync();
         }
+
         public async Task<long> StopProcessingAsync()
         {
             //RUN The ProcessingAgent!

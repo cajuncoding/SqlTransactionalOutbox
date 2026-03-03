@@ -37,7 +37,8 @@ namespace SqlTransactionalOutbox
             //Retrieve items to e processed from the Repository (ALL Pending items available for publishing attempt!)
             var pendingOutboxItems = await OutboxRepository.RetrieveOutboxItemsAsync(
                 OutboxItemStatus.Pending,
-                options.ItemProcessingBatchSize
+                maxBatchSize: options.ItemProcessingBatchSize,
+                scheduledPublishPrefetchTime: options.ScheduledPublishPrefetchTime
             ).ConfigureAwait(false);
 
             results.ProcessingTimer.Stop();
@@ -97,7 +98,6 @@ namespace SqlTransactionalOutbox
             bool throwExceptionOnFailure
         )
         {
-
             var skipFifoGroups = new HashSet<string>();
 
             foreach(var item in outboxItems)

@@ -4,7 +4,18 @@ namespace SqlTransactionalOutbox
 {
     public class OutboxProcessingOptions
     {
-        public static OutboxProcessingOptions DefaultOutboxProcessingOptions = new OutboxProcessingOptions();
+        //Provide Configuration Method for ease of use and discoverability; also allows for configuration via DI container
+        //  registration in some cases (e.g. Azure Functions Startup class)
+        public static OutboxProcessingOptions ConfigureDefaults(Action<OutboxProcessingOptions> configureOptionsAction)
+        {
+            var options = new OutboxProcessingOptions();
+            configureOptionsAction?.Invoke(options);
+
+            DefaultOutboxProcessingOptions = options;
+            return DefaultOutboxProcessingOptions;
+        }
+
+        public static OutboxProcessingOptions DefaultOutboxProcessingOptions { get; set; } = new OutboxProcessingOptions();
 
         /// <summary>
         /// Defines the maximum batch size (number) of items that can be processed per execution;
@@ -38,6 +49,23 @@ namespace SqlTransactionalOutbox
         /// the Zero Timespan disables this and allows items to be retried for an infinite amount of time.
         /// </summary>
         public TimeSpan TimeSpanToLive { get; set; } = TimeSpan.Zero;
+
+        /// <summary>
+        /// The allowable tolerance/deviation for retrieving Outbox Items before the exact Scheduled Publish Time.
+        /// This provides support to fine-tune the balance between processing delays and actual Scheduled Publish Times
+        ///     and is particularly useful when the Service Bus Publisher supports Scheduled/Deferred delivery such as Azure Service Bus!
+        /// NOTE: The Default Value is Zero to preserve intuitive behaviour though many implementations will likely want to set this to reasonable
+        ///     value greater than zero (e.g. 1 minute, 5 minutes, etc.) to support publishing to Azure Service Bus & delivering the event 
+        ///     as close as possible to the actual scheduled time; more info. in below.
+        /// NOTE: It's a good practice to leave messages pending in the Outbox as a reliable and easily observable persistence lcoation (in the SQL Database)
+        ///     and then publish to the Azure Service Bus much closer to the actual scheduled delivery time -- prefetching only a couple minutes ahead.
+        /// FOR EXAMPLE:
+        ///     This is very helpful for implementations that run on a timer (e.g. Azure Functions Timer Trigger) where processing
+        ///     may not occur at the exact scheduled time but may occur every 30 seconds (or 1 minute) in which case you could pre-fetch 
+        ///     items that are scheduled to be published within the next 30 seconds (or 1 minute) to ensure they are published as close as possible
+        ///     to their scheduled publish time.
+        /// </summary>
+        public TimeSpan ScheduledPublishPrefetchTime { get; set; } = TimeSpan.Zero;
 
         /// <summary>
         /// Determine if we should enforce FIFO Publishing order which requires the use of

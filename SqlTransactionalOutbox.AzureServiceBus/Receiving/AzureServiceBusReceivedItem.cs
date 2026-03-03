@@ -78,7 +78,9 @@ namespace SqlTransactionalOutbox.AzureServiceBus.Receiving
         public AzureServiceBusReceivedItem(
             ServiceBusReceivedMessage azureServiceBusMessage,
             ISqlTransactionalOutboxItemFactory<TUniqueIdentifier, TPayloadBody> outboxItemFactory,
-            //Client is OPTIONAL; necessary when processing will be handled by AzureFunctions framework bindings, etc.
+            //Client is OPTIONAL; not necessary when processing will be handled by AzureFunctions framework bindings, etc.
+            //  It is only necessary if you desire direct control over the Acknowledgement/Rejection/Dead-lettering of the message
+            //  instead of relying on the Azure Functions framework to do it for you when the function returns.
             ServiceBusReceiver azureServiceBusReceiverClient = null
         )
         {
@@ -126,7 +128,7 @@ namespace SqlTransactionalOutbox.AzureServiceBus.Receiving
 
         public virtual async Task SendFinalizedStatusToAzureServiceBusAsync()
         {
-            //Finally, we must notify Azure Service Bus to Complete the item or to Abandon as defined by the status returned!
+            //Finally, we must notify Azure Service Bus to Complete the item or to Abandon as defined by our current status!
             switch (this.Status)
             {
                 case OutboxReceivedItemProcessingStatus.AcknowledgeSuccessfulReceipt:

@@ -228,6 +228,9 @@ namespace SqlTransactionalOutbox.AzureServiceBus.Receiving
         /// </summary>
         protected virtual async Task<SqlTransactionalOutboxReceiverQueue<TUniqueIdentifier, TPayload>> CreateReceiverQueueAsync()
         {
+            if(this.IsProcessing)
+                throw new InvalidOperationException("The ServiceBusProcessor is already running and receiving messages. A dynamic receiver queue cannot be created while the processor is running.");
+
             //Initialize the producer/consumer queue for asynchronously & dynamically receiving items produced from the
             //  Azure Service Bus by being populated from our handler.
             var dynamicAsyncReceiverQueue = new SqlTransactionalOutboxReceiverQueue<TUniqueIdentifier, TPayload>(
@@ -435,7 +438,7 @@ namespace SqlTransactionalOutbox.AzureServiceBus.Receiving
                 if (this.ServiceBusProcessor != null)
                     await this.ServiceBusProcessor.DisposeAsync();
 
-                if (this.ServiceBusSessionProcessor!= null)
+                if (this.ServiceBusSessionProcessor != null)
                     await this.ServiceBusSessionProcessor.DisposeAsync();
             }
         }

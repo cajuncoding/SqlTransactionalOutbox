@@ -1,16 +1,18 @@
-﻿using SqlTransactionalOutbox.AzureServiceBus;
-using SqlTransactionalOutbox.CustomExtensions;
-using SqlTransactionalOutbox.SampleApp.AzureFunctions;
+﻿using SqlTransactionalOutbox.SampleApp.AzureFunctions;
 using SqlTransactionalOutbox.SampleApp.Common.Configuration;
 using SqlTransactionalOutbox.SampleApp.ConsoleApp;
-using SqlTransactionalOutbox.SqlServer.MicrosoftDataNS;
 
-string enterMessageDescription = Environment.NewLine + "Enter Message?  (or 'Exit' to stop)";
+string enterMessageDescription = $"Enter Message to Send via Azure Service Bus?  (or 'Exit' to stop)";
 
-Console.WriteLine("Starting Sql Transactional Outbox Demo...");
+static string ReadLineSafely() => Console.ReadLine()?.Trim() ?? string.Empty;
+static void WriteBlankLine() => Console.WriteLine(string.Empty);
+static void WriteLine(string message) => Console.WriteLine($"[{DateTime.Now}] {message}");
+
+WriteLine("Starting Sql Transactional Outbox Demo...");
 
 LocalSettingsEnvironmentReader.SetupEnvironmentFromLocalSettingsJson();
 var configSettings = new SampleAppConfig();
+
 //******************************************************************************************
 // 1. SENDING Messages via the Sql Transactional Outbox
 //  We Need a Payload Sender to populate the Outbox with messages/payloads...
@@ -34,9 +36,11 @@ await outboxProcessor.StartProcessingAsync();
 var messageReceiver = new OutboxFifoReceiver<string>(configSettings);
 await messageReceiver.StartReceivingWithAsync(s =>
 {
-    Console.WriteLine(s);
-    //Once we output an Item re-prompt the user for better UI...
-    Console.WriteLine(enterMessageDescription);
+    WriteBlankLine();
+    WriteLine(s);
+    //Once we output an Item re-prompt the user for iterative/continuing UX...
+    WriteBlankLine();
+    WriteLine(enterMessageDescription);
 });
 
 //******************************************************************************************
@@ -44,24 +48,50 @@ await messageReceiver.StartReceivingWithAsync(s =>
 //******************************************************************************************
 while (true)
 {
-    Console.WriteLine(enterMessageDescription);
-    var message = Console.ReadLine()?.Trim() ?? string.Empty;
+    WriteBlankLine();
+    WriteLine(enterMessageDescription);
+    var message = ReadLineSafely();
+    TimeSpan scheduleDelayTime = TimeSpan.Zero;
+    bool isScheduled = false;
 
     if (!string.IsNullOrWhiteSpace(message))
     {
         if (message.Equals("exit", StringComparison.OrdinalIgnoreCase))
             break;
 
-        await outboxSender.SendMessageAsync(message);
-        Console.WriteLine($"[{nameof(OutboxSender)}] Successfully Delivered Message into Outbox: {message}");
+        WriteLine($"Would you like to Schedule this for the future? Y/N");
+        var shouldScheduleResponse = ReadLineSafely();
+        if (shouldScheduleResponse.Equals("Y", StringComparison.OrdinalIgnoreCase)
+            || shouldScheduleResponse.Equals("Yes", StringComparison.OrdinalIgnoreCase)
+        )
+        {
+            WriteLine($"Enter the number of minutes to Delay (e.g. 60 => 1 Hour)...");
+            WriteLine($"  - Otherwise leave blank to deliver immediately.");
+
+            scheduleDelayTime = int.TryParse(ReadLineSafely(), out int minutes)
+                ? TimeSpan.FromMinutes(minutes)
+                : TimeSpan.Zero;
+
+            isScheduled = scheduleDelayTime > TimeSpan.Zero;
+        }
+
+        await outboxSender.SendMessageAsync(
+            message,
+            isScheduled ? scheduleDelayTime : null
+        );
+
+        WriteLine($"[{nameof(OutboxSender)}] Successfully Delivered Message into Outbox: {message}...");
+        if (isScheduled)
+            WriteLine($"  - Scheduled for Delivery in [{scheduleDelayTime}] and should arrive at ~[{DateTime.Now.Add(scheduleDelayTime)}])");
     }
 }
 
-Console.WriteLine("Stopping Sql Transactional Outbox . . .");
+WriteLine("Stopping Sql Transactional Outbox . . .");
 //NOTE: This is not completely necessary as these will be stopped when Disposed of...
 var processingExecutionCount = await outboxProcessor.StopProcessingAsync();
 await messageReceiver.StopReceivingAsync();
 
-Console.WriteLine($"Sql Transactional Outbox Demo Stopped after Processing the Sql Transactional Outbox [{processingExecutionCount}] times!");
-Console.WriteLine($"{Environment.NewLine}Press any key to end...");
+WriteLine($"Sql Transactional Outbox Demo Stopped after Processing the Sql Transactional Outbox [{processingExecutionCount}] times!");
+WriteBlankLine();
+WriteLine($"Press any key to end...");
 Console.ReadKey();

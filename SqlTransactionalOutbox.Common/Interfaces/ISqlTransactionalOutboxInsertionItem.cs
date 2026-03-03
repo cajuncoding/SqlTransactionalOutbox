@@ -7,6 +7,6 @@ namespace SqlTransactionalOutbox
         string PublishingTarget { get; }
         TPayload PublishingPayload { get; }
         string FifoGroupingIdentifier { get; }
-        DateTimeOffset? ScheduledPublishDateTimeUtc { get; }
+        DateTimeOffset? ScheduledPublishDateTime { get; }
     }
 }

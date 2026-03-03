@@ -148,11 +148,10 @@ namespace SqlTransactionalOutbox.AzureServiceBus.Publishing
             messageProps.TryAdd(MessageHeaders.ProcessorType, nameof(SqlTransactionalOutbox));
             messageProps.TryAdd(MessageHeaders.ProcessorSender, this.SenderApplicationName);
             messageProps.TryAdd(MessageHeaders.OutboxUniqueIdentifier, uniqueIdString);
+            //NOTE: Azure automatically handles serialization/de-serailization of custom message properties
+            //  so we don't need to do anything special here -- for DateTimeOffset values, Integers, etc.
             messageProps.TryAdd(MessageHeaders.OutboxCreatedDateUtc, outboxItem.CreatedDateTimeUtc);
-            messageProps.TryAdd(MessageHeaders.OutboxScheduledPublishDateUtc, outboxItem.ScheduledPublishDateTimeUtc.HasValue
-                ? outboxItem.ScheduledPublishDateTimeUtc.Value.ToIso8601RoundTripFormat()
-                : null
-            );
+            messageProps.TryAdd(MessageHeaders.OutboxScheduledPublishDateUtc, outboxItem.ScheduledPublishDateTimeUtc);
             messageProps.TryAdd(MessageHeaders.OutboxPublishingAttempts, outboxItem.PublishAttempts);
             messageProps.TryAdd(MessageHeaders.OutboxPublishingTarget, outboxItem.PublishTarget);
             

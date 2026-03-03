@@ -121,14 +121,14 @@ namespace SqlTransactionalOutbox.IntegrationTests.SystemDataNS
             var maxPublishingAttempts = 2;
             var failedItemsFromDb = await DoTestTransactionalOutboxCrawlingOfBlockingFailureItems(
                 testDataSize,
-                maxPublishingAttempts, 
-                true, 
+                maxPublishingAttempts,
+                true,
                 false
             );
 
             //We expect all items to be processed before any item is failed....
             //So the First Item will be repeated as the 10'th item after the next 9 are also attempted...
-            for (var x = 0; x < testDataSize * maxPublishingAttempts; x+=2)
+            for (var x = 0; x < testDataSize * maxPublishingAttempts; x += 2)
             {
                 Assert.AreEqual(failedItemsFromDb[x].UniqueIdentifier, failedItemsFromDb[x + 1].UniqueIdentifier);
             }
@@ -141,7 +141,7 @@ namespace SqlTransactionalOutbox.IntegrationTests.SystemDataNS
             var failedItemsFromDb = await DoTestTransactionalOutboxCrawlingOfBlockingFailureItems(
                 testDataSize,
                 2,
-                false, 
+                false,
                 false
             );
 
@@ -198,7 +198,7 @@ namespace SqlTransactionalOutbox.IntegrationTests.SystemDataNS
                 try
                 {
                     publishedResults = await sqlTransaction.ProcessPendingOutboxItemsAsync(
-                        failingPublisher, 
+                        failingPublisher,
                         outboxProcessingOptions,
                         throwExceptionOnFailedItem
                     ).ConfigureAwait(false);

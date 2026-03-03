@@ -10,13 +10,12 @@ namespace SqlTransactionalOutbox.SqlServer.MicrosoftDataNS
         public static async Task<ISqlTransactionalOutboxProcessingResults<Guid>> ProcessPendingOutboxItemsAsync(
             this SqlConnection sqlConnection,
             ISqlTransactionalOutboxPublisher<Guid> outboxPublisher,
-            OutboxProcessingOptions processingOptions,
+            OutboxProcessingOptions processingOptions = null,
             bool throwExceptionOnFailure = false
         )
         {
             sqlConnection.AssertSqlConnectionIsValid();
             outboxPublisher.AssertNotNull(nameof(outboxPublisher));
-            processingOptions.AssertNotNull(nameof(processingOptions));
 
             await using var outboxTransaction = (SqlTransaction)(await sqlConnection.BeginTransactionAsync().ConfigureAwait(false));
             try
@@ -59,13 +58,12 @@ namespace SqlTransactionalOutbox.SqlServer.MicrosoftDataNS
         public static async Task<ISqlTransactionalOutboxProcessingResults<Guid>> ProcessPendingOutboxItemsAsync(
             this SqlTransaction sqlTransaction,
             ISqlTransactionalOutboxPublisher<Guid> outboxPublisher,
-            OutboxProcessingOptions processingOptions,
+            OutboxProcessingOptions processingOptions = null,
             bool throwExceptionOnFailure = false
         )
         {
             sqlTransaction.AssertSqlTransactionIsValid();
             outboxPublisher.AssertNotNull(nameof(outboxPublisher));
-            processingOptions.AssertNotNull(nameof(processingOptions));
 
             //NOTE: Payload type isn't important when Publishing because we publish the already serialized
             //      payload anyway so to simplify the custom extension signature we can just use string payload type here.

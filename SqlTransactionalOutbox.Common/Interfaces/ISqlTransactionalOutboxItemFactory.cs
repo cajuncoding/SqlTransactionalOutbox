@@ -8,7 +8,7 @@ namespace SqlTransactionalOutbox
             string publishingTarget,
             TPayload publishingPayload,
             string fifoGroupingIdentifier = null,
-            DateTimeOffset? scheduledPublishDateTimeUtc = null
+            DateTimeOffset? scheduledPublishDateTime = null
         );
         
         ISqlTransactionalOutboxItem<TUniqueIdentifier> CreateExistingOutboxItem(
@@ -26,7 +26,7 @@ namespace SqlTransactionalOutbox
         ISqlTransactionalOutboxItem<TUniqueIdentifier> CreateExistingOutboxItem(
             TUniqueIdentifier uniqueIdentifier,
             DateTimeOffset createdDateTimeUtc,
-            DateTimeOffset? scheduledPublishDateTimeUtc,
+            DateTimeOffset? scheduledPublishDateTime,
             string status,
             string fifoGroupingIdentifier,
             int publishAttempts,

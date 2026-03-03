@@ -6,6 +6,7 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 using SqlTransactionalOutbox.CustomExtensions;
 using SqlTransactionalOutbox.SqlServer.MicrosoftDataNS;
 using SqlTransactionalOutbox.Tests;
+using System.Linq;
 
 namespace SqlTransactionalOutbox.IntegrationTests.MicrosoftDataNS
 {
@@ -129,12 +130,21 @@ namespace SqlTransactionalOutbox.IntegrationTests.MicrosoftDataNS
         }
 
         [TestMethod]
-        public async Task TestNewOutboxItemInsertionAndRetrieval()
+        public async Task TestNewOutboxItemInsertionAndRetrievalForImmediateAndScheduledItems()
         {
             var testPublisher = new TestHarnessSqlTransactionalOutboxPublisher();
 
+            var immediateDeliveryCount = 100;
+            var scheduledDeliveryCount = 5;
+            var scheduledDelayTime = TimeSpan.FromSeconds(15);
+
             //Create Test Data
-            var insertedResults = await MicrosoftDataSqlTestHelpers.PopulateTransactionalOutboxTestDataAsync(100);
+            var insertedResults = await MicrosoftDataSqlTestHelpers.PopulateTransactionalOutboxTestDataAsync(immediateDeliveryCount);
+            var insertedScheduledResults = await MicrosoftDataSqlTestHelpers.PopulateTransactionalOutboxTestDataAsync(
+                scheduledDeliveryCount,
+                clearExistingOutbox: false,
+                scheduledPublishDateTime: DateTimeOffset.UtcNow.Add(scheduledDelayTime)
+            );
 
             //Initialize Transaction and Outbox Processor
             await using var sqlConnection = await SqlConnectionHelper.CreateMicrosoftDataSqlConnectionAsync().ConfigureAwait(false);
@@ -148,7 +158,18 @@ namespace SqlTransactionalOutbox.IntegrationTests.MicrosoftDataNS
                 .ConfigureAwait(false);
 
             //Assert
+            Assert.AreEqual(immediateDeliveryCount, pendingResults.Count);
             TestHelper.AssertOutboxItemResultsMatch(insertedResults, pendingResults);
+
+            //RETRIEVE ALL Pending Items from the Outbox to validate
+            var pendingScheduledResults = await outboxProcessor.OutboxRepository
+                .RetrieveOutboxItemsAsync(OutboxItemStatus.Pending, scheduledPublishPrefetchTime: scheduledDelayTime)
+                .ConfigureAwait(false);
+
+            //Assert
+            Assert.AreEqual(scheduledDeliveryCount + immediateDeliveryCount, pendingScheduledResults.Count);
+            var allInsertedResults = insertedResults.Concat(insertedScheduledResults).ToList();
+            TestHelper.AssertOutboxItemResultsMatch(allInsertedResults, pendingScheduledResults);
         }
     }
 }

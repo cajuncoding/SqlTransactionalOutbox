@@ -18,7 +18,8 @@ namespace SqlTransactionalOutbox
 
         Task<List<ISqlTransactionalOutboxItem<TUniqueIdentifier>>> RetrieveOutboxItemsAsync(
             OutboxItemStatus status, 
-            int maxBatchSize = -1
+            int maxBatchSize = -1,
+            TimeSpan? scheduledPublishPrefetchTime = null
         );
 
         Task CleanupOutboxHistoricalItemsAsync(TimeSpan historyTimeToKeepTimeSpan);

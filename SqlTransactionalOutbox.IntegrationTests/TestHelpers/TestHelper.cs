@@ -9,7 +9,11 @@ namespace SqlTransactionalOutbox.Tests
 {
     public class TestHelper
     {
-        public static List<OutboxInsertionItem<string>> CreateTestStringOutboxItemData(int dataSize, int targetModulus = 5)
+        public static List<OutboxInsertionItem<string>> CreateTestStringOutboxItemData(
+            int dataSize,
+            int targetModulus = 5,
+            DateTimeOffset? scheduledPublishDateTime = null
+        )
         {
             var list = new List<OutboxInsertionItem<string>>();
             for (var x = 1; x <= dataSize; x++)
@@ -17,7 +21,8 @@ namespace SqlTransactionalOutbox.Tests
                 list.Add(new OutboxInsertionItem<string>(
                     publishingTarget: $"/publish/target_{(int)x % targetModulus}",
                     publishingPayload: $"Payload Message #{x:00000}",
-                    fifoGroupingIdentifier: $"IntegrationTests:{nameof(CreateTestStringOutboxItemData)}"
+                    fifoGroupingIdentifier: $"IntegrationTests:{nameof(CreateTestStringOutboxItemData)}",
+                    scheduledPublishDateTime: scheduledPublishDateTime
                 ));
             }
 

@@ -43,8 +43,8 @@ namespace SqlTransactionalOutbox.IntegrationTests
 
             var outboxItem = outboxItemFactory.CreateExistingOutboxItem(
                 uniqueIdentifier:uniqueIdGuidFactory.CreateUniqueIdentifier().ToString(),
-                createdDateTimeUtc: DateTimeOffset.UtcNow,
-                scheduledPublishDateTimeUtc: null,
+                createdDateTime: DateTimeOffset.UtcNow,
+                scheduledPublishDateTime: null,
                 status: OutboxItemStatus.Pending.ToString(),
                 fifoGroupingIdentifier: testPayload.FifoGroupingId,
                 publishAttempts: 0,
@@ -160,7 +160,7 @@ namespace SqlTransactionalOutbox.IntegrationTests
             try
             {
                 var waitTime = IntegrationTestServiceBusDeliveryWaitTimeSpan;
-                await foreach (var item in azureServiceBusReceiver.AsAsyncEnumerable(waitTime))
+                await foreach (var item in azureServiceBusReceiver.AsAsyncEnumerable(receiveWaitPerItemTimeout: waitTime))
                 {
                     Assert.IsNotNull(item, $"The received published outbox receivedItem is null! This should never happen!");
                     TestContext.Write($"Received receivedItem from Azure Service Bus receiver queue [{item.PublishedItem.UniqueIdentifier}]...");

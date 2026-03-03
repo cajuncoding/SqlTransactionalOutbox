@@ -20,11 +20,11 @@ namespace SqlTransactionalOutbox.SqlServer.Common
         public virtual string BuildSqlForRetrieveOutboxItemsByStatus(
             OutboxItemStatus status,
             int maxBatchSize = -1,
-            TimeSpan? scheduledPublishMargin = null,
+            TimeSpan? scheduledPublishPrefetchTime = null,
             string statusParamName = DefaultOutboxStatusParamName
         )
         {
-            var publishMargin = scheduledPublishMargin ?? TimeSpan.Zero;
+            var sanitizedScheduledPrefetchTime = scheduledPublishPrefetchTime ?? TimeSpan.Zero;
             var scheduledPublishDateTimeField = ToSqlFieldName(OutboxTableConfig.ScheduledPublishDateTimeUtcFieldName);
             var statusField = ToSqlFieldName(OutboxTableConfig.StatusFieldName);
 
@@ -42,13 +42,24 @@ namespace SqlTransactionalOutbox.SqlServer.Common
                     {BuildTableName()}
                 WHERE
                     {statusField} = {ToSqlParamName(statusParamName)}
-                    AND (
-                        --Only include Non-scheduled results or results with schedule time that has passed with the provided margin 
-                        --  of error to allow for early retrieval before the exact scheduled time -- by adding the margin time to 
-                        --  the Current Sys UTC time effectively looking into the future and pre-fetching based on the margin specified.
-                        {scheduledPublishDateTimeField} IS NULL
-                        OR {scheduledPublishDateTimeField} <= DateAdd(SECOND, {publishMargin.TotalSeconds}, SysUtcDateTime())
-                    )
+                    {status switch {
+                        //When PENDING we need to factor in Schedule Times!
+                        //NOTE: This has no bearing on othe statuses such as Successful, Failed, Expired, etc. which should be retrieved regardless
+                        //      of schedule time since they are no longer pending items waiting to be published; but rather historical items that need
+                        //      to be retrieved for other purposes such as cleanup, monitoring, auditing, etc.
+                        //NOTE: Only include Non - scheduled results or results with schedule time that has passed with the provided prefetch time
+                        //      to allow for early retrieval before the exact scheduled time -- by adding the prefetch time (if specified) to 
+                        //      the Current System UTC time effectively looking into the future for scheduled items to include also...
+                        OutboxItemStatus.Pending => @$"AND (
+                            {scheduledPublishDateTimeField} IS NULL
+                            OR {sanitizedScheduledPrefetchTime switch {
+                                //NOTE: We ADD the Prefetch Time to the Current UTC Time to effectively look into the future & pre-fetching scheduled items before their exact scheduled time.
+                                _ when sanitizedScheduledPrefetchTime > TimeSpan.Zero => $"{scheduledPublishDateTimeField} <= DateAdd(SECOND, {sanitizedScheduledPrefetchTime.TotalSeconds}, SysUtcDateTime())",
+                                _ => $"{scheduledPublishDateTimeField} <= SysUtcDateTime()",
+                            }}
+                        )",
+                        _ => string.Empty
+                    }}
                 ORDER BY
                     --Order by Created DateTime, and break any collisions using the PKey field (IDENTITY).
                     {ToSqlFieldName(OutboxTableConfig.CreatedDateTimeUtcFieldName)},
@@ -68,7 +79,7 @@ namespace SqlTransactionalOutbox.SqlServer.Common
                     {ToSqlFieldName(OutboxTableConfig.CreatedDateTimeUtcFieldName)} < DateAdd(SECOND, {historyToKeepSeconds}, SysUtcDateTime())
                     AND (
                         {publishScheduledField} IS NULL
-                        OR {publishScheduledField} < DateAdd(SECOND, {historyToKeepSeconds}, SysUtcDateTime()
+                        OR {publishScheduledField} < DateAdd(SECOND, {historyToKeepSeconds}, SysUtcDateTime())
                     )
             ";
         }

@@ -17,6 +17,7 @@ namespace SqlTransactionalOutbox
         /// <param name="payloadFieldName"></param>
         /// <param name="publishAttemptsFieldName"></param>
         /// <param name="createdDateTimeUtcFieldName"></param>
+        /// <param name="scheduledPublishDateTimeUtcFieldName"></param>
         public OutboxTableConfig(
             string transactionalOutboxSchemaName = null,
             string transactionalOutboxTableName = null,
@@ -28,12 +29,9 @@ namespace SqlTransactionalOutbox
             string payloadFieldName = null,
             string publishAttemptsFieldName = null,
             string createdDateTimeUtcFieldName = null,
-            string scheduledPublishDateTimeUtcFieldName = null,
-            TimeSpan? scheduledPublishTimeMarginOfError = null
+            string scheduledPublishDateTimeUtcFieldName = null
         )
         {
-            ScheduledPublishTimeMarginOfError = scheduledPublishTimeMarginOfError ?? TimeSpan.Zero;
-
             TransactionalOutboxSchemaName = transactionalOutboxSchemaName ?? DefaultTransactionalOutboxSchemaName;
             TransactionalOutboxTableName = transactionalOutboxTableName ?? DefaultTransactionalOutboxTableName;
 
@@ -51,8 +49,6 @@ namespace SqlTransactionalOutbox
         public const string DefaultTransactionalOutboxSchemaName = "notifications";
         public const string DefaultTransactionalOutboxTableName = "TransactionalOutboxQueue";
         public const string DefaultPKeyFieldName = "Id";
-
-        public virtual TimeSpan ScheduledPublishTimeMarginOfError { get; protected set; }
 
         public virtual string TransactionalOutboxSchemaName { get; protected set; }
         public virtual string TransactionalOutboxTableName { get; protected set; }
