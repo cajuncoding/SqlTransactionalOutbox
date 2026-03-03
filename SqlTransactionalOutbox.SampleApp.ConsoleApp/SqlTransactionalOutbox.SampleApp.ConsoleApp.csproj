@@ -5,6 +5,8 @@
     <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <RootNamespace>SqlTransactionalOutbox.SampleApp.ConsoleApp</RootNamespace>
+    <InformationalVersion>SqlTransactionalOutbox-SampleApp-ConsoleApp-2023-03-03</InformationalVersion>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\SqlTransactionalOutbox.AzureServiceBus\SqlTransactionalOutbox.AzureServiceBus.csproj" />

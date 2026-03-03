@@ -32,6 +32,7 @@ namespace SqlTransactionalOutbox.Utilities
         public string To { get; set; }
         public string FifoGroupingId { get; set; }
         public DateTimeOffset? ScheduledPublishDateTimeUtc { get; set; }
+        public TimeSpan? ScheduledDelayTimeSpan { get; set; }
         public string Subject { get; set; }
         public string Body { get; set; }
         public string ContentType { get; set; }
@@ -148,6 +149,26 @@ namespace SqlTransactionalOutbox.Utilities
             )
             {
                 ScheduledPublishDateTimeUtc = scheduleDateTime;
+                //Since an absolute Schedule Publish DateTime was specified we derive the actual Schedule Delay and populate it
+                //NOTE: This is helpful for reference, support, logging, etc.
+                ScheduledDelayTimeSpan = ScheduledPublishDateTimeUtc.Value - DateTimeOffset.UtcNow;
+            }
+
+            //OPTIONALLY, for convenience, handle Schedule Delay if an absolute Schedule time is not present...
+            if(ScheduledPublishDateTimeUtc == null)
+            {
+                var scheduleDelayTimeTemplate = InitStringValue(ScheduledDelayTimeSpan?.ToString(), caseInsensitiveValuesLookup, overwriteExisting,
+                    JsonMessageFields.ScheduledPublishDelay,
+                    JsonMessageFields.ScheduledPublishDelayTimeSpan,
+                    JsonMessageFields.ScheduledPublishDelayTemplate
+                );
+
+                if (scheduleDelayTimeTemplate.TryParseTimeSpanWithUnitsAndMinutesDefault(out var timeSpan))
+                {
+                    ScheduledDelayTimeSpan = timeSpan;
+                    //Now we initialize the Absolute Schedule Date using the specified delay for all downstream code to use!
+                    ScheduledPublishDateTimeUtc = DateTimeOffset.UtcNow.Add(timeSpan);
+                }
             }
 
             Subject = InitStringValue(Subject, caseInsensitiveValuesLookup, overwriteExisting, JsonMessageFields.Subject, JsonMessageFields.Label);

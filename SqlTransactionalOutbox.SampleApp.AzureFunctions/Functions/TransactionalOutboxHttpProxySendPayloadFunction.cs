@@ -39,7 +39,7 @@ namespace SqlTransactionalOutbox.SampleApp.AzureFunctions
             var bindingData = req.FunctionContext.BindingContext.BindingData;
             if (bindingData.Count > 0)
             {
-                var bindingDataLookup = bindingData.ToLookup(k => k.Key, v => v.Value, StringComparer.OrdinalIgnoreCase);
+                var bindingDataLookup = bindingData.ToLookup(k => k.Key, v => v.Value?.ToString(), StringComparer.OrdinalIgnoreCase);
                 payloadBuilder.ApplyValues(bindingDataLookup, false);
             }
 

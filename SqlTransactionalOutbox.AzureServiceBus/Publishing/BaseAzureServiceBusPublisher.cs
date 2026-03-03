@@ -145,6 +145,11 @@ namespace SqlTransactionalOutbox.AzureServiceBus.Publishing
                 };
             }
 
+            //Derive the actual scheduled publish delay (as a TimeSpan) for informational/logging purposes and for flexible processing in case this is helpful.
+            var scheduledDelayTimeSpan = outboxItem.ScheduledPublishDateTimeUtc != null
+                ? outboxItem.ScheduledPublishDateTimeUtc.Value - DateTimeOffset.UtcNow
+                : (TimeSpan?)null;
+
             //Add all default headers/user-properties...
             var messageProps = message.ApplicationProperties;
             messageProps.TryAdd(MessageHeaders.ProcessorType, nameof(SqlTransactionalOutbox));
@@ -154,6 +159,7 @@ namespace SqlTransactionalOutbox.AzureServiceBus.Publishing
             //  so we don't need to do anything special here -- for DateTimeOffset values, Integers, etc.
             messageProps.TryAdd(MessageHeaders.OutboxCreatedDateUtc, outboxItem.CreatedDateTimeUtc);
             messageProps.TryAdd(MessageHeaders.OutboxScheduledPublishDateUtc, outboxItem.ScheduledPublishDateTimeUtc);
+            messageProps.TryAdd(MessageHeaders.OutboxScheduledPublishDelayTimeSpan, scheduledDelayTimeSpan);
             messageProps.TryAdd(MessageHeaders.OutboxPublishingAttempts, outboxItem.PublishAttempts);
             messageProps.TryAdd(MessageHeaders.OutboxPublishingTarget, outboxItem.PublishTarget);
             

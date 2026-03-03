@@ -71,7 +71,7 @@ namespace SqlTransactionalOutbox.SampleApp.AzureFunctions.Functions
                 var outboxResults = await sqlConnection.ProcessPendingOutboxItemsAsync(azureServiceBusPublisher, outboxProcessingOptions);
 
                 logger.LogInformation($"Processed [{outboxResults.ProcessedItemsCount}] Outbox items in {outboxResults.ProcessingTimer.ToElapsedTimeDescriptiveFormat()}...");
-                logger.LogInformation($"  - [{outboxResults.SuccessfullyPublishedItems.Count}] Succssfully Published");
+                logger.LogInformation($"  - [{outboxResults.SuccessfullyPublishedItems.Count}] Successfully Published");
                 logger.LogInformation($"  - [{outboxResults.FailedItems.Count}] Failed Items");
 
                 //************************************************************

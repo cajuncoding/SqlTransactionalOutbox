@@ -9,7 +9,8 @@ namespace SqlTransactionalOutbox.IntegrationTests.SqlHelpersTests
     [TestClass]
     public class SqlHelpersAndExtensionsTests
     {
-        // Pseudocode-ish example; adapt to your test framework and provider
+        public TestContext TestContext { get; set; }
+
         [TestMethod]
         public async Task TestSqlReaderGetValueSafelyExtensionWorksForCommonTypes()
         {
@@ -51,5 +52,39 @@ namespace SqlTransactionalOutbox.IntegrationTests.SqlHelpersTests
             Assert.AreEqual(123.45m, sqlReader.GetValueSafely<decimal>(sqlReader.GetOrdinal("M")));
             CollectionAssert.AreEqual(new byte[] { 0x01, 0x02, 0x03 }, sqlReader.GetValueSafely<byte[]>(sqlReader.GetOrdinal("BYTES")));
         }
+
+        [DataTestMethod]
+        // Bare integers default to minutes
+        [DataRow("15", 0, 15, 0)]
+        [DataRow("90", 1, 30, 0)]
+        // Units
+        [DataRow("45s", 0, 0, 45)]
+        [DataRow("30m", 0, 30, 0)]
+        [DataRow("1h", 1, 0, 0)]
+        [DataRow("1d", 24, 0, 0)]
+        // Decimals
+        [DataRow("1.5h", 1, 30, 0)]
+        [DataRow("2.25h", 2, 15, 0)]
+        [DataRow("2,25h", 2, 15, 0)]   // comma decimal
+        // Negative
+        [DataRow("-1.5h", -1, -30, 0)]
+        [DataRow("-90", -1, -30, 0)]
+        // Fallback to TimeSpan.TryParse
+        [DataRow("01:30", 1, 30, 0)]
+        public void TestTryParseTimeSpanWithUnitsAndMinutesDefault(string input, int expectedHours, int expectedMinutes, int expectedSeconds)
+        {
+            // Act
+            var isSuccessful = input.TryParseTimeSpanWithUnitsAndMinutesDefault(out var timeSpan);
+
+            // Assert
+            Assert.IsTrue(isSuccessful, $"Expected '{input}' to parse successfully.");
+
+            var expected = new TimeSpan(expectedHours, expectedMinutes, expectedSeconds);
+            Assert.AreEqual(expected, timeSpan, $"Input '{input}' parsed incorrectly.");
+            
+            TestContext.WriteLine($"Successfully Parsed '{input}' as {timeSpan}...");
+        }
     }
+
 }
+
