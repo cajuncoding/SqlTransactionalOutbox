@@ -5,6 +5,6 @@
     "AzureServiceBusSubscription": "dev-local",
     "SqlConnectionString": "{{SQL_DB_CONNECTION_STRING_GOES_HERE}}",
     "AzureServiceBusConnectionString": "{{AZURE_SERVICE_BUS_CONNECTION_STRING_GOES_HERE}}",
-    "OutboxProcessingIntervalTimeSpan":  "3"
+    "OutboxProcessingIntervalSeconds":  "3"
   }
 }
