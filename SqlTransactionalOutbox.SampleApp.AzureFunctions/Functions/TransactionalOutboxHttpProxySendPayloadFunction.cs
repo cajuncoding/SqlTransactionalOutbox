@@ -1,13 +1,11 @@
 using System;
 using System.Linq;
-using System.Net;
 using System.Threading.Tasks;
-using Microsoft.Azure.WebJobs;
-using Microsoft.Azure.WebJobs.Extensions.Http;
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Mvc;
+using Microsoft.Azure.Functions.Worker;
+using Microsoft.Azure.Functions.Worker.Http;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
+using Functions.Worker.AddOns.Common;
 using SqlTransactionalOutbox.SqlServer.MicrosoftDataNS;
 using SqlTransactionalOutbox.Utilities;
 
@@ -18,23 +16,32 @@ namespace SqlTransactionalOutbox.SampleApp.AzureFunctions
         //******************************************************************************************
         // 1. SENDING Messages via the Sql Transactional Outbox
         //******************************************************************************************
-        [FunctionName("SendPayload")]
-        public async Task<IActionResult> Run(
-            [HttpTrigger(AuthorizationLevel.Anonymous, "get", "post", Route = null)] HttpRequest req,
-            ILogger log
+        [Function(nameof(TransactionalOutboxHttpProxySendPayloadFunction))]
+        public async Task<PayloadBuilder> Run(
+            [HttpTrigger(AuthorizationLevel.Function, "get", "post", Route = "send-payload")] HttpRequestData req,
+            FunctionContext functionContext
         )
         {
-            log.LogInformation($"HTTP [{nameof(TransactionalOutboxHttpProxySendPayloadFunction)}].");
+            var logger = functionContext.GetLogger();
+            logger.LogInformation($"HTTP [{nameof(TransactionalOutboxHttpProxySendPayloadFunction)}].");
+            
             var configSettings = new SampleAppConfig();
 
             //Initialize the Payload from the Body as Json!
+            //NOTE: This allows for easy dynamic population of various Outbox/Payload/Processing properties
+            //     such as PublishTarget, ScheduledPublishDateTimeUtc, FifoGroupingId, etc. directly from the
+            //     JSON Payload which provides full flexibility and control to the clients sending the messages!
             var jsonText = await req.ReadAsStringAsync();
             var payloadBuilder = PayloadBuilder.FromJsonSafely(jsonText);
 
-            //Apply fallback values from the QueryString
-            //NOTE: this will only set values not already initialized from Json!
-            var queryLookup = req.Query.ToLookup(k => k.Key, v => v.Value.FirstOrDefault(), StringComparer.OrdinalIgnoreCase);
-            payloadBuilder.ApplyValues(queryLookup, false);
+            //Apply fallback values from the QueryString along with all other binding values from the Function Binding Data!
+            //NOTE: This will only set values not already initialized from Json above...
+            var bindingData = req.FunctionContext.BindingContext.BindingData;
+            if (bindingData.Count > 0)
+            {
+                var bindingDataLookup = bindingData.ToLookup(k => k.Key, v => v.Value, StringComparer.OrdinalIgnoreCase);
+                payloadBuilder.ApplyValues(bindingDataLookup, false);
+            }
 
             await using var sqlConnection = new SqlConnection(configSettings.SqlConnectionString);
             await sqlConnection.OpenAsync();
@@ -50,16 +57,9 @@ namespace SqlTransactionalOutbox.SampleApp.AzureFunctions
             ).ConfigureAwait(false);
 
             //Log results and return response to the client...
-            log.LogDebug($"Payload:{Environment.NewLine}{outboxItem.Payload}");
-            
-            return new ContentResult()
-            {
-                Content = outboxItem.Payload,
-                ContentType = MessageContentTypes.Json,
-                StatusCode = (int)HttpStatusCode.OK
-            };
-        }
-        
-    }
+            logger.LogDebug($"Payload:{Environment.NewLine}{outboxItem.Payload}");
 
+            return payloadBuilder;
+        }
+    }
 }

@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using Azure.Messaging.ServiceBus;
 using Newtonsoft.Json.Linq;
@@ -37,7 +38,8 @@ namespace SqlTransactionalOutbox.AzureServiceBus.Publishing
 
         public async Task PublishOutboxItemAsync(
             ISqlTransactionalOutboxItem<TUniqueIdentifier> outboxItem, 
-            bool isFifoEnforcedProcessingEnabled = false
+            bool isFifoEnforcedProcessingEnabled = false,
+            CancellationToken cancellationToken = default
         )
         {
             var message = CreateEventBusMessage(outboxItem);
@@ -58,7 +60,7 @@ namespace SqlTransactionalOutbox.AzureServiceBus.Publishing
             var uniqueIdString = ConvertUniqueIdentifierToString(outboxItem.UniqueIdentifier);
             Options.LogDebugCallback?.Invoke($"Sending the Message [{message.Subject}] for outbox item [{uniqueIdString}]...");
 
-            await senderClient.SendMessageAsync(message);
+            await senderClient.SendMessageAsync(message, cancellationToken);
 
             Options.LogDebugCallback?.Invoke($"Azure Service Bus message [{message.Subject}] has been published successfully.");
         }
@@ -159,21 +161,13 @@ namespace SqlTransactionalOutbox.AzureServiceBus.Publishing
         }
 
         protected virtual string ConvertUniqueIdentifierToString(TUniqueIdentifier uniqueIdentifier)
-        {
-            return uniqueIdentifier.ToString();
-        }
+            => uniqueIdentifier.ToString();
 
         protected virtual byte[] ConvertPublishingPayloadToBytes(string publishingPayload)
-        {
-            var bytes = Encoding.UTF8.GetBytes(publishingPayload);
-            return bytes;
-        }
+            => Encoding.UTF8.GetBytes(publishingPayload);
 
         protected virtual TValue GetJsonValueSafely<TValue>(JObject json, string fieldName, TValue defaultValue = default)
-        {
-            var value = json.ValueSafely(fieldName, defaultValue);
-            return value;
-        }
+            => json.ValueSafely(fieldName, defaultValue);
 
         protected virtual JObject ParsePayloadAsJsonSafely(ISqlTransactionalOutboxItem<TUniqueIdentifier> outboxItem)
         {

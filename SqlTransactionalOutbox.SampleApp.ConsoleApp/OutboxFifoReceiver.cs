@@ -33,7 +33,7 @@ namespace SqlTransactionalOutbox.SampleApp.ConsoleApp
             consoleLogAction.AssertNotNull(nameof(consoleLogAction));
 
             //RUN the Receiver!
-            await ServiceBusFifoReceiver.StartReceivingAsync(async (receivedItem) =>
+            await ServiceBusFifoReceiver.StartReceivingAsync(async (receivedItem, cancellationToken) =>
             {
                 var scheduledDeliveryTime = receivedItem.PublishedItem.ScheduledPublishDateTimeUtc;
 
@@ -59,7 +59,7 @@ namespace SqlTransactionalOutbox.SampleApp.ConsoleApp
                 );
 
                 //Acknowledge that we have successfully finished working with the Received Item!
-                await receivedItem.AcknowledgeSuccessfulReceiptAsync();
+                await receivedItem.AcknowledgeSuccessfulReceiptAsync(cancellationToken);
             }, cancellationToken);
         }
 

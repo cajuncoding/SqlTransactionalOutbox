@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using SqlAppLockHelper.MicrosoftDataNS;
 using SqlTransactionalOutbox.CustomExtensions;
 using SqlTransactionalOutbox.SqlServer.Common;
+using System.Threading;
 
 namespace SqlTransactionalOutbox.SqlServer.MicrosoftDataNS
 {
@@ -20,7 +21,8 @@ namespace SqlTransactionalOutbox.SqlServer.MicrosoftDataNS
             SqlTransaction sqlTransaction, 
             ISqlTransactionalOutboxTableConfig outboxTableConfig = null,
             ISqlTransactionalOutboxItemFactory<TUniqueIdentifier, TPayload> outboxItemFactory = null,
-            int? distributedMutexAcquisitionTimeoutSeconds = null
+            int? distributedMutexAcquisitionTimeoutSeconds = null,
+            CancellationToken cancellationToken = default
         )
         {
             SqlTransaction = sqlTransaction ?? 
@@ -39,7 +41,8 @@ namespace SqlTransactionalOutbox.SqlServer.MicrosoftDataNS
         public virtual async Task<List<ISqlTransactionalOutboxItem<TUniqueIdentifier>>> RetrieveOutboxItemsAsync(
             OutboxItemStatus status, 
             int maxBatchSize = -1,
-            TimeSpan? scheduledPublishPrefetchTime = null
+            TimeSpan? scheduledPublishPrefetchTime = null,
+            CancellationToken cancellationToken = default
         )
         {
             var statusParamName = OutboxTableConfig.StatusFieldName;
@@ -56,12 +59,12 @@ namespace SqlTransactionalOutbox.SqlServer.MicrosoftDataNS
 
             var results = new List<ISqlTransactionalOutboxItem<TUniqueIdentifier>>();
 
-            await using var sqlReader = await sqlCmd.ExecuteReaderAsync().ConfigureAwait(false);
+            await using var sqlReader = await sqlCmd.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
 
             // Cache ordinals once (faster than name lookups on every row)
             var tableCols = SqlOutboxTableColumnOrdinals.FromSqlReaderRecord(sqlReader, this.OutboxTableConfig);
 
-            while (await sqlReader.ReadAsync().ConfigureAwait(false))
+            while (await sqlReader.ReadAsync(cancellationToken).ConfigureAwait(false))
             {
                 var createdDateUtcFromDb = sqlReader.GetValueSafely<DateTime>(tableCols.CreatedDateTimeUtcOrdinal);
                 var scheduledPublishDateUtcFromDb = sqlReader.GetValueSafely<DateTime?>(tableCols.ScheduledPublishDateTimeUtcOrdinal);
@@ -83,14 +86,15 @@ namespace SqlTransactionalOutbox.SqlServer.MicrosoftDataNS
             return results;
         }
 
-        public virtual async Task CleanupOutboxHistoricalItemsAsync(TimeSpan historyTimeToKeepTimeSpan)
+        public virtual async Task CleanupOutboxHistoricalItemsAsync(TimeSpan historyTimeToKeepTimeSpan, CancellationToken cancellationToken = default)
         {
             var sql = QueryBuilder.BuildSqlForHistoricalOutboxCleanup(historyTimeToKeepTimeSpan);
+            
             await using var sqlCmd = CreateSqlCommand(sql);
-            await sqlCmd.ExecuteNonQueryAsync().ConfigureAwait(false);
+            await sqlCmd.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
         }
 
-        public virtual async Task IncrementPublishAttemptsForAllItemsByStatusAsync(OutboxItemStatus status)
+        public virtual async Task IncrementPublishAttemptsForAllItemsByStatusAsync(OutboxItemStatus status, CancellationToken cancellationToken = default)
         {
             var statusParamName = OutboxTableConfig.StatusFieldName;
             var sql = QueryBuilder.BuildSqlForBulkPublishAttemptsIncrementByStatus(statusParamName);
@@ -98,12 +102,13 @@ namespace SqlTransactionalOutbox.SqlServer.MicrosoftDataNS
             await using var sqlCmd = CreateSqlCommand(sql);
             AddParam(sqlCmd, statusParamName, status.ToString(), SqlDbType.VarChar);
 
-            await sqlCmd.ExecuteNonQueryAsync().ConfigureAwait(false);
+            await sqlCmd.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
         }
 
         public virtual async Task<List<ISqlTransactionalOutboxItem<TUniqueIdentifier>>> InsertNewOutboxItemsAsync(
             IEnumerable<ISqlTransactionalOutboxInsertionItem<TPayload>> outboxInsertionItems, 
-            int insertBatchSize = 20
+            int insertBatchSize = 20,
+            CancellationToken cancellationToken = default
         )
         {
             await using var sqlCmd = CreateSqlCommand(string.Empty);
@@ -143,12 +148,12 @@ namespace SqlTransactionalOutbox.SqlServer.MicrosoftDataNS
                 }
 
                 //Execute the Batch and continue...
-                await using var sqlReader = await sqlCmd.ExecuteReaderAsync().ConfigureAwait(false);
+                await using var sqlReader = await sqlCmd.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
 
                 //Since some fields are actually populated in the Database, we post-process to update the models with valid
                 //  values as returned from the Insert process...
                 var outboxBatchLookup = batch.ToLookup(i => i.UniqueIdentifier);
-                while (await sqlReader.ReadAsync().ConfigureAwait(false))
+                while (await sqlReader.ReadAsync(cancellationToken).ConfigureAwait(false))
                 {
                     var uniqueIdentifier = ConvertUniqueIdentifierFromDb(sqlReader);
                     var outboxItem = outboxBatchLookup[uniqueIdentifier].First();
@@ -163,10 +168,11 @@ namespace SqlTransactionalOutbox.SqlServer.MicrosoftDataNS
 
         public virtual async Task<List<ISqlTransactionalOutboxItem<TUniqueIdentifier>>> UpdateOutboxItemsAsync(
             IEnumerable<ISqlTransactionalOutboxItem<TUniqueIdentifier>> outboxItems, 
-            int updateBatchSize = 20
+            int updateBatchSize = 20,
+            CancellationToken cancellationToken = default
         )
         {
-            await using var sqlCmd = CreateSqlCommand("");
+            await using var sqlCmd = CreateSqlCommand(string.Empty);
 
             var outboxItemsList = outboxItems.ToList();
 
@@ -191,7 +197,7 @@ namespace SqlTransactionalOutbox.SqlServer.MicrosoftDataNS
                 }
 
                 //Execute the Batch and continue...
-                await sqlCmd.ExecuteNonQueryAsync().ConfigureAwait(false);
+                await sqlCmd.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
             }
 
             return outboxItemsList;
@@ -223,7 +229,7 @@ namespace SqlTransactionalOutbox.SqlServer.MicrosoftDataNS
             return uniqueIdentifierForDb;
         }
 
-        public virtual async Task<IAsyncDisposable> AcquireDistributedProcessingMutexAsync()
+        public virtual async Task<IAsyncDisposable> AcquireDistributedProcessingMutexAsync(CancellationToken cancellationToken = default)
         {
             var distributedMutex = await SqlTransaction.AcquireAppLockAsync(
                 DistributedMutexLockName, 

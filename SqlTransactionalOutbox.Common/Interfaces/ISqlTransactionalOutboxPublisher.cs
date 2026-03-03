@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace SqlTransactionalOutbox
@@ -7,7 +8,8 @@ namespace SqlTransactionalOutbox
     {
         Task PublishOutboxItemAsync(
             ISqlTransactionalOutboxItem<TUniqueIdentifier> outboxItem, 
-            bool isFifoEnforcedProcessingEnabled = false
+            bool isFifoEnforcedProcessingEnabled = false,
+            CancellationToken cancellationToken = default
         );
 
     }

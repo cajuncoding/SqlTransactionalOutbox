@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using SqlTransactionalOutbox.CustomExtensions;
 
@@ -85,7 +86,7 @@ namespace SqlTransactionalOutbox.Receiving
 
         public T GetHeaderValue<T>(string headerKey, T defaultValue = default) => (T)HeadersLookup[headerKey].FirstOrDefault() ?? defaultValue;
 
-        public virtual Task AcknowledgeSuccessfulReceiptAsync()
+        public virtual Task AcknowledgeSuccessfulReceiptAsync(CancellationToken cancellationToken = default)
         {
             //Ensure that we are re-entrant and don't attempt to finalize again...
             if (!IsStatusFinalized)
@@ -97,7 +98,7 @@ namespace SqlTransactionalOutbox.Receiving
             return Task.CompletedTask;
         }
 
-        public virtual Task RejectAndAbandonAsync()
+        public virtual Task RejectAndAbandonAsync(CancellationToken cancellationToken = default)
         {
             //Ensure that we are re-entrant and don't attempt to finalize again...
             if (!IsStatusFinalized)
@@ -109,7 +110,7 @@ namespace SqlTransactionalOutbox.Receiving
             return Task.CompletedTask;
         }
 
-        public virtual Task RejectAsDeadLetterAsync()
+        public virtual Task RejectAsDeadLetterAsync(CancellationToken cancellationToken = default)
         {
             //Ensure that we are re-entrant and don't attempt to finalize again...
             if (!IsStatusFinalized)

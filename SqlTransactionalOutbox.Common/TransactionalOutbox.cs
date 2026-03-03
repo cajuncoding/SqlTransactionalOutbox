@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace SqlTransactionalOutbox
@@ -14,7 +15,8 @@ namespace SqlTransactionalOutbox
         public ISqlTransactionalOutboxRepository<TUniqueIdentifier, TPayload> OutboxRepository { get; }
 
         public TransactionalOutbox(
-            ISqlTransactionalOutboxRepository<TUniqueIdentifier, TPayload> outboxRepository
+            ISqlTransactionalOutboxRepository<TUniqueIdentifier, TPayload> outboxRepository,
+            CancellationToken cancellationToken = default
         )
         {
             this.OutboxRepository = outboxRepository ?? throw new ArgumentNullException(nameof(OutboxRepository));
@@ -24,7 +26,8 @@ namespace SqlTransactionalOutbox
             string publishingTarget, 
             TPayload publishingPayload,
             string fifoGroupingIdentifier = null,
-            DateTimeOffset? scheduledPublishDateTimeUtc = null
+            DateTimeOffset? scheduledPublishDateTimeUtc = null,
+            CancellationToken cancellationToken = default
         )
         {
             //Store the outbox item using the Repository...
@@ -32,28 +35,30 @@ namespace SqlTransactionalOutbox
                 new List<ISqlTransactionalOutboxInsertionItem<TPayload>>()
                 {
                     new OutboxInsertionItem<TPayload>(publishingTarget, publishingPayload, fifoGroupingIdentifier, scheduledPublishDateTimeUtc)
-                }
+                },
+                cancellationToken
             ).ConfigureAwait(false);
 
             return resultItems.FirstOrDefault();
         }
 
         public virtual async Task<List<ISqlTransactionalOutboxItem<TUniqueIdentifier>>> InsertNewPendingOutboxItemsAsync(
-            IEnumerable<ISqlTransactionalOutboxInsertionItem<TPayload>> outboxInsertionItems
+            IEnumerable<ISqlTransactionalOutboxInsertionItem<TPayload>> outboxInsertionItems,
+            CancellationToken cancellationToken = default
         )
         {
             //Store the outbox item using the Repository...
             var resultItems = await OutboxRepository
-                .InsertNewOutboxItemsAsync(outboxInsertionItems)
+                .InsertNewOutboxItemsAsync(outboxInsertionItems, cancellationToken: cancellationToken)
                 .ConfigureAwait(false);
             
             return resultItems;
         }
 
-        public virtual async Task CleanupHistoricalOutboxItemsAsync(TimeSpan historyTimeToKeepTimeSpan)
+        public virtual async Task CleanupHistoricalOutboxItemsAsync(TimeSpan historyTimeToKeepTimeSpan, CancellationToken cancellationToken = default)
         {
             //Cleanup the Historical data using the Repository...
-            await OutboxRepository.CleanupOutboxHistoricalItemsAsync(historyTimeToKeepTimeSpan).ConfigureAwait(false);
+            await OutboxRepository.CleanupOutboxHistoricalItemsAsync(historyTimeToKeepTimeSpan, cancellationToken).ConfigureAwait(false);
         }
     }
 }

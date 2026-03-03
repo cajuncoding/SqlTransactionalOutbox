@@ -1,10 +1,10 @@
 using System;
 using System.Diagnostics;
-using System.Threading;
 using System.Threading.Tasks;
 using Azure.Messaging.ServiceBus;
-using Microsoft.Azure.WebJobs;
+using Microsoft.Azure.Functions.Worker;
 using Microsoft.Extensions.Logging;
+using Functions.Worker.AddOns.Common;
 using SqlTransactionalOutbox.AzureServiceBus;
 using SqlTransactionalOutbox.CustomExtensions;
 
@@ -15,7 +15,7 @@ namespace SqlTransactionalOutbox.SampleApp.AzureFunctions
     //******************************************************************************************
     public class TransactionalOutboxFifoReceiverFunction
     {
-        [FunctionName(nameof(TransactionalOutboxFifoReceiverFunction))]
+        [Function(nameof(TransactionalOutboxFifoReceiverFunction))]
         public Task Run(
             [ServiceBusTrigger(
                 topicName: "%AzureServiceBusTopic%",
@@ -23,13 +23,16 @@ namespace SqlTransactionalOutbox.SampleApp.AzureFunctions
                 //NOTE: Config Expression syntax not needed for Connection:
                 Connection = "AzureServiceBusConnectionString",
                 //NOTE: Sessions are used to support FIFO Enforced Processing with Azure Service Bus.
-                IsSessionsEnabled = true
+                IsSessionsEnabled = true,
+                //For simplicity in this Demo we use Autocompletion; exceptions will result in Abandoning and Retrying Events.
+                AutoCompleteMessages = true
             )] ServiceBusReceivedMessage serviceBusMessage,
-            ILogger logger,
-            CancellationToken cancellationToken
+            FunctionContext functionContext
         )
         {
+            var logger = functionContext.GetLogger();
             var timer = Stopwatch.StartNew();
+            
             try
             {
                 var receivedItem = serviceBusMessage.ToOutboxReceivedItem<string>();
@@ -41,6 +44,8 @@ namespace SqlTransactionalOutbox.SampleApp.AzureFunctions
                     $"{Environment.NewLine} - Correlation ID: [{receivedItem.CorrelationId}]" +
                     $"{Environment.NewLine} - FIFO Grouping ID: [{receivedItem.FifoGroupingIdentifier}]" +
                     $"{Environment.NewLine} - Created Date UTC: [{receivedItem.PublishedItem.CreatedDateTimeUtc}]" +
+                    $"{Environment.NewLine} - Scheduled Date UTC: [{receivedItem.PublishedItem.ScheduledPublishDateTimeUtc?.ToString() ?? "NOT Scheduled"}]" +
+                    $"{Environment.NewLine} - Scheduled Date (Local): [{receivedItem.PublishedItem.ScheduledPublishDateTimeUtc?.ToLocalTime().ToString() ?? "NOT Scheduled"}]" +
                     $"{Environment.NewLine} - Publish Target: [{receivedItem.PublishedItem.PublishTarget}]" +
                     $"{Environment.NewLine} - Publish Attempts: [{receivedItem.PublishedItem.PublishAttempts}]" +
                     $"{Environment.NewLine} - Publish Status: [{receivedItem.PublishedItem.Status}]" +
@@ -49,9 +54,7 @@ namespace SqlTransactionalOutbox.SampleApp.AzureFunctions
                 );
 
                 timer.Stop();
-                logger.LogInformation($"Message Processing completed at [{DateTimeOffset.Now}]" +
-                                      $" in [{timer.Elapsed.ToElapsedTimeDescriptiveFormat()}].");
-
+                logger.LogInformation($"Message Processing completed at [{DateTimeOffset.Now}] in [{timer.Elapsed.ToElapsedTimeDescriptiveFormat()}].");
             }
             catch (Exception exc)
             {

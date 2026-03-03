@@ -1,6 +1,7 @@
 ﻿using SqlTransactionalOutbox.SampleApp.AzureFunctions;
 using SqlTransactionalOutbox.SampleApp.Common.Configuration;
 using SqlTransactionalOutbox.SampleApp.ConsoleApp;
+using SqlTransactionalOutbox.CustomExtensions;
 
 string enterMessageDescription = $"Enter Message to Send via Azure Service Bus?  (or 'Exit' to stop)";
 
@@ -82,7 +83,7 @@ while (true)
 
         WriteLine($"[{nameof(OutboxSender)}] Successfully Delivered Message into Outbox: {message}...");
         if (isScheduled)
-            WriteLine($"  - Scheduled for Delivery in [{scheduleDelayTime}] and should arrive at ~[{DateTime.Now.Add(scheduleDelayTime)}])");
+            WriteLine($"  - Scheduled for Delivery in [{scheduleDelayTime.ToElapsedTimeDescriptiveFormat()}] and should arrive at ~[{DateTime.Now.Add(scheduleDelayTime)}])");
     }
 }
 

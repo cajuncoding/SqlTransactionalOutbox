@@ -31,9 +31,15 @@ namespace SqlTransactionalOutbox
             publishingTarget.AssertNotNullOrWhiteSpace(nameof(publishingTarget));
             publishingPayload.AssertNotNull(nameof(publishingPayload));
 
-            //Initialize our PayloadBuilder (parsed from the Payload) to help us extract optional dynamic properties/details that may
-            //  be specified as part of Outbox Item Payload itself (e.g. Publish Target, Fifo Grouping Identifier, Scheduled Publish DateTime, etc.)
-            var payloadBuilder = PayloadBuilder.FromObject(publishingPayload);
+            //Intelligently initialize our PayloadBuilder (parsed from the Payload) to help us extract
+            //  optional dynamic properties/details that may be specified as part of Outbox Item Payload
+            //  itself (e.g. Publish Target, Fifo Grouping Identifier, Scheduled Publish DateTime, etc.)
+            var payloadBuilder = publishingPayload switch
+            {
+                string s => PayloadBuilder.FromJsonSafely(s),
+                object obj => PayloadBuilder.FromObject(obj),
+                _ => null
+            };
 
             //Serialize the Payload for Storage with our Outbox Item...
             var serializedPayload = PayloadSerializer.SerializePayload(publishingPayload);
@@ -44,12 +50,12 @@ namespace SqlTransactionalOutbox
                 //Initialize Internal Variables
                 UniqueIdentifier = UniqueIdentifierFactory.CreateUniqueIdentifier(),
                 Status = OutboxItemStatus.Pending,
-                FifoGroupingIdentifier = fifoGroupingIdentifier ?? payloadBuilder.FifoGroupingId,
+                FifoGroupingIdentifier = fifoGroupingIdentifier ?? payloadBuilder?.FifoGroupingId,
                 PublishAttempts = 0,
                 CreatedDateTimeUtc = DateTimeOffset.UtcNow,
-                ScheduledPublishDateTimeUtc = (scheduledPublishDateTime ?? payloadBuilder.ScheduledPublishDateTimeUtc).ToDateTimeOffsetAsUtc(),
+                ScheduledPublishDateTimeUtc = (scheduledPublishDateTime ?? payloadBuilder?.ScheduledPublishDateTimeUtc).ToDateTimeOffsetAsUtc(),
                 //Initialize client provided details
-                PublishTarget = publishingTarget ?? payloadBuilder.PublishTarget,
+                PublishTarget = publishingTarget ?? payloadBuilder?.PublishTarget,
                 Payload = serializedPayload
             };
 

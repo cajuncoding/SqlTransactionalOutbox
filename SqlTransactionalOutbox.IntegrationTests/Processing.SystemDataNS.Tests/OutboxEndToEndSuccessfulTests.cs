@@ -46,7 +46,7 @@ namespace SqlTransactionalOutbox.IntegrationTests.SystemDataNS
             //NOTE: We need to re-initialize a NEW Transaction and Processor to correctly simulate this running separately!
             var publishedItemList = new List<ISqlTransactionalOutboxItem<Guid>>();
             var testPublisher = new TestHarnessSqlTransactionalOutboxPublisher(
-                publishingAction: (item, isFifoEnabled) =>
+                publishingAction: (item, isFifoEnabled, cancellationToken) =>
                 {
                     publishedItemList.Add(item);
                     TestContext.WriteLine($"Successfully Published Item: {item.UniqueIdentifier}");
@@ -162,7 +162,7 @@ namespace SqlTransactionalOutbox.IntegrationTests.SystemDataNS
             //NOTE: We need to re-initialize a NEW Transaction and Processor to correctly simulate this running separately!
             var publishedItemList = new List<ISqlTransactionalOutboxItem<Guid>>();
             var testPublisher = new TestHarnessSqlTransactionalOutboxPublisher(
-                publishingAction: (item, isFifoEnabled) =>
+                publishingAction: (item, isFifoEnabled, cancellationToken) =>
                 {
                     publishedItemList.Add(item);
                     TestContext.WriteLine($"Successfully Published Item: {item.UniqueIdentifier}");

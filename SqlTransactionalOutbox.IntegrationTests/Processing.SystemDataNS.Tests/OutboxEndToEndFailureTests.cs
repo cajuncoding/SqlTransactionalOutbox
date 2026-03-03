@@ -166,7 +166,7 @@ namespace SqlTransactionalOutbox.IntegrationTests.SystemDataNS
             //*****************************************************************************************
             var publishedAttemptsList = new List<ISqlTransactionalOutboxItem<Guid>>();
             var failingPublisher = new TestHarnessSqlTransactionalOutboxPublisher(
-                (i, isFifoEnabled) =>
+                (i, isFifoEnabled, cancellationToken) =>
                 {
                     publishedAttemptsList.Add(i);
                     TestContext.WriteLine($"Successful -- We have intentionally Failed to Publish Item: {i.UniqueIdentifier}");
