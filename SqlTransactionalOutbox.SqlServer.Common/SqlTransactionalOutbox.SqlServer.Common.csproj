@@ -3,7 +3,7 @@
   <PropertyGroup>
     <TargetFramework>netstandard2.1</TargetFramework>
     <RootNamespace>SqlTransactionalOutbox.SqlServer</RootNamespace>
-    <Version>1.0.3</Version>
+    <Version>1.1.0</Version>
     <Authors>BBernard / CajunCoding</Authors>
     <Copyright>Copyright © 2021</Copyright>
     <Description>The Common interfaces and base/shared components for the SqlServer outbox implementation of SqlTransactionalOutbox framework. 

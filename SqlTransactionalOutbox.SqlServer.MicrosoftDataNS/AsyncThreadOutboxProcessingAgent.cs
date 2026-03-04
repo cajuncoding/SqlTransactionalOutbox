@@ -6,12 +6,13 @@ using Microsoft.Data.SqlClient;
 using SqlAppLockHelper;
 using SqlAppLockHelper.MicrosoftDataNS;
 using SqlTransactionalOutbox.CustomExtensions;
+using SqlTransactionalOutbox.Utilities;
 
 namespace SqlTransactionalOutbox.SqlServer.MicrosoftDataNS
 {
     public class AsyncThreadOutboxProcessingAgent : IAsyncDisposable
     {
-        public static string DefaultDistributedLockName { get; } = $"SqlTransactionalOutbox.{nameof(AsyncThreadOutboxProcessingAgent)}.DefaultDistributedLock";
+        public static string DefaultDistributedLockName { get; } = $"{SqlTransactionalOutboxDefaults.DistributeMutexLockPrefix}{nameof(AsyncThreadOutboxProcessingAgent)}";
         
         protected string SqlConnectionString { get; }
 
@@ -75,10 +76,10 @@ namespace SqlTransactionalOutbox.SqlServer.MicrosoftDataNS
                     while (!cancellationToken.IsCancellationRequested)
                     {
                         //Wait for the next iteration to Process the Outbox...
-                        await Task.Delay(this.ProcessingIntervalTimespan, cancellationToken);
+                        await Task.Delay(this.ProcessingIntervalTimespan, cancellationToken).ConfigureAwait(false);
 
                         //Executing processing after waiting the specified time...
-                        await ExecuteSqlTransactionalOutboxProcessingInternalAsync();
+                        await ExecuteSqlTransactionalOutboxProcessingInternalAsync().ConfigureAwait(false);
                         Interlocked.Increment(ref _executionCount);
                     }
                 }
@@ -125,7 +126,7 @@ namespace SqlTransactionalOutbox.SqlServer.MicrosoftDataNS
             //      lock was acquired or not and simply skip processing if we fail to acquire the lock (because another instance is processing)
             //      As opposed to allowing the throwing an exception which would be disruptive to the processing agent and require additional handling/logging.
             SqlServerAppLock sqlDistributedLock = IsDistributedLockingEnabled
-                ? await sqlConnection.AcquireAppLockAsync(DistributedLockName, throwsException: false)
+                ? await sqlConnection.AcquireAppLockAsync(DistributedLockName, SqlTransactionalOutboxDefaults.DistributedMutexAcquisitionTimeoutSeconds, throwsException: false).ConfigureAwait(false)
                 : null;
 
             if (!IsDistributedLockingEnabled || sqlDistributedLock.IsLockAcquired)
@@ -152,7 +153,7 @@ namespace SqlTransactionalOutbox.SqlServer.MicrosoftDataNS
 
         public async ValueTask DisposeAsync()
         {
-            await this.StopAsync();
+            await this.StopAsync().ConfigureAwait(false);
             
             //Finally cleanup other Disposable items (that WE Own)...
             //NOTE: We do NOT Dispose of items injected via Constructor as the ownership is not ours...

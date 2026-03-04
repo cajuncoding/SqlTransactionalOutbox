@@ -48,15 +48,15 @@ namespace SqlTransactionalOutbox.SampleApp.ConsoleApp
                 sqlConnectionString: configSettings.SqlConnectionString,
                 outboxPublisher: OutboxPublisher,
                 //We Need Processing Options for the Agent...
-                outboxProcessingOptions: new OutboxProcessingOptions()
+                outboxProcessingOptions: OutboxProcessingOptions.CreateOptions(options =>
                 {
                     //ItemProcessingBatchSize = 200, //Only process the top X items to keep this function responsive!
-                    FifoEnforcedPublishingEnabled = true, //The Service Bus Topic is Session Enabled so we must processes it with FIFO Processing Enabled!
-                    LogDebugCallback = OutboxHelpers.DefaultLogDebugCallback,
-                    ErrorHandlerCallback = errorHandlerCallback,
-                    MaxPublishingAttempts = configSettings.OutboxMaxPublishingRetryAttempts,
-                    TimeSpanToLive = configSettings.OutboxMaxTimeToLiveTimeSpan
-                }
+                    options.FifoEnforcedPublishingEnabled = true; //The Service Bus Topic is Session Enabled so we must processes it with FIFO Processing Enabled!
+                    options.LogDebugCallback = OutboxHelpers.DefaultLogDebugCallback;
+                    options.ErrorHandlerCallback = errorHandlerCallback;
+                    options.MaxPublishingAttempts = configSettings.OutboxMaxPublishingRetryAttempts;
+                    options.TimeSpanToLive = configSettings.OutboxMaxTimeToLiveTimeSpan;
+                })
             );
         }
 

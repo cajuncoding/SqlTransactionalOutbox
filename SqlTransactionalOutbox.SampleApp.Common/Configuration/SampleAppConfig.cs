@@ -1,11 +1,10 @@
 ﻿#nullable disable
 using System;
-using System.Runtime.CompilerServices;
 
 namespace SqlTransactionalOutbox.SampleApp.AzureFunctions
 {
     //Always a good idea to abstract away or encapsulate the core/base reading of config values...
-    public class SampleAppConfig
+    public class SampleAppConfig : ISampleAppConfig
     {
         public SampleAppConfig()
         {
@@ -38,7 +37,7 @@ namespace SqlTransactionalOutbox.SampleApp.AzureFunctions
             var value = int.TryParse(GetStringValue(key), out int intValue)
                 ? intValue
                 : defaultValue;
-            
+
             return value;
         }
 

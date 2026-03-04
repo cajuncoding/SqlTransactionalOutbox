@@ -12,20 +12,20 @@ static void WriteLine(string message) => Console.WriteLine($"[{DateTime.Now}] {m
 WriteLine("Starting Sql Transactional Outbox Demo...");
 
 LocalSettingsEnvironmentReader.SetupEnvironmentFromLocalSettingsJson();
-var configSettings = new SampleAppConfig();
+var appConfig = new SampleAppConfig();
 
 //******************************************************************************************
 // 1. SENDING Messages via the Sql Transactional Outbox
 //  We Need a Payload Sender to populate the Outbox with messages/payloads...
 //******************************************************************************************
-var outboxSender = new OutboxSender(configSettings);
+var outboxSender = new OutboxSender(appConfig);
 
 //******************************************************************************************
 // 2. PROCESSING & PUBLISHING Messages in the Sql Transactional Outbox to Azure Service Bus
 //  We Need a fully initialized Processing Agent to Process the Outbox on an Async Thread!
 //******************************************************************************************
 //  NOTE: this is AsyncDisposable!
-await using var outboxProcessor = new OutboxProcessor(configSettings);
+await using var outboxProcessor = new OutboxProcessor(appConfig);
 await outboxProcessor.StartProcessingAsync();
 
 //******************************************************************************************
@@ -34,7 +34,7 @@ await outboxProcessor.StartProcessingAsync();
 //******************************************************************************************
 // NOTE: Since our Subscription is Session based we must enable Fifo processing or errors will occur!
 // NOTE: Since our payloads are simple strings we use 'string' payload type!
-var messageReceiver = new OutboxFifoReceiver<string>(configSettings);
+var messageReceiver = new OutboxFifoReceiver<string>(appConfig);
 await messageReceiver.StartReceivingWithAsync(s =>
 {
     WriteBlankLine();
@@ -66,11 +66,11 @@ while (true)
             || shouldScheduleResponse.Equals("Yes", StringComparison.OrdinalIgnoreCase)
         )
         {
-            WriteLine($"Enter the number of minutes to Delay (e.g. 60 => 1 Hour)...");
+            WriteLine($"Enter the amount of time to delay (e.g. 25s, 1.5m, 2h, 1d, etc.)...");
             WriteLine($"  - Otherwise leave blank to deliver immediately.");
 
-            scheduleDelayTime = int.TryParse(ReadLineSafely(), out int minutes)
-                ? TimeSpan.FromMinutes(minutes)
+            scheduleDelayTime = ReadLineSafely().TryParseTimeSpanWithUnitsAndMinutesDefault(out var parsedTimeSpan)
+                ? parsedTimeSpan
                 : TimeSpan.Zero;
 
             isScheduled = scheduleDelayTime > TimeSpan.Zero;

@@ -50,7 +50,7 @@ namespace SqlTransactionalOutbox
                     .WithOutboxTableConfig(new OutboxTableConfig())
                     .WithDistributedMutexLockSettings(
                         lockNamePrefix: "SqlServerTransactionalOutboxProcessor::",
-                        lockAcquisitionTimeoutSeconds: 1
+                        lockAcquisitionTimeoutSeconds: 0
                     );
             }
 
@@ -85,6 +85,17 @@ namespace SqlTransactionalOutbox
                 if (lockNamePrefix != null)
                     SqlTransactionalOutboxDefaults.DistributeMutexLockPrefix = lockNamePrefix;
 
+                return this;
+            }
+
+            /// <summary>
+            /// Initialize the global default options/settings used when processing the outbox items which will be supported by all convenience methods (e.g. Sql Custom Extensions).
+            /// </summary>
+            /// <param name="configureOptionsAction"></param>
+            /// <returns></returns>
+            public ConfigBuilder ConfigureOutboxProcessingOptions(Action<OutboxProcessingOptions> configureOptionsAction)
+            {
+                OutboxProcessingOptions.ConfigureDefaults(configureOptionsAction);
                 return this;
             }
         }

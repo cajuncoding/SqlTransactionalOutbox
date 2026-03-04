@@ -37,7 +37,7 @@ namespace SqlTransactionalOutbox.SampleApp.AzureFunctions
             {
                 var receivedItem = serviceBusMessage.ToOutboxReceivedItem<string>();
 
-                logger.LogInformation($"Azure Service Bus Message Received at [{DateTimeOffset.Now}]:" +
+                logger.LogInformation($"RECEIVED EVENT from Azure Service at [{DateTime.Now}]:" +
                     $"{Environment.NewLine} - Subject: [{receivedItem.Subject}]" +
                     $"{Environment.NewLine} - UniqueIdentifier: [{receivedItem.UniqueIdentifier}]" +
                     $"{Environment.NewLine} - Content Type: [{receivedItem.ContentType}]" +
@@ -54,7 +54,7 @@ namespace SqlTransactionalOutbox.SampleApp.AzureFunctions
                 );
 
                 timer.Stop();
-                logger.LogInformation($"Message Processing completed at [{DateTimeOffset.Now}] in [{timer.Elapsed.ToElapsedTimeDescriptiveFormat()}].");
+                logger.LogInformation($"Message Processing completed at [{DateTime.Now}] in [{timer.Elapsed.ToElapsedTimeDescriptiveFormat()}].");
             }
             catch (Exception exc)
             {

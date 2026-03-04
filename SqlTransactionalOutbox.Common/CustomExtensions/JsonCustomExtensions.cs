@@ -68,6 +68,14 @@ namespace SqlTransactionalOutbox.JsonExtensions
 
             return false;
         }
+
+        public static string FormatAsJsonIndented(this string jsonText)
+        {
+            var json = ParseSafely(jsonText);
+            return json != null
+                ? json.ToString(Formatting.Indented)
+                : jsonText;
+        }
     }
 
     public static class JsonCustomExtensions

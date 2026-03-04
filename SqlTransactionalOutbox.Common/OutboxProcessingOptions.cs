@@ -18,6 +18,26 @@ namespace SqlTransactionalOutbox
         public static OutboxProcessingOptions DefaultOutboxProcessingOptions { get; set; } = new OutboxProcessingOptions();
 
         /// <summary>
+        /// Creates a new OutboxProcessingOptions instance, based on the globally configured default values, that can then
+        ///     be customized without impacting the global defaults (e.g. DefaultOutboxProcessingOptions) or any other instances
+        ///     that are created with the same global defaults.
+        /// </summary>
+        /// <param name="configureOptionsAction"></param>
+        /// <returns></returns>
+        public static OutboxProcessingOptions CreateOptions(Action<OutboxProcessingOptions> configureOptionsAction)
+        {
+            var clonedDefaults = DefaultOutboxProcessingOptions.Clone();
+            configureOptionsAction?.Invoke(clonedDefaults);
+            return clonedDefaults;
+        }
+
+        /// <summary>
+        /// Create a Clone of the existing OutboxProcessingOptions instance which can then be modified without impacting the original instance (e.g. Default Options).
+        /// </summary>
+        /// <returns></returns>
+        public OutboxProcessingOptions Clone() => (OutboxProcessingOptions)this.MemberwiseClone();
+        
+        /// <summary>
         /// Defines the maximum batch size (number) of items that can be processed per execution;
         /// value of -1 disables batching and allow all items in the outbox to be processed.
         /// Note, this value must be balanced with the the number of items in the queue and the number

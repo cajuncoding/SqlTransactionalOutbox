@@ -26,7 +26,5 @@ namespace SqlTransactionalOutbox.SqlServer.Common
             DistributedMutexLockName = $"{SqlTransactionalOutboxDefaults.DistributeMutexLockPrefix}{QueryBuilder.BuildTableName()}";
             DistributedMutexAcquisitionTimeoutSeconds = distributedMutexAcquisitionTimeoutSeconds;
         }
-
-
     }
 }

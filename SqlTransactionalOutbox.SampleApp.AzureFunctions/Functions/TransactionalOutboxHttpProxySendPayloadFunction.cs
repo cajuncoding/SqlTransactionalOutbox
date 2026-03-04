@@ -8,6 +8,7 @@ using Microsoft.Extensions.Logging;
 using Functions.Worker.AddOns.Common;
 using SqlTransactionalOutbox.SqlServer.MicrosoftDataNS;
 using SqlTransactionalOutbox.Utilities;
+using Newtonsoft.Json;
 
 namespace SqlTransactionalOutbox.SampleApp.AzureFunctions
 {
@@ -24,7 +25,8 @@ namespace SqlTransactionalOutbox.SampleApp.AzureFunctions
         {
             var logger = functionContext.GetLogger();
             logger.LogInformation($"HTTP [{nameof(TransactionalOutboxHttpProxySendPayloadFunction)}].");
-            
+            logger.LogInformation($"SENDING EVENT at [{DateTime.Now}]...");
+
             var configSettings = new SampleAppConfig();
 
             //Initialize the Payload from the Body as Json!
@@ -49,15 +51,17 @@ namespace SqlTransactionalOutbox.SampleApp.AzureFunctions
             //************************************************************
             //*** Add The Payload to our Outbox
             //************************************************************
+            var jsonPayload = payloadBuilder.ToJObject();
+
             var outboxItem = await sqlConnection.AddTransactionalOutboxPendingItemAsync(
                 publishTarget: payloadBuilder.PublishTarget,
-                payload: payloadBuilder.ToJObject(),
+                payload: jsonPayload,
                 //It's always a good idea to ensure that a FIFO Group Id/Name is specified for any FIFO Subscriptions that may receive the messages...
                 fifoGroupingIdentifier: payloadBuilder.FifoGroupingId ?? "DefaultFifoGroup"
             ).ConfigureAwait(false);
 
             //Log results and return response to the client...
-            logger.LogDebug($"Payload:{Environment.NewLine}{outboxItem.Payload}");
+            logger.LogInformation($"Payload:{Environment.NewLine}{jsonPayload.ToString(Formatting.Indented)}");
 
             return payloadBuilder;
         }
