@@ -12,6 +12,24 @@ Another primary goal of the library/framework is to provide support for enforcin
 
 The library is completely interface based and extremely modular. In addition, all existing class methods are exposed as virtual methods to make it easy to customize existing implementations as needed, but ultimately we hope that the default implementations will work for the majority of use cases.
 
+### Nuget Package (>=netstandard2.1)
+To use this in your project, add the following packages:
+- SQL Server Outbox: [SqlTransactionalOutbox.SqlServer.MicrosoftDataNS](https://www.nuget.org/packages/SqlTransactionalOutbox.SqlServer.MicrosoftDataNS/)
+- Azure Service Bus Messaging: [SqlTransactionalOutbox.AzureServiceBus](https://www.nuget.org/packages/SqlTransactionalOutbox.AzureServiceBus/)
+
+Or for your own customized implementations via Interfaces: [SqlTransactionalOutbox.Common](https://www.nuget.org/packages/SqlTransactionalOutbox.Common/)
+
+### Give Star 🌟
+**If you like this project and/or use it the please give it a Star 🌟 (c'mon it's free, and it'll help others find the project)!**
+
+### [Buy me a Coffee ☕](https://www.buymeacoffee.com/cajuncoding)
+*I'm happy to share with the community, but if you find this useful (e.g for professional use), and are so inclinded,
+then I do love-me-some-coffee!*
+
+<a href="https://www.buymeacoffee.com/cajuncoding" target="_blank">
+<img src="https://cdn.buymeacoffee.com/buttons/default-orange.png" alt="Buy Me A Coffee" height="41" width="174">
+</a>
+
 ## Examples - the best way to learn is to see and try!
 
 The general flow of a Transactional Outbox has three primary steps:
@@ -48,24 +66,6 @@ Various updates on the process are streamed to the console, and ultimately once 
 
 The process for a series of messages that were delivered immediately, aftef 1 minute, after 30 mins, after 1 hour, and then after 8 hours resulted in the following:
 <div align="center"><img src="./Scheduled%20Delivery%20-%20CommandLine%20Demo%20-%202026-03-03.png" width="600" /></div>
-
-### Nuget Package (>=netstandard2.1)
-To use this in your project, add the following packages:
-- SQL Server Outbox: [SqlTransactionalOutbox.SqlServer.MicrosoftDataNS](https://www.nuget.org/packages/SqlTransactionalOutbox.SqlServer.MicrosoftDataNS/)
-- Azure Service Bus Messaging: [SqlTransactionalOutbox.AzureServiceBus](https://www.nuget.org/packages/SqlTransactionalOutbox.AzureServiceBus/)
-
-Or for your own customized implementations via Interfaces: [SqlTransactionalOutbox.Common](https://www.nuget.org/packages/SqlTransactionalOutbox.Common/)
-
-### Give Star 🌟
-**If you like this project and/or use it the please give it a Star 🌟 (c'mon it's free, and it'll help others find the project)!**
-
-### [Buy me a Coffee ☕](https://www.buymeacoffee.com/cajuncoding)
-*I'm happy to share with the community, but if you find this useful (e.g for professional use), and are so inclinded,
-then I do love-me-some-coffee!*
-
-<a href="https://www.buymeacoffee.com/cajuncoding" target="_blank">
-<img src="https://cdn.buymeacoffee.com/buttons/default-orange.png" alt="Buy Me A Coffee" height="41" width="174">
-</a>
 
 ## Initialization & DB Schema Setup
 The Sql Transactional Outbox provides uses several default values that can be customized at initialization
