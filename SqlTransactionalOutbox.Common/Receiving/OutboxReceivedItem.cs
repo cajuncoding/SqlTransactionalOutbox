@@ -1,7 +1,6 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Linq;
-using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using SqlTransactionalOutbox.CustomExtensions;
 
@@ -19,10 +18,9 @@ namespace SqlTransactionalOutbox.Receiving
         public string CorrelationId { get; protected set; }
 
         private TPayloadBody _parsedBody;
-
         public TPayloadBody ParsedBody => _parsedBody ??= ParsePayloadBody();
         
-        protected ILookup<string, object> HeadersLookup = null;
+        protected ILookup<string, object> HeadersLookup { get; set; } = null;
         protected bool IsDisposed { get; set; } = false;
         protected Func<ISqlTransactionalOutboxItem<TUniqueIdentifier>, TPayloadBody> ParsePayloadFunc { get; set; }
         
@@ -82,23 +80,13 @@ namespace SqlTransactionalOutbox.Receiving
             FifoGroupingIdentifier = fifoGroupingIdentifier;
         }
 
-        public TPayloadBody ParsePayloadBody()
-        {
-            var payload = ParsePayloadFunc(PublishedItem);
-            return payload;
-        }
+        public TPayloadBody ParsePayloadBody() => ParsePayloadFunc(PublishedItem);
 
-        public string GetPayloadSerializedBody()
-        {
-            return this.PayloadSerializedBody;
-        }
+        public string GetPayloadSerializedBody() => this.PayloadSerializedBody;
 
-        public T GetHeaderValue<T>(string headerKey, T defaultValue = default)
-        {
-            return (T)HeadersLookup[headerKey].FirstOrDefault() ?? defaultValue;
-        }
+        public T GetHeaderValue<T>(string headerKey, T defaultValue = default) => (T)HeadersLookup[headerKey].FirstOrDefault() ?? defaultValue;
 
-        public virtual Task AcknowledgeSuccessfulReceiptAsync()
+        public virtual Task AcknowledgeSuccessfulReceiptAsync(CancellationToken cancellationToken = default)
         {
             //Ensure that we are re-entrant and don't attempt to finalize again...
             if (!IsStatusFinalized)
@@ -110,7 +98,7 @@ namespace SqlTransactionalOutbox.Receiving
             return Task.CompletedTask;
         }
 
-        public virtual Task RejectAndAbandonAsync()
+        public virtual Task RejectAndAbandonAsync(CancellationToken cancellationToken = default)
         {
             //Ensure that we are re-entrant and don't attempt to finalize again...
             if (!IsStatusFinalized)
@@ -122,7 +110,7 @@ namespace SqlTransactionalOutbox.Receiving
             return Task.CompletedTask;
         }
 
-        public virtual Task RejectAsDeadLetterAsync()
+        public virtual Task RejectAsDeadLetterAsync(CancellationToken cancellationToken = default)
         {
             //Ensure that we are re-entrant and don't attempt to finalize again...
             if (!IsStatusFinalized)

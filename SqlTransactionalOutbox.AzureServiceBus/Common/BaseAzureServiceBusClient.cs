@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Threading.Tasks;
 using Azure.Messaging.ServiceBus;
-using SqlTransactionalOutbox.AzureServiceBus.Receiving;
 using SqlTransactionalOutbox.CustomExtensions;
 
 namespace SqlTransactionalOutbox.AzureServiceBus.Common

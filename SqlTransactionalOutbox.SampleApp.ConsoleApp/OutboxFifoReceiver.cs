@@ -1,9 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using SqlTransactionalOutbox.AzureServiceBus;
+﻿using SqlTransactionalOutbox.AzureServiceBus;
 using SqlTransactionalOutbox.CustomExtensions;
 using SqlTransactionalOutbox.SampleApp.AzureFunctions;
 
@@ -38,8 +33,10 @@ namespace SqlTransactionalOutbox.SampleApp.ConsoleApp
             consoleLogAction.AssertNotNull(nameof(consoleLogAction));
 
             //RUN the Receiver!
-            await ServiceBusFifoReceiver.StartReceivingAsync((receivedItem) =>
+            await ServiceBusFifoReceiver.StartReceivingAsync(async (receivedItem, cancellationToken) =>
             {
+                var scheduledDeliveryTime = receivedItem.PublishedItem.ScheduledPublishDateTimeUtc;
+
                 //Since we get an OutboxItem injected we can just access the Parsed Payload...
                 //NOTE: If you used the RAW ServiceBus to receive the message then the Extension methods
                 //      can be used to easily convert from the ServiceBusReceivedMessage to a parsed OutboxItem; 
@@ -47,23 +44,22 @@ namespace SqlTransactionalOutbox.SampleApp.ConsoleApp
                 //Console.WriteLine($"[{nameof(OutboxFifoReceiver<string>)}] MESSAGE RECEIVED: {outboxItem.PublishedItem.CreatedDateTimeUtc.}: {message}");
                 consoleLogAction(
                     $@"[{nameof(OutboxFifoReceiver<string>)}] MESSAGE RECEIVED at [{DateTimeOffset.Now}]:" +
-                    //$"{Environment.NewLine} - Subject: [{receivedItem.Subject}]" +
-                    //$"{Environment.NewLine} - UniqueIdentifier: [{receivedItem.UniqueIdentifier}]" +
-                    //$"{Environment.NewLine} - Content Type: [{receivedItem.ContentType}]" +
-                    //$"{Environment.NewLine} - Correlation ID: [{receivedItem.CorrelationId}]" +
-                    //$"{Environment.NewLine} - FIFO Grouping ID: [{receivedItem.FifoGroupingIdentifier}]" +
-                    $"{Environment.NewLine} - Created Date UTC: [{receivedItem.PublishedItem.CreatedDateTimeUtc}]" +
-                    //$"{Environment.NewLine} - Publish Target: [{receivedItem.PublishedItem.PublishTarget}]" +
-                    //$"{Environment.NewLine} - Publish Attempts: [{receivedItem.PublishedItem.PublishAttempts}]" +
-                    //$"{Environment.NewLine} - Publish Status: [{receivedItem.PublishedItem.Status}]" +
-                    $"{Environment.NewLine} - Payload Message: {receivedItem.ParsedBody}" +
+                    //$"{Environment.NewLine}  - Subject: [{receivedItem.Subject}]" +
+                    //$"{Environment.NewLine}  - UniqueIdentifier: [{receivedItem.UniqueIdentifier}]" +
+                    //$"{Environment.NewLine}  - Content Type: [{receivedItem.ContentType}]" +
+                    //$"{Environment.NewLine}  - Correlation ID: [{receivedItem.CorrelationId}]" +
+                    //$"{Environment.NewLine}  - FIFO Grouping ID: [{receivedItem.FifoGroupingIdentifier}]" +
+                    $"{Environment.NewLine}  - Created Date UTC: [{receivedItem.PublishedItem.CreatedDateTimeUtc}]" +
+                    (scheduledDeliveryTime.HasValue ? $"{Environment.NewLine}  - Scheduled Delivery Date (Local): [{scheduledDeliveryTime.Value.ToLocalTime()}]" : string.Empty) +
+                    //$"{Environment.NewLine}  - Publish Target: [{receivedItem.PublishedItem.PublishTarget}]" +
+                    //$"{Environment.NewLine}  - Publish Attempts: [{receivedItem.PublishedItem.PublishAttempts}]" +
+                    //$"{Environment.NewLine}  - Publish Status: [{receivedItem.PublishedItem.Status}]" +
+                    $"{Environment.NewLine}  - Payload Message: {receivedItem.ParsedBody}" +
                     Environment.NewLine
                 );
 
                 //Acknowledge that we have successfully finished working with the Received Item!
-                receivedItem.AcknowledgeSuccessfulReceiptAsync();
-
-                return Task.CompletedTask;
+                await receivedItem.AcknowledgeSuccessfulReceiptAsync(cancellationToken);
             }, cancellationToken);
         }
 

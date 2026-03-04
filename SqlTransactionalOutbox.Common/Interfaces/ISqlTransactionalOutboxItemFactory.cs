@@ -1,6 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Text;
 
 namespace SqlTransactionalOutbox
 {
@@ -9,12 +7,14 @@ namespace SqlTransactionalOutbox
         ISqlTransactionalOutboxItem<TUniqueIdentifier> CreateNewOutboxItem(
             string publishingTarget,
             TPayload publishingPayload,
-            string fifoGroupingIdentifier = null
+            string fifoGroupingIdentifier = null,
+            DateTimeOffset? scheduledPublishDateTime = null
         );
         
         ISqlTransactionalOutboxItem<TUniqueIdentifier> CreateExistingOutboxItem(
             string uniqueIdentifier,
             DateTimeOffset createdDateTimeUtc,
+            DateTimeOffset? scheduledPublishDateTimeUtc,
             string status,
             string fifoGroupingIdentifier,
             int publishAttempts,
@@ -26,6 +26,7 @@ namespace SqlTransactionalOutbox
         ISqlTransactionalOutboxItem<TUniqueIdentifier> CreateExistingOutboxItem(
             TUniqueIdentifier uniqueIdentifier,
             DateTimeOffset createdDateTimeUtc,
+            DateTimeOffset? scheduledPublishDateTime,
             string status,
             string fifoGroupingIdentifier,
             int publishAttempts,

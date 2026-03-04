@@ -1,11 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Azure.Messaging.ServiceBus;
-using Microsoft.Azure.Amqp.Serialization;
 using SqlTransactionalOutbox.AzureServiceBus.Common;
 using SqlTransactionalOutbox.CustomExtensions;
 using SqlTransactionalOutbox.Receiving;
@@ -14,7 +12,7 @@ namespace SqlTransactionalOutbox.AzureServiceBus.Receiving
 {
     public class AzureServiceBusReceiver<TUniqueIdentifier, TPayload> : BaseAzureServiceBusClient, IAsyncDisposable
     {
-        public delegate Task ReceivedItemHandlerAsyncDelegate(ISqlTransactionalOutboxReceivedItem<TUniqueIdentifier, TPayload> outboxReceivedItem);
+        public delegate Task ReceivedItemHandlerAsyncDelegate(ISqlTransactionalOutboxReceivedItem<TUniqueIdentifier, TPayload> outboxReceivedItem, CancellationToken cancellationToken = default);
 
         public string ServiceBusSubscription { get; set; }
 
@@ -79,7 +77,7 @@ namespace SqlTransactionalOutbox.AzureServiceBus.Receiving
             return StartReceivingInternalAsync(receivedItemHandlerAsyncDelegateFunc, cancellationToken: cancellationToken);
         }
 
-        public virtual async Task StopReceivingAsync(Func<ProcessSessionEventArgs, Task> fifoSessionEndAsyncHandler = null)
+        public virtual async Task StopReceivingAsync(Func<ProcessSessionEventArgs, Task> fifoSessionEndAsyncHandler = null, CancellationToken cancellationToken = default)
         {
             //Always update the Processing Flag
             this.IsProcessing = false;
@@ -90,14 +88,14 @@ namespace SqlTransactionalOutbox.AzureServiceBus.Receiving
                 try
                 {
                     if (this.ServiceBusSessionProcessor.IsProcessing)
-                        await this.ServiceBusSessionProcessor.StopProcessingAsync();
+                        await this.ServiceBusSessionProcessor.StopProcessingAsync(cancellationToken);
 
                     if (!this.ServiceBusSessionProcessor.IsClosed)
                     {
                         if (fifoSessionEndAsyncHandler != null)
                             ServiceBusSessionProcessor.SessionClosingAsync += fifoSessionEndAsyncHandler;
 
-                        await this.ServiceBusSessionProcessor.CloseAsync();
+                        await this.ServiceBusSessionProcessor.CloseAsync(cancellationToken);
                     }
                 }
                 finally
@@ -113,10 +111,10 @@ namespace SqlTransactionalOutbox.AzureServiceBus.Receiving
                 try
                 {
                     if (this.ServiceBusProcessor.IsProcessing)
-                        await this.ServiceBusProcessor.StopProcessingAsync();
+                        await this.ServiceBusProcessor.StopProcessingAsync(cancellationToken);
 
                     if (!this.ServiceBusProcessor.IsClosed)
-                        await this.ServiceBusProcessor.CloseAsync();
+                        await this.ServiceBusProcessor.CloseAsync(cancellationToken);
                 }
                 finally
                 {
@@ -146,6 +144,7 @@ namespace SqlTransactionalOutbox.AzureServiceBus.Receiving
                 {
                     this.ServiceBusSessionProcessor = GetAzureServiceBusSessionProcessor();
 
+                    //Wire up the Handler...
                     this.ServiceBusSessionProcessor.ProcessMessageAsync += async (messageEventArgs) =>
                     {
                         await ExecuteMessageHandlerAsync(
@@ -228,26 +227,30 @@ namespace SqlTransactionalOutbox.AzureServiceBus.Receiving
         ///  Azure Service Bus.  Note, using this queue means that ALL Items will automatically be acknowledged as
         ///  as successfully received with no ability to Reject/Abandon them.
         /// </summary>
-        protected virtual async Task<SqlTransactionalOutboxReceiverQueue<TUniqueIdentifier, TPayload>> CreateReceiverQueueAsync()
+        protected virtual async Task<SqlTransactionalOutboxReceiverQueue<TUniqueIdentifier, TPayload>> CreateReceiverQueueAsync(CancellationToken cancellationToken = default)
         {
+            if(this.IsProcessing)
+                throw new InvalidOperationException("The ServiceBusProcessor is already running and receiving messages. A dynamic receiver queue cannot be created while the processor is running.");
+
             //Initialize the producer/consumer queue for asynchronously & dynamically receiving items produced from the
             //  Azure Service Bus by being populated from our handler.
             var dynamicAsyncReceiverQueue = new SqlTransactionalOutboxReceiverQueue<TUniqueIdentifier, TPayload>(
                 disposedCallbackAsyncHandler: async () =>
                 {
-                    await this.StopReceivingAsync().ConfigureAwait(false);
+                    await this.StopReceivingAsync(cancellationToken: cancellationToken).ConfigureAwait(false);
                 }
             );
 
             //Attempt to Receive & Handle the Messages just published for End-to-End Validation!
             await this.StartReceivingInternalAsync(
-                receivedItemHandlerAsyncDelegateFunc: async (outboxPublishedItem) =>
+                receivedItemHandlerAsyncDelegateFunc: async (outboxPublishedItem, cancellationToken) =>
                 {
                     //All our handler needs to do is marshall the resulting item into the Queue to
                     //  signal/push for the consumer to handle...
-                    await dynamicAsyncReceiverQueue.AddAsync(outboxPublishedItem).ConfigureAwait(false);
+                    await dynamicAsyncReceiverQueue.AddAsync(outboxPublishedItem, cancellationToken).ConfigureAwait(false);
                 },
-                autoMessageFinalizationEnabled: false
+                autoMessageFinalizationEnabled: false,
+                cancellationToken: cancellationToken
             );
 
             return dynamicAsyncReceiverQueue;
@@ -256,7 +259,8 @@ namespace SqlTransactionalOutbox.AzureServiceBus.Receiving
         protected virtual async Task ExecuteMessageHandlerAsync(
             EventArgs messageEventArgs,
             ReceivedItemHandlerAsyncDelegate receivedItemHandlerAsyncDelegateFunc,
-            bool automaticFinalizationEnabled = true
+            bool automaticFinalizationEnabled = true,
+            CancellationToken cancellationToken = default
         )
         {
             messageEventArgs.AssertNotNull(nameof(messageEventArgs));
@@ -289,12 +293,12 @@ namespace SqlTransactionalOutbox.AzureServiceBus.Receiving
                 try
                 {
                     //Execute the delegate to handle/process the published item...
-                    await receivedItemHandlerAsyncDelegateFunc(azureServiceBusReceivedItem).ConfigureAwait(false);
+                    await receivedItemHandlerAsyncDelegateFunc(azureServiceBusReceivedItem, cancellationToken).ConfigureAwait(false);
 
                     //If necessary, we need to Finalize the item with Azure Service Bus (Complete/Abandon) based on the Status returned on the item!
                     if (automaticFinalizationEnabled && !azureServiceBusReceivedItem.IsStatusFinalized)
                     {
-                        await azureServiceBusReceivedItem.SendFinalizedStatusToAzureServiceBusAsync().ConfigureAwait(false);
+                        await azureServiceBusReceivedItem.SendFinalizedStatusToAzureServiceBusAsync(cancellationToken).ConfigureAwait(false);
                     }
                 }
                 catch (Exception exc)
@@ -306,7 +310,7 @@ namespace SqlTransactionalOutbox.AzureServiceBus.Receiving
                     {
                         //Finalize the status as set by the Delegate function if it's not already Finalized!
                         //NOTE: We ALWAYS do this even if autoMessageFinalizationEnabled is false to prevent BLOCKING and risk of Infinite Loops...
-                        await azureServiceBusReceivedItem.SendFinalizedStatusToAzureServiceBusAsync().ConfigureAwait(false);
+                        await azureServiceBusReceivedItem.SendFinalizedStatusToAzureServiceBusAsync(cancellationToken).ConfigureAwait(false);
                     }
                 }
             }
@@ -372,7 +376,8 @@ namespace SqlTransactionalOutbox.AzureServiceBus.Receiving
 
         protected virtual async Task<AzureServiceBusReceivedItem<TUniqueIdentifier, TPayload>> CreateReceivedItemAsync(
             EventArgs baseMessageEventArgs,
-            bool deadLetterOnFailureToInitialize = false
+            bool deadLetterOnFailureToInitialize = false,
+            CancellationToken cancellationToken = default
         )
         {
             AzureServiceBusReceivedItem<TUniqueIdentifier, TPayload> azureServiceBusReceivedItem = null;
@@ -388,7 +393,12 @@ namespace SqlTransactionalOutbox.AzureServiceBus.Receiving
                     catch (Exception exc)
                     {
                         if (deadLetterOnFailureToInitialize)
-                            await messageEventArgs.DeadLetterMessageAsync(messageEventArgs.Message, initializationErrorMessage, exc.GetMessagesRecursively());
+                            await messageEventArgs.DeadLetterMessageAsync(
+                                messageEventArgs.Message,
+                                initializationErrorMessage,
+                                exc.GetMessagesRecursively(),
+                                cancellationToken: cancellationToken
+                            );
                         
                         throw;
                     }
@@ -402,7 +412,12 @@ namespace SqlTransactionalOutbox.AzureServiceBus.Receiving
                     catch (Exception exc)
                     {
                         if (deadLetterOnFailureToInitialize)
-                            await sessionMessageEventArgs.DeadLetterMessageAsync(sessionMessageEventArgs.Message, initializationErrorMessage, exc.GetMessagesRecursively());
+                            await sessionMessageEventArgs.DeadLetterMessageAsync(
+                                sessionMessageEventArgs.Message,
+                                initializationErrorMessage,
+                                exc.GetMessagesRecursively(),
+                                cancellationToken: cancellationToken
+                            );
                         
                         throw;
                     }
@@ -437,7 +452,7 @@ namespace SqlTransactionalOutbox.AzureServiceBus.Receiving
                 if (this.ServiceBusProcessor != null)
                     await this.ServiceBusProcessor.DisposeAsync();
 
-                if (this.ServiceBusSessionProcessor!= null)
+                if (this.ServiceBusSessionProcessor != null)
                     await this.ServiceBusSessionProcessor.DisposeAsync();
             }
         }

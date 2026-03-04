@@ -1,6 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace SqlTransactionalOutbox
@@ -10,13 +10,16 @@ namespace SqlTransactionalOutbox
         Task<ISqlTransactionalOutboxItem<TUniqueIdentifier>> InsertNewPendingOutboxItemAsync(
             string publishingTarget, 
             TPayload publishingPayload,
-            string fifoGroupingIdentifier = null
+            string fifoGroupingIdentifier = null,
+            DateTimeOffset? scheduledPublishDateTimeUtc = null,
+            CancellationToken cancellationToken = default
         );
 
         Task<List<ISqlTransactionalOutboxItem<TUniqueIdentifier>>> InsertNewPendingOutboxItemsAsync(
-            IEnumerable<ISqlTransactionalOutboxInsertionItem<TPayload>> outboxInsertionItems
+            IEnumerable<ISqlTransactionalOutboxInsertionItem<TPayload>> outboxInsertionItems,
+            CancellationToken cancellationToken = default
         );
 
-        Task CleanupHistoricalOutboxItemsAsync(TimeSpan historyTimeToKeepTimeSpan);
+        Task CleanupHistoricalOutboxItemsAsync(TimeSpan historyTimeToKeepTimeSpan, CancellationToken cancellationToken = default);
     }
 }

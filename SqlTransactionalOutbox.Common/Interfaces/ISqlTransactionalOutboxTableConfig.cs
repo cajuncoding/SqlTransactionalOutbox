@@ -1,6 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Text;
 
 namespace SqlTransactionalOutbox
 {
@@ -25,5 +23,7 @@ namespace SqlTransactionalOutbox
         string PublishAttemptsFieldName { get; }
 
         string CreatedDateTimeUtcFieldName { get; }
+
+        string ScheduledPublishDateTimeUtcFieldName { get; }
     }
 }

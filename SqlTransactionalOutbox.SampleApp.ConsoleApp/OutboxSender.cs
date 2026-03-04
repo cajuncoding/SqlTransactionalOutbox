@@ -1,10 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Net;
-using System.Text;
-using System.Threading.Tasks;
-using Microsoft.Data.SqlClient;
+﻿using Microsoft.Data.SqlClient;
 using SqlTransactionalOutbox.SampleApp.AzureFunctions;
 using SqlTransactionalOutbox.SqlServer.MicrosoftDataNS;
 using SqlTransactionalOutbox.Utilities;
@@ -31,7 +25,7 @@ namespace SqlTransactionalOutbox.SampleApp.ConsoleApp
             this.SqlConnectionString = settings.SqlConnectionString;
         }
 
-        public async Task<ISqlTransactionalOutboxItem<Guid>> SendMessageAsync(string message)
+        public async Task<ISqlTransactionalOutboxItem<Guid>> SendMessageAsync(string message, TimeSpan? scheduledDelayTime)
         {
             //Initialize the Payload from the Body as Json!
             var payloadBuilder = new PayloadBuilder()
@@ -39,7 +33,10 @@ namespace SqlTransactionalOutbox.SampleApp.ConsoleApp
                 PublishTarget= this.ServiceBusTopic,
                 To = "CajunCoding",
                 Body = message,
-                FifoGroupingId = "AllConsoleAppTestItemsShouldBeFIFO"
+                FifoGroupingId = "AllConsoleAppTestItemsShouldBeFIFO",
+                ScheduledPublishDateTimeUtc = scheduledDelayTime.HasValue
+                    ? DateTimeOffset.UtcNow.Add(scheduledDelayTime.Value)
+                    : null
             };
 
             await using var sqlConnection = new SqlConnection(this.SqlConnectionString);
@@ -50,9 +47,7 @@ namespace SqlTransactionalOutbox.SampleApp.ConsoleApp
             //************************************************************
             var outboxItem = await sqlConnection.AddTransactionalOutboxPendingItemAsync(
                 publishTarget: payloadBuilder.PublishTarget,
-                payload: payloadBuilder.ToJObject(),
-                //It's always a good idea to ensure that a FIFO Group Id/Name is specified for any FIFO Subscriptions that may receive the messages...
-                fifoGroupingIdentifier: payloadBuilder.FifoGroupingId ?? "DefaultFifoGroup"
+                payload: payloadBuilder.ToJObject()
             ).ConfigureAwait(false);
 
             return outboxItem;

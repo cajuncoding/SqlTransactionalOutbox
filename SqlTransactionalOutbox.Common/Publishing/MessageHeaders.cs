@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
-
-namespace SqlTransactionalOutbox.Publishing
+﻿namespace SqlTransactionalOutbox.Publishing
 {
     public class JsonMessageFields
     {
@@ -14,6 +10,13 @@ namespace SqlTransactionalOutbox.Publishing
         public const string To = "to";
         public const string Body = "body";
         public const string FifoGroupingId = "fifoGroupingId"; // Convenience Alias for SessionId
+        
+        public const string ScheduledPublishDateTimeUtc = "scheduledPublishDateTimeUtc";
+        public const string ScheduledPublishTime = "scheduledPublishTime";
+        public const string ScheduledPublishDelayTimeSpan = "scheduledPublishDelayTimeSpan";
+        public const string ScheduledPublishDelay = "scheduledPublishDelay";
+        public const string ScheduledPublishDelayTemplate = "scheduledPublishDelayTemplate";
+
         public const string SessionId = "sessionid";
         public const string CorrelationId = "correlationId";
         public const string ReplyTo = "replyTo";
@@ -35,6 +38,8 @@ namespace SqlTransactionalOutbox.Publishing
         public static string ProcessorSender = $"{CustomHeaderPrefix}-processor-sender";
         public static string OutboxUniqueIdentifier = $"{CustomHeaderPrefix}-item-unique-identifier";
         public static string OutboxCreatedDateUtc = $"{CustomHeaderPrefix}-item-created-date-utc";
+        public static string OutboxScheduledPublishDateUtc = $"{CustomHeaderPrefix}-item-scheduled-publish-date-utc";
+        public static string OutboxScheduledPublishDelayTimeSpan = $"{CustomHeaderPrefix}-item-scheduled-publish-delay-timespan";
         public static string OutboxPublishingAttempts = $"{CustomHeaderPrefix}-item-publishing-attempts";
         public static string OutboxPublishingTarget = $"{CustomHeaderPrefix}-item-publishing-target";
 

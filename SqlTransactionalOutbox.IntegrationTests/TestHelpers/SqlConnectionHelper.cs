@@ -86,7 +86,11 @@ namespace SqlTransactionalOutbox.Tests
 
     public static class MicrosoftDataSqlTestHelpers
     {
-        public static async Task<List<ISqlTransactionalOutboxItem<Guid>>> PopulateTransactionalOutboxTestDataAsync(int testDataSize, bool clearExistingOutbox = true)
+        public static async Task<List<ISqlTransactionalOutboxItem<Guid>>> PopulateTransactionalOutboxTestDataAsync(
+            int testDataSize,
+            bool clearExistingOutbox = true,
+            DateTimeOffset? scheduledPublishDateTime = null
+        )
         {
             //Organize
             await using var sqlConnection = await SqlConnectionHelper.CreateMicrosoftDataSqlConnectionAsync();
@@ -101,7 +105,7 @@ namespace SqlTransactionalOutbox.Tests
             //*****************************************************************************************
             //* STEP 2 - Insert New Outbox Items to process with TestHarness for Publishing...
             //*****************************************************************************************
-            var outboxTestItems = TestHelper.CreateTestStringOutboxItemData(testDataSize);
+            var outboxTestItems = TestHelper.CreateTestStringOutboxItemData(testDataSize, scheduledPublishDateTime: scheduledPublishDateTime);
             var insertedResults = await sqlConnection
                 .AddTransactionalOutboxPendingItemListAsync(outboxTestItems)
                 .ConfigureAwait(false);

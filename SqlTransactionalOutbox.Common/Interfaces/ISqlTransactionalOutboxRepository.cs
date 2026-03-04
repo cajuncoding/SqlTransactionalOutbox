@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace SqlTransactionalOutbox
@@ -8,23 +9,27 @@ namespace SqlTransactionalOutbox
     {
         Task<List<ISqlTransactionalOutboxItem<TUniqueIdentifier>>> InsertNewOutboxItemsAsync(
             IEnumerable<ISqlTransactionalOutboxInsertionItem<TPayload>> outboxItems, 
-            int insertBatchSize = 20
+            int insertBatchSize = 20,
+            CancellationToken cancellationToken = default
         );
 
         Task<List<ISqlTransactionalOutboxItem<TUniqueIdentifier>>> UpdateOutboxItemsAsync(
             IEnumerable<ISqlTransactionalOutboxItem<TUniqueIdentifier>> outboxItems, 
-            int updateBatchSize = 20
+            int updateBatchSize = 20,
+            CancellationToken cancellationToken = default
         );
 
         Task<List<ISqlTransactionalOutboxItem<TUniqueIdentifier>>> RetrieveOutboxItemsAsync(
             OutboxItemStatus status, 
-            int maxBatchSize = -1
+            int maxBatchSize = -1,
+            TimeSpan? scheduledPublishPrefetchTime = null,
+            CancellationToken cancellationToken = default
         );
 
-        Task CleanupOutboxHistoricalItemsAsync(TimeSpan historyTimeToKeepTimeSpan);
+        Task CleanupOutboxHistoricalItemsAsync(TimeSpan historyTimeToKeepTimeSpan, CancellationToken cancellationToken = default);
 
-        Task IncrementPublishAttemptsForAllItemsByStatusAsync(OutboxItemStatus status);
+        Task IncrementPublishAttemptsForAllItemsByStatusAsync(OutboxItemStatus status, CancellationToken cancellationToken = default);
 
-        Task<IAsyncDisposable> AcquireDistributedProcessingMutexAsync();
+        Task<IAsyncDisposable> AcquireDistributedProcessingMutexAsync(CancellationToken cancellationToken = default);
     }
 }

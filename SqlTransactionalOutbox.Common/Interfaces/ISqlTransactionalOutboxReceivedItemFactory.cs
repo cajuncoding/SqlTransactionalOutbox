@@ -1,6 +1,4 @@
-﻿using System;
-
-namespace SqlTransactionalOutbox
+﻿namespace SqlTransactionalOutbox
 {
     public interface ISqlTransactionalOutboxReceivedItemFactory<TUniqueIdentifier, TPayload>
     {

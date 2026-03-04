@@ -1,10 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace SqlTransactionalOutbox.IntegrationTests.ConfigurationTests
+﻿namespace SqlTransactionalOutbox.IntegrationTests.ConfigurationTests
 {
     public class CustomSchemaNameOutboxTableConfig : OutboxTableConfig, ISqlTransactionalOutboxTableConfig
     {
@@ -13,6 +7,6 @@ namespace SqlTransactionalOutbox.IntegrationTests.ConfigurationTests
             TransactionalOutboxSchemaName = customOutboxSchemaName;
         }
 
-        public new string TransactionalOutboxSchemaName { get; }
+        public override string TransactionalOutboxSchemaName { get; protected set; }
     }
 }

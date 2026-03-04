@@ -1,7 +1,6 @@
 ﻿using System;
-using System.Collections;
 using System.Collections.Generic;
-using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using SqlTransactionalOutbox.CustomExtensions;
 using SqlTransactionalOutbox.Utilities;
@@ -28,7 +27,8 @@ namespace SqlTransactionalOutbox
 
         public virtual async Task<ISqlTransactionalOutboxProcessingResults<TUniqueIdentifier>> ProcessPendingOutboxItemsAsync(
             OutboxProcessingOptions processingOptions = null,
-            bool throwExceptionOnFailure = false
+            bool throwExceptionOnFailure = false,
+            CancellationToken cancellationToken = default
         )
         {
             var options = processingOptions ?? OutboxProcessingOptions.DefaultOutboxProcessingOptions;
@@ -39,7 +39,9 @@ namespace SqlTransactionalOutbox
             //Retrieve items to e processed from the Repository (ALL Pending items available for publishing attempt!)
             var pendingOutboxItems = await OutboxRepository.RetrieveOutboxItemsAsync(
                 OutboxItemStatus.Pending,
-                options.ItemProcessingBatchSize
+                maxBatchSize: options.ItemProcessingBatchSize,
+                scheduledPublishPrefetchTime: options.ScheduledPublishPrefetchTime,
+                cancellationToken: cancellationToken
             ).ConfigureAwait(false);
 
             results.ProcessingTimer.Stop();
@@ -62,7 +64,7 @@ namespace SqlTransactionalOutbox
             results.ProcessingTimer.Start();
 
             await using var distributedMutex = options.FifoEnforcedPublishingEnabled
-                ? await OutboxRepository.AcquireDistributedProcessingMutexAsync().ConfigureAwait(false)
+                ? await OutboxRepository.AcquireDistributedProcessingMutexAsync(cancellationToken).ConfigureAwait(false)
                 : new NoOpAsyncDisposable();
 
             //The distributed Mutex will ONLY be null if it could not be acquired; otherwise our
@@ -86,7 +88,8 @@ namespace SqlTransactionalOutbox
                 pendingOutboxItems,
                 options,
                 results,
-                throwExceptionOnFailure
+                throwExceptionOnFailure,
+                cancellationToken
             ).ConfigureAwait(false);
             
             return results;
@@ -96,10 +99,10 @@ namespace SqlTransactionalOutbox
             List<ISqlTransactionalOutboxItem<TUniqueIdentifier>> outboxItems, 
             OutboxProcessingOptions options,
             OutboxProcessingResults<TUniqueIdentifier> results,
-            bool throwExceptionOnFailure
+            bool throwExceptionOnFailure,
+            CancellationToken cancellationToken = default
         )
         {
-
             var skipFifoGroups = new HashSet<string>();
 
             foreach(var item in outboxItems)
@@ -114,7 +117,7 @@ namespace SqlTransactionalOutbox
                 {
                     try
                     {
-                        await ProcessSingleOutboxItemInternal(item, options, results);
+                        await ProcessSingleOutboxItemInternal(item, options, results, cancellationToken);
                     }
                     catch (Exception itemException)
                     {
@@ -137,7 +140,8 @@ namespace SqlTransactionalOutbox
 
         protected virtual async Task UpdateProcessedItemsInternal(
             OutboxProcessingResults<TUniqueIdentifier> results, 
-            OutboxProcessingOptions options
+            OutboxProcessingOptions options,
+            CancellationToken cancellationToken = default
         )
         {
             //Update & store the state for all Items Processed (e.g. Successful, Attempted, Failed, etc.)!
@@ -148,7 +152,7 @@ namespace SqlTransactionalOutbox
             if (processedItems.Count > 0)
             {
                 results.ProcessingTimer.Start();
-                await OutboxRepository.UpdateOutboxItemsAsync(processedItems, options.ItemUpdatingBatchSize).ConfigureAwait(false);
+                await OutboxRepository.UpdateOutboxItemsAsync(processedItems, options.ItemUpdatingBatchSize, cancellationToken).ConfigureAwait(false);
                 results.ProcessingTimer.Stop();
             }
 
@@ -161,7 +165,8 @@ namespace SqlTransactionalOutbox
         protected virtual async Task ProcessSingleOutboxItemInternal(
             ISqlTransactionalOutboxItem<TUniqueIdentifier> item,
             OutboxProcessingOptions options,
-            OutboxProcessingResults<TUniqueIdentifier> results
+            OutboxProcessingResults<TUniqueIdentifier> results,
+            CancellationToken cancellationToken = default
         )
         {
             //This process will publish pending items, while also cleaning up Pending Items that need to be Failed because
@@ -198,7 +203,12 @@ namespace SqlTransactionalOutbox
             else
             {
                 item.PublishAttempts++;
-                await OutboxPublisher.PublishOutboxItemAsync(item, options.FifoEnforcedPublishingEnabled).ConfigureAwait(false);
+                
+                await OutboxPublisher.PublishOutboxItemAsync(
+                    item,
+                    options.FifoEnforcedPublishingEnabled,
+                    cancellationToken
+                ).ConfigureAwait(false);
 
                 options.LogDebugCallback?.Invoke(
                     $"Item [{item.UniqueIdentifier}] published successfully after [{item.PublishAttempts}] publishing attempt(s)!"
@@ -220,7 +230,8 @@ namespace SqlTransactionalOutbox
             OutboxProcessingOptions options,
             OutboxProcessingResults<TUniqueIdentifier> results,
             bool throwExceptionOnFailure,
-            HashSet<string> skipFifoGroups
+            HashSet<string> skipFifoGroups,
+            CancellationToken cancellationToken = default
         )
         {
             var errorMessage = $"An Unexpected Exception occurred while processing outbox item [{item.UniqueIdentifier}].";

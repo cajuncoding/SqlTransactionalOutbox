@@ -1,5 +1,6 @@
 ﻿using System;
 using Microsoft.Data.SqlClient;
+using System.Threading;
 using System.Threading.Tasks;
 using SqlTransactionalOutbox.CustomExtensions;
 
@@ -10,33 +11,34 @@ namespace SqlTransactionalOutbox.SqlServer.MicrosoftDataNS
         public static async Task<ISqlTransactionalOutboxProcessingResults<Guid>> ProcessPendingOutboxItemsAsync(
             this SqlConnection sqlConnection,
             ISqlTransactionalOutboxPublisher<Guid> outboxPublisher,
-            OutboxProcessingOptions processingOptions,
-            bool throwExceptionOnFailure = false
+            OutboxProcessingOptions processingOptions = null,
+            bool throwExceptionOnFailure = false,
+            CancellationToken cancellationToken = default
         )
         {
             sqlConnection.AssertSqlConnectionIsValid();
             outboxPublisher.AssertNotNull(nameof(outboxPublisher));
-            processingOptions.AssertNotNull(nameof(processingOptions));
 
-            await using var outboxTransaction = (SqlTransaction)(await sqlConnection.BeginTransactionAsync().ConfigureAwait(false));
+            await using var outboxTransaction = (SqlTransaction)(await sqlConnection.BeginTransactionAsync(cancellationToken).ConfigureAwait(false));
             try
             {
                 var results = await outboxTransaction
                     .ProcessPendingOutboxItemsAsync(
                         outboxPublisher: outboxPublisher,
                         processingOptions: processingOptions,
-                        throwExceptionOnFailure: throwExceptionOnFailure
+                        throwExceptionOnFailure: throwExceptionOnFailure,
+                        cancellationToken
                     )
                     .ConfigureAwait(false);
 
-                await outboxTransaction.CommitAsync().ConfigureAwait(false);
+                await outboxTransaction.CommitAsync(cancellationToken).ConfigureAwait(false);
 
                 return results;
             }
             catch (Exception exc)
             {
                 //FIRST Rollback any pending changes...
-                await outboxTransaction.RollbackAsync().ConfigureAwait(false);
+                await outboxTransaction.RollbackAsync(cancellationToken).ConfigureAwait(false);
 
                 try
                 {
@@ -44,7 +46,7 @@ namespace SqlTransactionalOutbox.SqlServer.MicrosoftDataNS
                     //IF WE have issues retrieving the new items from the DB then we attempt to increment the
                     //  Publish Attempts in case there is an issue with the entry that is causing failures, so
                     //  that any potential problematic items will eventually be failed out and skipped.
-                    await sqlConnection.IncrementPublishAttemptsForAllPendingItemsAsync(outboxPublisher).ConfigureAwait(false);
+                    await sqlConnection.IncrementPublishAttemptsForAllPendingItemsAsync(outboxPublisher, cancellationToken).ConfigureAwait(false);
                 }
                 catch (Exception mitigationExc)
                 {
@@ -59,20 +61,20 @@ namespace SqlTransactionalOutbox.SqlServer.MicrosoftDataNS
         public static async Task<ISqlTransactionalOutboxProcessingResults<Guid>> ProcessPendingOutboxItemsAsync(
             this SqlTransaction sqlTransaction,
             ISqlTransactionalOutboxPublisher<Guid> outboxPublisher,
-            OutboxProcessingOptions processingOptions,
-            bool throwExceptionOnFailure = false
+            OutboxProcessingOptions processingOptions = null,
+            bool throwExceptionOnFailure = false,
+            CancellationToken cancellationToken = default
         )
         {
             sqlTransaction.AssertSqlTransactionIsValid();
             outboxPublisher.AssertNotNull(nameof(outboxPublisher));
-            processingOptions.AssertNotNull(nameof(processingOptions));
 
             //NOTE: Payload type isn't important when Publishing because we publish the already serialized
             //      payload anyway so to simplify the custom extension signature we can just use string payload type here.
             var outboxProcessor = new DefaultSqlServerTransactionalOutboxProcessor<string>(sqlTransaction, outboxPublisher);
 
             var results = await outboxProcessor
-                .ProcessPendingOutboxItemsAsync(processingOptions, throwExceptionOnFailure)
+                .ProcessPendingOutboxItemsAsync(processingOptions, throwExceptionOnFailure, cancellationToken)
                 .ConfigureAwait(false);
 
             return results;
@@ -80,21 +82,22 @@ namespace SqlTransactionalOutbox.SqlServer.MicrosoftDataNS
 
         private static async Task IncrementPublishAttemptsForAllPendingItemsAsync(
             this SqlConnection sqlConnection,
-            ISqlTransactionalOutboxPublisher<Guid> outboxPublisher
+            ISqlTransactionalOutboxPublisher<Guid> outboxPublisher,
+            CancellationToken cancellationToken = default
         )
         {
             outboxPublisher.AssertNotNull(nameof(outboxPublisher));
 
-            await using var outboxTransaction = (SqlTransaction)(await sqlConnection.BeginTransactionAsync().ConfigureAwait(false));
+            await using var outboxTransaction = (SqlTransaction)(await sqlConnection.BeginTransactionAsync(cancellationToken).ConfigureAwait(false));
 
             var outboxProcessor = new DefaultSqlServerTransactionalOutboxProcessor<string>(outboxTransaction, outboxPublisher);
             var outboxRepository = outboxProcessor.OutboxRepository;
-            
+
             await outboxRepository
-                .IncrementPublishAttemptsForAllItemsByStatusAsync(OutboxItemStatus.Pending)
+                .IncrementPublishAttemptsForAllItemsByStatusAsync(OutboxItemStatus.Pending, cancellationToken)
                 .ConfigureAwait(false);
 
-            await outboxTransaction.CommitAsync();
+            await outboxTransaction.CommitAsync(cancellationToken);
         }
 
     }

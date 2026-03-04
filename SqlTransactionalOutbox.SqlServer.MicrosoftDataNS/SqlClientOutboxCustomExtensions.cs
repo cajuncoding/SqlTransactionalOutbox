@@ -5,6 +5,7 @@ using Microsoft.Data.SqlClient;
 using System.Threading.Tasks;
 using SqlTransactionalOutbox.CustomExtensions;
 using SqlTransactionalOutbox.Utilities;
+using System.Threading;
 
 namespace SqlTransactionalOutbox.SqlServer.MicrosoftDataNS
 {
@@ -22,12 +23,16 @@ namespace SqlTransactionalOutbox.SqlServer.MicrosoftDataNS
         /// <param name="jsonText"></param>
         /// <param name="publishTopic"></param>
         /// <param name="fifoGroupingIdentifier"></param>
+        /// <param name="scheduledPublishDateTimeUtc"></param>
+        /// <param name="cancellationToken"></param>
         /// <returns></returns>
         public static async Task<ISqlTransactionalOutboxItem<Guid>> AddTransactionalOutboxPendingItemAsync(
             this SqlConnection sqlConnection,
             string jsonText,
             string publishTopic = null,
-            string fifoGroupingIdentifier = null
+            string fifoGroupingIdentifier = null,
+            DateTimeOffset? scheduledPublishDateTimeUtc = null,
+            CancellationToken cancellationToken = default
         )
         {
             var payloadBuilder = PayloadBuilder.FromJsonSafely(jsonText);
@@ -37,6 +42,8 @@ namespace SqlTransactionalOutbox.SqlServer.MicrosoftDataNS
             var publishingTarget = publishTopic ?? payloadBuilder.PublishTarget;
             publishingTarget.AssertNotNullOrWhiteSpace(nameof(payloadBuilder.PublishTarget), "No Publishing Topic was defined in the Payload or as a parameter.");
 
+            var validatedScheduledPublishDateTimeUtc = scheduledPublishDateTimeUtc ?? payloadBuilder.ScheduledPublishDateTimeUtc;
+
             //FIFO Grouping Identifier may be defined in the Payload OR as a discrete parameter that overrides the payload,
             //  but it is OPTIONAL.
             var fifoGroupId = fifoGroupingIdentifier ?? payloadBuilder.FifoGroupingId;
@@ -45,7 +52,9 @@ namespace SqlTransactionalOutbox.SqlServer.MicrosoftDataNS
                 .AddTransactionalOutboxPendingItemAsync(
                     publishingTarget,
                     payloadBuilder.ToJObject(),
-                    fifoGroupId
+                    fifoGroupId,
+                    scheduledPublishDateTimeUtc: validatedScheduledPublishDateTimeUtc,
+                    cancellationToken: cancellationToken
                 )
                 .ConfigureAwait(false);
 
@@ -62,30 +71,32 @@ namespace SqlTransactionalOutbox.SqlServer.MicrosoftDataNS
         /// <param name="publishTarget"></param>
         /// <param name="payload"></param>
         /// <param name="fifoGroupingIdentifier"></param>
+        /// <param name="scheduledPublishDateTimeUtc"></param>
+        /// <param name="cancellationToken"></param>
         /// <returns></returns>
         public static async Task<ISqlTransactionalOutboxItem<Guid>> AddTransactionalOutboxPendingItemAsync<TPayload>(
             this SqlConnection sqlConnection,
             string publishTarget,
             TPayload payload,
-            string fifoGroupingIdentifier = null
+            string fifoGroupingIdentifier = null,
+            DateTimeOffset? scheduledPublishDateTimeUtc = null,
+            CancellationToken cancellationToken = default
         )
         {
             sqlConnection.AssertSqlConnectionIsValid();
-            await using var outboxTransaction = (SqlTransaction)(await sqlConnection.BeginTransactionAsync().ConfigureAwait(false));
+            await using var outboxTransaction = (SqlTransaction)(await sqlConnection.BeginTransactionAsync(cancellationToken).ConfigureAwait(false));
             try
             {
                 var results = await outboxTransaction
-                    .AddTransactionalOutboxPendingItemAsync(publishTarget, payload, fifoGroupingIdentifier)
+                    .AddTransactionalOutboxPendingItemAsync(publishTarget, payload, fifoGroupingIdentifier, scheduledPublishDateTimeUtc, cancellationToken)
                     .ConfigureAwait(false);
 
-                await outboxTransaction.CommitAsync().ConfigureAwait(false);
-
+                await outboxTransaction.CommitAsync(cancellationToken).ConfigureAwait(false);
                 return results;
-
             }
             catch (Exception)
             {
-                await outboxTransaction.RollbackAsync().ConfigureAwait(false);
+                await outboxTransaction.RollbackAsync(cancellationToken).ConfigureAwait(false);
                 throw;
             }
         }
@@ -98,28 +109,30 @@ namespace SqlTransactionalOutbox.SqlServer.MicrosoftDataNS
         /// <typeparam name="TPayload"></typeparam>
         /// <param name="sqlConnection"></param>
         /// <param name="outboxInsertionItems"></param>
+        /// <param name="cancellationToken"></param>
         /// <returns></returns>
         public static async Task<List<ISqlTransactionalOutboxItem<Guid>>> AddTransactionalOutboxPendingItemListAsync<TPayload>(
             this SqlConnection sqlConnection,
-            IEnumerable<ISqlTransactionalOutboxInsertionItem<TPayload>> outboxInsertionItems
+            IEnumerable<ISqlTransactionalOutboxInsertionItem<TPayload>> outboxInsertionItems,
+            CancellationToken cancellationToken = default
         )
         {
             sqlConnection.AssertSqlConnectionIsValid();
-            await using var outboxTransaction = (SqlTransaction)(await sqlConnection.BeginTransactionAsync().ConfigureAwait(false));
-            
+            await using var outboxTransaction = (SqlTransaction)(await sqlConnection.BeginTransactionAsync(cancellationToken).ConfigureAwait(false));
+
             try
             {
                 var results = await outboxTransaction
-                    .AddTransactionalOutboxPendingItemListAsync(outboxInsertionItems)
+                    .AddTransactionalOutboxPendingItemListAsync(outboxInsertionItems, cancellationToken)
                     .ConfigureAwait(false);
 
-                await outboxTransaction.CommitAsync().ConfigureAwait(false);
+                await outboxTransaction.CommitAsync(cancellationToken).ConfigureAwait(false);
 
                 return results;
             }
             catch (Exception)
             {
-                await outboxTransaction.RollbackAsync().ConfigureAwait(false);
+                await outboxTransaction.RollbackAsync(cancellationToken).ConfigureAwait(false);
                 throw;
             }
         }
@@ -132,26 +145,28 @@ namespace SqlTransactionalOutbox.SqlServer.MicrosoftDataNS
         /// </summary>
         /// <param name="sqlConnection"></param>
         /// <param name="historyTimeToKeepTimeSpan"></param>
+        /// <param name="cancellationToken"></param>
         /// <returns></returns>
         public static async Task CleanupHistoricalOutboxItemsAsync(
             this SqlConnection sqlConnection,
-            TimeSpan historyTimeToKeepTimeSpan
+            TimeSpan historyTimeToKeepTimeSpan,
+            CancellationToken cancellationToken = default
         )
         {
             sqlConnection.AssertSqlConnectionIsValid();
-            await using var outboxTransaction = (SqlTransaction)(await sqlConnection.BeginTransactionAsync().ConfigureAwait(false));
-            
+            await using var outboxTransaction = (SqlTransaction)(await sqlConnection.BeginTransactionAsync(cancellationToken).ConfigureAwait(false));
+
             try
             {
                 await outboxTransaction
-                    .CleanupHistoricalOutboxItemsAsync(historyTimeToKeepTimeSpan)
+                    .CleanupHistoricalOutboxItemsAsync(historyTimeToKeepTimeSpan, cancellationToken)
                     .ConfigureAwait(false);
 
-                await outboxTransaction.CommitAsync().ConfigureAwait(false);
+                await outboxTransaction.CommitAsync(cancellationToken).ConfigureAwait(false);
             }
             catch (Exception)
             {
-                await outboxTransaction.RollbackAsync().ConfigureAwait(false);
+                await outboxTransaction.RollbackAsync(cancellationToken).ConfigureAwait(false);
                 throw;
             }
         }
@@ -167,12 +182,14 @@ namespace SqlTransactionalOutbox.SqlServer.MicrosoftDataNS
         /// <param name="jsonText"></param>
         /// <param name="publishTopic"></param>
         /// <param name="fifoGroupingIdentifier"></param>
+        /// <param name="cancellationToken"></param>
         /// <returns></returns>
         public static async Task<ISqlTransactionalOutboxItem<Guid>> AddTransactionalOutboxPendingItemAsync(
             this SqlTransaction sqlTransaction,
             string jsonText,
             string publishTopic = null,
-            string fifoGroupingIdentifier = null
+            string fifoGroupingIdentifier = null,
+            CancellationToken cancellationToken = default
         )
         {
             var payloadBuilder = PayloadBuilder.FromJsonSafely(jsonText);
@@ -190,7 +207,8 @@ namespace SqlTransactionalOutbox.SqlServer.MicrosoftDataNS
                 .AddTransactionalOutboxPendingItemAsync(
                     publishingTarget,
                     payloadBuilder.ToJObject(),
-                    fifoGroupId
+                    fifoGroupId,
+                    cancellationToken: cancellationToken
                 )
                 .ConfigureAwait(false);
 
@@ -206,12 +224,16 @@ namespace SqlTransactionalOutbox.SqlServer.MicrosoftDataNS
         /// <param name="publishTarget"></param>
         /// <param name="payload"></param>
         /// <param name="fifoGroupingIdentifier"></param>
+        /// <param name="scheduledPublishDateTimeUtc"></param>
+        /// <param name="cancellationToken"></param>
         /// <returns></returns>
         public static async Task<ISqlTransactionalOutboxItem<Guid>> AddTransactionalOutboxPendingItemAsync<TPayload>(
             this SqlTransaction sqlTransaction,
             string publishTarget,
             TPayload payload,
-            string fifoGroupingIdentifier = null
+            string fifoGroupingIdentifier = null,
+            DateTimeOffset? scheduledPublishDateTimeUtc = null,
+            CancellationToken cancellationToken = default
         )
         {
             sqlTransaction.AssertSqlTransactionIsValid();
@@ -221,7 +243,9 @@ namespace SqlTransactionalOutbox.SqlServer.MicrosoftDataNS
             var outboxItem = await outbox.InsertNewPendingOutboxItemAsync(
                 publishingTarget: publishTarget,
                 publishingPayload: payload,
-                fifoGroupingIdentifier: fifoGroupingIdentifier
+                fifoGroupingIdentifier: fifoGroupingIdentifier,
+                scheduledPublishDateTimeUtc: scheduledPublishDateTimeUtc,
+                cancellationToken: cancellationToken
             ).ConfigureAwait(false);
 
             return outboxItem;
@@ -234,10 +258,12 @@ namespace SqlTransactionalOutbox.SqlServer.MicrosoftDataNS
         /// <typeparam name="TPayload"></typeparam>
         /// <param name="sqlTransaction"></param>
         /// <param name="outboxInsertionItems"></param>
+        /// <param name="cancellationToken"></param>
         /// <returns></returns>
         public static async Task<List<ISqlTransactionalOutboxItem<Guid>>> AddTransactionalOutboxPendingItemListAsync<TPayload>(
             this SqlTransaction sqlTransaction,
-            IEnumerable<ISqlTransactionalOutboxInsertionItem<TPayload>> outboxInsertionItems
+            IEnumerable<ISqlTransactionalOutboxInsertionItem<TPayload>> outboxInsertionItems,
+            CancellationToken cancellationToken = default
         )
         {
             sqlTransaction.AssertSqlTransactionIsValid();
@@ -245,7 +271,7 @@ namespace SqlTransactionalOutbox.SqlServer.MicrosoftDataNS
             //SAVE the Item to the Outbox...
             var outbox = new DefaultSqlServerTransactionalOutbox<TPayload>(sqlTransaction);
             var outboxItems = await outbox
-                .InsertNewPendingOutboxItemsAsync(outboxInsertionItems)
+                .InsertNewPendingOutboxItemsAsync(outboxInsertionItems, cancellationToken)
                 .ConfigureAwait(false);
 
             return outboxItems;
@@ -257,10 +283,12 @@ namespace SqlTransactionalOutbox.SqlServer.MicrosoftDataNS
         /// </summary>
         /// <param name="sqlTransaction"></param>
         /// <param name="historyTimeToKeepTimeSpan"></param>
+        /// <param name="cancellationToken"></param>
         /// <returns></returns>
         public static async Task CleanupHistoricalOutboxItemsAsync(
             this SqlTransaction sqlTransaction,
-            TimeSpan historyTimeToKeepTimeSpan
+            TimeSpan historyTimeToKeepTimeSpan,
+            CancellationToken cancellationToken = default
         )
         {
             sqlTransaction.AssertSqlTransactionIsValid();
@@ -269,7 +297,7 @@ namespace SqlTransactionalOutbox.SqlServer.MicrosoftDataNS
             //      serialized form so to simplify the custom extension signature we can just use string payload type here.
             var outbox = new DefaultSqlServerTransactionalOutbox<string>(sqlTransaction);
             await outbox
-                .CleanupHistoricalOutboxItemsAsync(historyTimeToKeepTimeSpan)
+                .CleanupHistoricalOutboxItemsAsync(historyTimeToKeepTimeSpan, cancellationToken)
                 .ConfigureAwait(false);
         }
 

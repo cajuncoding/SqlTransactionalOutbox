@@ -1,9 +1,8 @@
 ﻿#nullable enable
 using System;
-using System.Collections.Generic;
 using System.Globalization;
-using System.Text;
 using SqlTransactionalOutbox.CustomExtensions;
+using SqlTransactionalOutbox.Utilities;
 
 namespace SqlTransactionalOutbox
 {
@@ -24,12 +23,23 @@ namespace SqlTransactionalOutbox
         public virtual ISqlTransactionalOutboxItem<TUniqueIdentifier> CreateNewOutboxItem(
             string publishingTarget,
             TPayload publishingPayload,
-            string? fifoGroupingIdentifier = null
+            string? fifoGroupingIdentifier = null,
+            DateTimeOffset? scheduledPublishDateTime = null
         )
         {
             //Validate key required values that are always user provided in this one place...
             publishingTarget.AssertNotNullOrWhiteSpace(nameof(publishingTarget));
             publishingPayload.AssertNotNull(nameof(publishingPayload));
+
+            //Intelligently initialize our PayloadBuilder (parsed from the Payload) to help us extract
+            //  optional dynamic properties/details that may be specified as part of Outbox Item Payload
+            //  itself (e.g. Publish Target, Fifo Grouping Identifier, Scheduled Publish DateTime, etc.)
+            var payloadBuilder = publishingPayload switch
+            {
+                string s => PayloadBuilder.FromJsonSafely(s),
+                object obj => PayloadBuilder.FromObject(obj),
+                _ => null
+            };
 
             //Serialize the Payload for Storage with our Outbox Item...
             var serializedPayload = PayloadSerializer.SerializePayload(publishingPayload);
@@ -40,11 +50,12 @@ namespace SqlTransactionalOutbox
                 //Initialize Internal Variables
                 UniqueIdentifier = UniqueIdentifierFactory.CreateUniqueIdentifier(),
                 Status = OutboxItemStatus.Pending,
-                FifoGroupingIdentifier = fifoGroupingIdentifier,
+                FifoGroupingIdentifier = fifoGroupingIdentifier ?? payloadBuilder?.FifoGroupingId,
                 PublishAttempts = 0,
                 CreatedDateTimeUtc = DateTimeOffset.UtcNow,
+                ScheduledPublishDateTimeUtc = (scheduledPublishDateTime ?? payloadBuilder?.ScheduledPublishDateTimeUtc).ToDateTimeOffsetAsUtc(),
                 //Initialize client provided details
-                PublishTarget = publishingTarget,
+                PublishTarget = publishingTarget ?? payloadBuilder?.PublishTarget,
                 Payload = serializedPayload
             };
 
@@ -53,7 +64,8 @@ namespace SqlTransactionalOutbox
 
         public virtual ISqlTransactionalOutboxItem<TUniqueIdentifier> CreateExistingOutboxItem(
             string uniqueIdentifier,
-            DateTimeOffset createdDateTimeUtc,
+            DateTimeOffset createdDateTime,
+            DateTimeOffset? scheduledPublishDateTime,
             string status,
             string fifoGroupingIdentifier,
             int publishAttempts,
@@ -65,7 +77,8 @@ namespace SqlTransactionalOutbox
 
             return CreateExistingOutboxItem(
                 UniqueIdentifierFactory.ParseUniqueIdentifier(uniqueIdentifier),
-                createdDateTimeUtc,
+                createdDateTime,
+                scheduledPublishDateTime,
                 status,
                 fifoGroupingIdentifier,
                 publishAttempts,
@@ -76,7 +89,8 @@ namespace SqlTransactionalOutbox
 
         public virtual ISqlTransactionalOutboxItem<TUniqueIdentifier> CreateExistingOutboxItem(
             TUniqueIdentifier uniqueIdentifier,
-            DateTimeOffset createdDateTimeUtc,
+            DateTimeOffset createdDateTime,
+            DateTimeOffset? scheduledPublishDateTime,
             string status,
             string fifoGroupingIdentifier,
             int publishAttempts,
@@ -86,8 +100,8 @@ namespace SqlTransactionalOutbox
         {
             uniqueIdentifier.AssertNotNull(nameof(uniqueIdentifier));
 
-            if (createdDateTimeUtc == default)
-                AssertInvalidArgument(nameof(createdDateTimeUtc), createdDateTimeUtc.ToString(CultureInfo.InvariantCulture));
+            if (createdDateTime == default)
+                AssertInvalidArgument(nameof(createdDateTime), createdDateTime.ToString(CultureInfo.InvariantCulture));
 
             if (publishAttempts < 0)
                 AssertInvalidArgument(nameof(publishAttempts), publishAttempts.ToString());
@@ -105,7 +119,8 @@ namespace SqlTransactionalOutbox
                 FifoGroupingIdentifier = fifoGroupingIdentifier,
                 Status = Enum.Parse<OutboxItemStatus>(status),
                 PublishAttempts = publishAttempts,
-                CreatedDateTimeUtc = createdDateTimeUtc,
+                CreatedDateTimeUtc = createdDateTime,
+                ScheduledPublishDateTimeUtc = scheduledPublishDateTime.ToDateTimeOffsetAsUtc(),
                 //Initialize client provided details
                 PublishTarget = publishTarget,
                 Payload = serializedPayload

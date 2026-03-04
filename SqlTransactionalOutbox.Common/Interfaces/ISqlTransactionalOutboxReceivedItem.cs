@@ -1,6 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
+﻿using System.Threading;
 using System.Threading.Tasks;
 using SqlTransactionalOutbox.Receiving;
 
@@ -30,10 +28,10 @@ namespace SqlTransactionalOutbox
 
         TPayloadBody ParsePayloadBody();
 
-        Task AcknowledgeSuccessfulReceiptAsync();
+        Task AcknowledgeSuccessfulReceiptAsync(CancellationToken cancellationToken = default);
 
-        Task RejectAndAbandonAsync();
+        Task RejectAndAbandonAsync(CancellationToken cancellationToken = default);
 
-        Task RejectAsDeadLetterAsync();
+        Task RejectAsDeadLetterAsync(CancellationToken cancellationToken = default);
     }
 }

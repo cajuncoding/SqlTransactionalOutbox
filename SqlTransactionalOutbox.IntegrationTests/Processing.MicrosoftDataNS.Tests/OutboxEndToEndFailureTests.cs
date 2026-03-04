@@ -25,7 +25,7 @@ namespace SqlTransactionalOutbox.IntegrationTests.MicrosoftDataNS
             var expectedTotalExpiredCount = 0;
 
             //*****************************************************************************************
-            //* STEP 1 - Prepare/Clear the Queue Table and populate initial Set of items (expected to Faile/Expire)
+            //* STEP 1 - Prepare/Clear the Queue Table and populate initial Set of items (expected to Fail/Expire)
             //              then wait for them to expire...
             //*****************************************************************************************
             await MicrosoftDataSqlTestHelpers.PopulateTransactionalOutboxTestDataAsync(failedItemTestDataSizeByBatch);
@@ -165,7 +165,7 @@ namespace SqlTransactionalOutbox.IntegrationTests.MicrosoftDataNS
             //*****************************************************************************************
             var publishedAttemptsList = new List<ISqlTransactionalOutboxItem<Guid>>();
             var failingPublisher = new TestHarnessSqlTransactionalOutboxPublisher(
-                (i, isFifoEnabled) =>
+                (i, isFifoEnabled, cancellationToken) =>
                 {
                     publishedAttemptsList.Add(i);
                     TestContext.WriteLine($"Successful -- We have intentionally Failed to Publish Item: {i.UniqueIdentifier}");
