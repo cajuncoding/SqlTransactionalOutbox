@@ -188,6 +188,10 @@ GO
   - Most are non-breaking changes and optional additions.
 - Added convenience support for the `PayloadBuilder` helper class to handle `ScheduledPublishDateTimeUtc` and to parse `ScheduledPublishDelay` using simplified syntax (e.g. 30s, 5m, 4.5h, etc.) or standard TimeSpan syntax.
   - Default integer parsing is in minutes (not hours like standard TimeSpan parsing).
+- Synced version across all packages.
+
+## Release Notes v1.0.4 / v1.0.5 (mixed versions depending on the package):
+ - Reverted Microsoft.Data.SqlClient package to version 5.2.3 to maintain compatibility with .Net 6.0 for existing applicaitons not yet updated.
 
 ## Release Notes v1.0.3:
 - Update Microsoft.Data.SqlClient package to new version to resolve vulnerability risks in older version.
