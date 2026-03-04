@@ -35,7 +35,6 @@ SqlTransactionalOutboxInitializer.Configure(config =>
             options.FifoEnforcedPublishingEnabled = true; //The Service Bus Topic is Session Enabled so we must processes it with FIFO Processing Enabled!
             options.MaxPublishingAttempts = appConfig.OutboxMaxPublishingRetryAttempts;
             options.TimeSpanToLive = appConfig.OutboxMaxTimeToLiveTimeSpan;
-            options.MaxPublishingAttempts = 5;
             options.TimeSpanToLive = TimeSpan.FromHours(1);
             //Optimize our Scheduled Delivery by pre-fetching items . . . 
             //NOTE: By tuning this value in combination with the Outbox Processing Interval (e.g. TransactionalOutboxAgentCronSchedule) you can ensure item delivery is

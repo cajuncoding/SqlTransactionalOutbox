@@ -23,6 +23,23 @@ then I do love-me-some-coffee!*
 <img src="https://cdn.buymeacoffee.com/buttons/default-orange.png" alt="Buy Me A Coffee" height="41" width="174">
 </a>
 
+
+## Release Notes v1.1.0:
+- Support for scheduled publishing of Events from the Outbox via ScheduledPublishDateTimeUtc property. Various code cleanup, usings cleanups, Json parsing fixes (to now support DateTime), etc. WIP... on Integration Tests and validation of functionality.
+- Finish end-to-end integration Tests for Scheduled functionality -- all passing.
+- Refactored prefetch time values to now be part of processing parameters and not Table configuration as much more appropriate location.
+- Implemented new SQL reader performance improvements and safety for handling NULL values.
+- Fixed AsyncThreadOutboxProcessingAgent to correctly implement distributed locking by default as a best practice; with parameters to support disabling and customizing the lock name.
+- General naming improvements for configuration options and new parameters.
+- Code cleanup (non-breaking) and stability fixes.
+- Add support for CancellationToken throughout the API as it was missing!
+- Fully migrated SqlTransactionalOutbox.SampleApp.AzureFunctions to the isolated process model; in-process model is deprecated by Microsoft.
+- Fixes and improvements to the Azure Function sample app.
+- Various stability fixes.
+- Added convenience support for PayloadBuilder to parse scheduledPublishDelay using simplified syntax -- such as 30s, 5m, 4.5h, etc. -- or standard TimeSpan syntax; default integer parsing is in minutes (not hours like standard TimeSpan).
+- Add actual ScheduledDelayTimeSpan details into PayloadBuilder and Message custom properties for observability, support, logging, etc.
+- Additional cleanup/fixes for SqlTransactionalOutbox.SampleApp.AzureFunction (isolated-process).
+
 ## Release Notes v1.0.3:
 - Update Microsoft.Data.SqlClient package to new version to resolve vulnerability risks in older version.
 - Update System.Data.SqlClient package to new version to resolve vulnerability risks in older version.
