@@ -1,12 +1,12 @@
 ﻿//using System;
 //using System.Collections.Generic;
-//using System.Data.SqlClient;
+//using Microsoft.Data.SqlClient;
 //using System.Text;
 //using System.Threading.Tasks;
 //using BenchmarkDotNet.Attributes;
 //using SqlTransactionalOutbox.IntegrationTests;
 //using SqlTransactionalOutbox.Tests;
-//using SqlTransactionalOutbox.SqlServer.SystemDataNS;
+//using SqlTransactionalOutbox.SqlServer.MicrosoftDataNS;
 //using Guid = System.Guid;
 
 //namespace SqlTransactionalOutbox.Benchmarks
@@ -27,15 +27,15 @@
 //                //*****************************************************************************************
 //                //* STEP 1 - Prepare/Clear the Queue Table
 //                //*****************************************************************************************
-//                await using var sqlConnection = await SqlConnectionHelper.CreateSystemDataSqlConnectionAsync();
-//                await SystemDataSqlTestHelpers.PopulateTransactionalOutboxTestDataAsync(DataSize);
+//                await using var sqlConnection = await SqlConnectionHelper.CreateMicrosoftDataSqlConnectionAsync();
+//                await MicrosoftDataSqlTestHelpers.PopulateTransactionalOutboxTestDataAsync(DataSize);
 //            }).GetAwaiter().GetResult();
 //        }
 
 //        [Benchmark]
 //        public async Task<int> TrueAsyncOriginal()
 //        {
-//            await using var sqlConnection = await SqlConnectionHelper.CreateSystemDataSqlConnectionAsync();
+//            await using var sqlConnection = await SqlConnectionHelper.CreateMicrosoftDataSqlConnectionAsync();
 //            await using var sqlTransaction = (SqlTransaction)await sqlConnection.BeginTransactionAsync();
 
 //            var outboxRepo = new SqlServerGuidTransactionalOutboxRepository<string>(sqlTransaction);
@@ -46,7 +46,7 @@
 //        [Benchmark]
 //        public async Task<int> SyncOverAsync()
 //        {
-//            await using var sqlConnection = await SqlConnectionHelper.CreateSystemDataSqlConnectionAsync();
+//            await using var sqlConnection = await SqlConnectionHelper.CreateMicrosoftDataSqlConnectionAsync();
 //            await using var sqlTransaction = (SqlTransaction)await sqlConnection.BeginTransactionAsync();
 
 //            var outboxRepo = new SqlServerSyncOverAsyncGuidTransactionalOutboxRepository<string>(sqlTransaction);
@@ -57,7 +57,7 @@
 //        [Benchmark]
 //        public async Task<int> TrueAsyncOptimized()
 //        {
-//            await using var sqlConnection = await SqlConnectionHelper.CreateSystemDataSqlConnectionAsync();
+//            await using var sqlConnection = await SqlConnectionHelper.CreateMicrosoftDataSqlConnectionAsync();
 //            await using var sqlTransaction = (SqlTransaction)await sqlConnection.BeginTransactionAsync();
 
 //            var outboxRepo = new SqlServerAsyncOptimizeExperimentsTransactionalOutboxRepository<string>(sqlTransaction);
