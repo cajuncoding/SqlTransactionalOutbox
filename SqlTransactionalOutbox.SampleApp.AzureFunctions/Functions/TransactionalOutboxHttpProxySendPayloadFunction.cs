@@ -8,7 +8,7 @@ using Microsoft.Extensions.Logging;
 using Functions.Worker.AddOns.Common;
 using SqlTransactionalOutbox.SqlServer.MicrosoftDataNS;
 using SqlTransactionalOutbox.Utilities;
-using Newtonsoft.Json;
+using SystemTextJsonHelpers;
 
 namespace SqlTransactionalOutbox.SampleApp.AzureFunctions
 {
@@ -51,7 +51,7 @@ namespace SqlTransactionalOutbox.SampleApp.AzureFunctions
             //************************************************************
             //*** Add The Payload to our Outbox
             //************************************************************
-            var jsonPayload = payloadBuilder.ToJObject();
+            var jsonPayload = payloadBuilder.ToJsonObject();
 
             var outboxItem = await sqlConnection.AddTransactionalOutboxPendingItemAsync(
                 publishTarget: payloadBuilder.PublishTarget,
@@ -61,7 +61,7 @@ namespace SqlTransactionalOutbox.SampleApp.AzureFunctions
             ).ConfigureAwait(false);
 
             //Log results and return response to the client...
-            logger.LogInformation($"Payload:{Environment.NewLine}{jsonPayload.ToString(Formatting.Indented)}");
+            logger.LogInformation($"Payload:{Environment.NewLine}{jsonPayload.ToJsonIndented()}");
 
             return payloadBuilder;
         }

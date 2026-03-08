@@ -1,22 +1,23 @@
-﻿using System;
+﻿using SqlTransactionalOutbox.CustomExtensions;
+using System;
+using System.Collections.Generic;
 using System.Diagnostics;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
+using System.Linq;
+using System.Net.Http.Headers;
+using System.Text.Json;
+using System.Text.Json.Nodes;
+using SystemTextJsonHelpers;
 
 namespace SqlTransactionalOutbox.JsonExtensions
 {
     public static class JsonHelpers
     {
-        public static JObject ParseSafely(string jsonText, JsonSerializerSettings jsonSerializerSettings = null)
+        public static JsonNode ParseSafely(string jsonText, JsonSerializerOptions jsonSerializerOptions = null)
         {
             try
             {
                 if (IsDuckTypedJson(jsonText))
-                {
-
-                    var json = JsonConvert.DeserializeObject<JObject>(jsonText, jsonSerializerSettings);
-                    return json;
-                }
+                    return jsonText.ToJsonNode(jsonSerializerOptions);
             }
             catch (Exception)
             {
@@ -49,51 +50,49 @@ namespace SqlTransactionalOutbox.JsonExtensions
             {
                 try
                 {
-                    var obj = JToken.Parse(jsonText);
+                    var obj = jsonText.ToJsonNode();
                     return true;
                 }
-                catch (JsonReaderException jex)
+                catch (Exception ex)
                 {
                     #if DEBUG
-                    Debug.WriteLine(jex.Message);
-                    #endif
-                }
-                catch (Exception ex) //some other exception
-                {
-                    #if DEBUG
-                    Debug.WriteLine(ex.ToString());
+                    Debug.WriteLine(ex.GetMessagesRecursively());
                     #endif
                 }
             }
 
             return false;
         }
-
-        public static string FormatAsJsonIndented(this string jsonText)
-        {
-            var json = ParseSafely(jsonText);
-            return json != null
-                ? json.ToString(Formatting.Indented)
-                : jsonText;
-        }
     }
 
     public static class JsonCustomExtensions
     {
-        public static TValue ValueSafely<TValue>(this JObject json, string fieldName, TValue defaultValue = default)
-        {
-            if (json == null) return defaultValue;
+        private static readonly JsonSerializerOptions _relaxedJsonSerializerOptions = SystemTextJsonDefaults.CreateRelaxedJsonSerializerOptions();
 
+        public static IEnumerable<string> GetPropertyNames(this JsonObject json)
+            => json?.Select(kvp => kvp.Key) ?? Enumerable.Empty<string>();
+
+        public static TValue ValueSafely<TValue>(this JsonObject json, string fieldName, TValue defaultValue = default)
+            => ValueSafelyInternal(json?[fieldName], defaultValue);
+
+        public static TValue ValueSafely<TValue>(this JsonValue jsonValueNode, TValue defaultValue = default)
+            => ValueSafelyInternal(jsonValueNode, defaultValue);
+
+        private static TValue ValueSafelyInternal<TValue>(JsonNode jsonNode, TValue defaultValue = default)
+        {
             try
             {
-                var jToken = json.GetValue(fieldName, StringComparison.OrdinalIgnoreCase);
-                var value = jToken == null
-                    ? defaultValue
-                    : jToken.Value<TValue>();
-
-                return value;
+                return jsonNode switch
+                {
+                    //Short circuit for null case to avoid unnecessary allocations & processing...
+                    null => defaultValue,
+                    //For primitives JsonValue.TryGetValue<TValue> is fast...
+                    JsonValue valueNode when valueNode.TryGetValue<TValue>(out var primitive) => primitive,
+                    //Fallback to System.Text.Json deserialization
+                    JsonNode node => node.Deserialize<TValue>(_relaxedJsonSerializerOptions) ?? defaultValue,
+                };
             }
-            catch (Exception)
+            catch
             {
                 return defaultValue;
             }

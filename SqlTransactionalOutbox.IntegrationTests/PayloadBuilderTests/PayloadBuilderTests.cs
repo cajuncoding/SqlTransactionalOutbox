@@ -1,11 +1,11 @@
 ﻿using System;
 using System.Linq;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
-using Newtonsoft.Json;
 using SqlTransactionalOutbox.JsonExtensions;
 using SqlTransactionalOutbox.Tests;
 using SqlTransactionalOutbox.Utilities;
 using SqlTransactionalOutbox.CustomExtensions;
+using SystemTextJsonHelpers;
 
 namespace SqlTransactionalOutbox.IntegrationTests
 {
@@ -52,7 +52,7 @@ namespace SqlTransactionalOutbox.IntegrationTests
             ";
 
             var payloadBuilder = PayloadBuilder.FromJsonSafely(jsonText);
-            var jsonPayload = payloadBuilder.ToJObject();
+            var jsonPayload = payloadBuilder.ToJsonObject();
 
             Assert.AreEqual(TestConfiguration.AzureServiceBusTopic, jsonPayload.ValueSafely<string>(nameof(PayloadBuilder.PublishTarget)));
             Assert.AreEqual("HttpProxy-IntegrationTest", jsonPayload.ValueSafely<string>(nameof(PayloadBuilder.FifoGroupingId)));
@@ -111,7 +111,7 @@ namespace SqlTransactionalOutbox.IntegrationTests
 
             //Compare and Validate the Complex Body values...
             var originalBody = tempObject.Body;
-            var payloadBody = JsonConvert.DeserializeObject<ComplexBody>(payloadBuilder.Body, PayloadBuilder.OutboxJsonSerializerSettings);
+            var payloadBody = payloadBuilder.Body.FromJsonTo<ComplexBody>(PayloadBuilder.OutboxJsonSerializerOptions);
             Assert.AreEqual(originalBody.Message, payloadBody.Message);
             Assert.IsTrue(originalBody.Ids.SequenceEqual(payloadBody.Ids));
             Assert.IsTrue(originalBody.Guids.SequenceEqual(payloadBody.Guids));
@@ -137,7 +137,7 @@ namespace SqlTransactionalOutbox.IntegrationTests
                 PublishTarget = TestConfiguration.AzureServiceBusTopic, // aka Topic for Azure Service Bus!
                 FifoGroupingId = "HttpProxy-IntegrationTest",
                 To = "CajunCoding",
-                Body = JsonConvert.SerializeObject(complexBodyModel, PayloadBuilder.OutboxJsonSerializerSettings)
+                Body = complexBodyModel.ToJson(PayloadBuilder.OutboxJsonSerializerOptions)
             }
             .ApplyValues(complexBodyModel);
 
@@ -148,7 +148,7 @@ namespace SqlTransactionalOutbox.IntegrationTests
 
             //Compare and Validate the Complex Body values...
             var originalBody = complexBodyModel;
-            var payloadBody = JsonConvert.DeserializeObject<ComplexBody>(payloadBuilder.Body, PayloadBuilder.OutboxJsonSerializerSettings);
+            var payloadBody = payloadBuilder.Body.FromJsonTo<ComplexBody>(PayloadBuilder.OutboxJsonSerializerOptions);
             Assert.AreEqual(originalBody.Message, payloadBody.Message);
             Assert.IsTrue(originalBody.Ids.SequenceEqual(payloadBody.Ids));
             Assert.IsTrue(originalBody.Guids.SequenceEqual(payloadBody.Guids));

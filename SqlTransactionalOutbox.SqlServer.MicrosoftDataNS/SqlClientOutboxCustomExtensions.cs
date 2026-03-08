@@ -51,7 +51,7 @@ namespace SqlTransactionalOutbox.SqlServer.MicrosoftDataNS
             var results = await sqlConnection
                 .AddTransactionalOutboxPendingItemAsync(
                     publishingTarget,
-                    payloadBuilder.ToJObject(),
+                    payloadBuilder.ToJsonObject(),
                     fifoGroupId,
                     scheduledPublishDateTimeUtc: validatedScheduledPublishDateTimeUtc,
                     cancellationToken: cancellationToken
@@ -206,7 +206,7 @@ namespace SqlTransactionalOutbox.SqlServer.MicrosoftDataNS
             var results = await sqlTransaction
                 .AddTransactionalOutboxPendingItemAsync(
                     publishingTarget,
-                    payloadBuilder.ToJObject(),
+                    payloadBuilder.ToJsonObject(),
                     fifoGroupId,
                     cancellationToken: cancellationToken
                 )
