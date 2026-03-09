@@ -79,7 +79,7 @@ namespace SqlTransactionalOutbox.AzureServiceBus.Publishing
                 ? outboxItem.FifoGroupingIdentifier.Trim()
                 : null;
 
-            //Attempt to decode teh Message as JObject to see if it contains dynamically defined parameters
+            //Attempt to decode teh Message as Json to see if it contains dynamically defined parameters
             //that need to be mapped into the message; otherwise if it's just a string we populate only the minimum.
             var json = ParsePayloadAsJsonSafely(outboxItem);
             if (json != null) //Process the payload as Json with potential dynamic parameters for the message...
@@ -128,7 +128,7 @@ namespace SqlTransactionalOutbox.AzureServiceBus.Publishing
 
                 if (headers is JsonObject jsonHeaders)
                     foreach (var propName in jsonHeaders.GetPropertyNames())
-                        if(jsonHeaders.ValueSafely<string>(propName) is string stringValue)
+                        if(jsonHeaders.PropertyValueSafely<string>(propName) is string stringValue)
                             message.ApplicationProperties.Add(MessageHeaders.ToHeader(propName.ToLower()), stringValue);
 
             }
@@ -175,7 +175,7 @@ namespace SqlTransactionalOutbox.AzureServiceBus.Publishing
             => Encoding.UTF8.GetBytes(publishingPayload);
 
         protected virtual TValue GetJsonValueSafely<TValue>(JsonObject json, string fieldName, TValue defaultValue = default)
-            => json.ValueSafely(fieldName, defaultValue);
+            => json.PropertyValueSafely(fieldName, defaultValue);
 
         protected virtual JsonObject ParsePayloadAsJsonSafely(ISqlTransactionalOutboxItem<TUniqueIdentifier> outboxItem)
         {

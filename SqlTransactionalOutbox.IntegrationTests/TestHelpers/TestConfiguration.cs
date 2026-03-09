@@ -1,9 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Runtime.CompilerServices;
-using System.Text;
-using Microsoft.Extensions.Configuration;
 using SqlTransactionalOutbox.SampleApp.AzureFunctions;
 using SqlTransactionalOutbox.SampleApp.Common.Configuration;
 

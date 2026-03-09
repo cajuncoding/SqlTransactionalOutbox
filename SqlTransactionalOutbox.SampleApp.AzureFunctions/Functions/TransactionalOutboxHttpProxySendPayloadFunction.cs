@@ -34,7 +34,7 @@ namespace SqlTransactionalOutbox.SampleApp.AzureFunctions
             //     such as PublishTarget, ScheduledPublishDateTimeUtc, FifoGroupingId, etc. directly from the
             //     JSON Payload which provides full flexibility and control to the clients sending the messages!
             var jsonText = await req.ReadAsStringAsync();
-            var payloadBuilder = PayloadBuilder.FromJsonSafely(jsonText);
+            var payloadBuilder = PayloadBuilder.FromJson(jsonText);
 
             //Apply fallback values from the QueryString along with all other binding values from the Function Binding Data!
             //NOTE: This will only set values not already initialized from Json above...

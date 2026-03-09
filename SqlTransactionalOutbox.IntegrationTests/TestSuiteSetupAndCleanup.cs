@@ -1,9 +1,8 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Text;
 using System.Threading.Tasks;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using SqlTransactionalOutbox.Tests;
+using SystemTextJsonHelpers;
 
 namespace SqlTransactionalOutbox.IntegrationTests
 {
@@ -13,6 +12,7 @@ namespace SqlTransactionalOutbox.IntegrationTests
         [AssemblyInitialize]
         public static async Task AssemblyInitializeAsync(TestContext context)
         {
+            SystemTextJsonDefaults.ConfigureRelaxedWebDefaults();
             await CleanupOutboxAsync();
         }
 
