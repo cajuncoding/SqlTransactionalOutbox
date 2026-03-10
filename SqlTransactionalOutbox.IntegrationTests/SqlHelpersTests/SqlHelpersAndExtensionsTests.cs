@@ -44,7 +44,7 @@ namespace SqlTransactionalOutbox.IntegrationTests.SqlHelpersTests
             Assert.IsNull(sqlReader.GetValueSafely<DateTime?>(sqlReader.GetOrdinal("DTNULL")));
 
             // NULL handling for non-nullable should throw
-            Assert.ThrowsException<InvalidOperationException>(() => sqlReader.GetValueSafely<DateTime>(sqlReader.GetOrdinal("DTNULL")));
+            Assert.ThrowsExactly<InvalidOperationException>(() => sqlReader.GetValueSafely<DateTime>(sqlReader.GetOrdinal("DTNULL")));
 
             // bool, int, decimal, byte[]
             Assert.AreEqual(true, sqlReader.GetValueSafely<bool>(sqlReader.GetOrdinal("B")));
