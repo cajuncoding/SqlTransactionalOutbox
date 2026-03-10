@@ -16,9 +16,11 @@ namespace SqlTransactionalOutbox.JsonExtensions
                 if (IsDuckTypedJson(jsonText))
                     return jsonText.FromJsonTo<JsonNode>(jsonSerializerOptions);
             }
-            catch (Exception)
+            catch (Exception ex)
             {
-                //DO NOTHING
+                #if DEBUG
+                Debug.WriteLine(ex.GetMessagesRecursively());
+                #endif
             }
 
             return null;
