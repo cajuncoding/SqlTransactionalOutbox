@@ -3,7 +3,7 @@
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
     <RootNamespace>SqlTransactionalOutbox.AzureServiceBus</RootNamespace>
-    <Version>1.1.0</Version>
+    <Version>2.0</Version>
     <Authors>BBernard / CajunCoding</Authors>
     <Copyright>Copyright © 2021</Copyright>
     <Description>
@@ -15,15 +15,9 @@
     <RepositoryUrl>https://github.com/cajuncoding/SqlTransactionalOutbox</RepositoryUrl>
     <PackageTags>sql server sqlserver sql-server transactional outbox transactional-outbox outbox-pattern microservice eventservices event-services event-notifications azure service bus azurefunctions azure-functions</PackageTags>
     <PackageReleaseNotes>
-      Release Notes:
-      - New support for scheduled publishing of Events from the Outbox for publishing/delivery at any time in the future.
-      - Significant updates to the Sample Apps have been added and fully illustrate the new Scheduled delivery feature.
-      - Azure Functions Sample App has been fully migrated to the `isolated process` model; as the legacy `in-process` model is deprecated.
-      - Implemented new SQL reader performance improvements and safety for handling NULL values.
-      - Fixed AsyncThreadOutboxProcessingAgent to correctly implement distributed locking by default as a best practice; with parameters to support disabling and customizing the lock name.
-      - Add full support for CancellationToken throughout the API as it was missing!
-      - Various code cleanup, Json parsing fixes (to now support DateTime), and stability improvements.
-      - Most are non-breaking changes and optional additions.
+      V2.0 Release Notes:
+      - Possible Breaking Change: JSON serialization is now fully migrated to System.Text.Json as it is the recommended and modern JSON library for .Net; and also to eliminate the dependency on Newtonsoft.Json.
+      - Breaking Change: Migrated to .Net 8+ support only -- this along with the above also bring along with them additional performance improvements and better support as .Net 6 is no longer supported by Microsoft.
 
       Prior Release Notes:
       - Update System.Data.SqlClient package to new version to resolve vulnerability risks in older version.
