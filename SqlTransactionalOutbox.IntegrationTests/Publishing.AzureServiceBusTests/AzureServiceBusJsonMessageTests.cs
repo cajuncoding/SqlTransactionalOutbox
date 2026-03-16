@@ -2,12 +2,12 @@
 using System.Diagnostics;
 using System.Threading.Tasks;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
-using Newtonsoft.Json;
 using SqlTransactionalOutbox.Tests;
 using SqlTransactionalOutbox.AzureServiceBus;
 using SqlTransactionalOutbox.AzureServiceBus.Receiving;
 using SqlTransactionalOutbox.CustomExtensions;
 using SqlTransactionalOutbox.SqlServer.MicrosoftDataNS;
+using SystemTextJsonHelpers;
 
 namespace SqlTransactionalOutbox.IntegrationTests
 {
@@ -37,7 +37,7 @@ namespace SqlTransactionalOutbox.IntegrationTests
                 }
             };
 
-            var jsonPayload = JsonConvert.SerializeObject(testPayload);
+            var jsonPayload = testPayload.ToJson();
             var outboxItemFactory = new DefaultOutboxItemFactory<string>();
             var uniqueIdGuidFactory = outboxItemFactory.UniqueIdentifierFactory;
 
@@ -99,7 +99,7 @@ namespace SqlTransactionalOutbox.IntegrationTests
                 }
             };
 
-            var jsonText = JsonConvert.SerializeObject(testPayload);
+            var jsonText = testPayload.ToJson();
 
             //*****************************************************************************************
             //* STEP 2 - Store the Dynamic Payload into the Outbox!

@@ -1,51 +1,30 @@
-﻿using System;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
-using SqlTransactionalOutbox.Utilities;
+﻿using SqlTransactionalOutbox.Caching;
+using System;
+using SystemTextJsonHelpers;
 
 namespace SqlTransactionalOutbox
 {
     public class OutboxPayloadJsonSerializer : ISqlTransactionalOutboxSerializer
     {
-        private static readonly Type _stringType = typeof(string);
-        private static readonly Type _jTokenType = typeof(JToken);
-        //private static readonly Type _jObjectType = typeof(JObject);
-
         public string SerializePayload<TPayload>(TPayload payload)
         {
-            switch (payload)
+            return payload switch
             {
-                case string stringPayload:
-                    return stringPayload;
-                //BBernard - 01/18/2022
-                //NOTE: TO ensure that our JsonSerializer Settings are applied we can't use ToString(), but
-                //      normal JsonConvert.SerializeObject() (in our default: case below) handles the JToken just fine!
-                //case JToken jsonPayload:
-                //    return jsonPayload.ToString();
-                default:
-                {
-                    //Use Json as Default Serialization for the vast majority (if not all) use cases...
-                    var serializedResult = JsonConvert.SerializeObject(payload, PayloadBuilder.OutboxJsonSerializerSettings);
-                    return serializedResult;
-                }
-            }
+                string stringPayload => stringPayload,
+                //Use Json as Default Serialization for the vast majority (if not all) use cases...
+                _ => payload.ToJson(SqlTransactionalOutboxDefaults.DefaultJsonSerializerOptions)
+            };
         }
 
         public TPayload DeserializePayload<TPayload>(string payload)
         {
             var payloadType = typeof(TPayload);
-            if (payloadType == _stringType || payloadType.IsAssignableFrom(_stringType))
-            {
+            if (payloadType == TypeCache.String || payloadType.IsAssignableFrom(TypeCache.String))
                 return (TPayload)(object)payload;
-            }
-            else if (_jTokenType.IsAssignableFrom(payloadType))
-            {
-                return (TPayload)(object)JToken.Parse(payload);
-            }
             else
             {
                 //Use Json as Default Serialization for the vast majority (if not all) use cases...
-                var deserializedResult = JsonConvert.DeserializeObject<TPayload>(payload, PayloadBuilder.OutboxJsonSerializerSettings);
+                var deserializedResult = payload.FromJsonTo<TPayload>(SqlTransactionalOutboxDefaults.DefaultJsonSerializerOptions);
                 return deserializedResult;
             }
         }

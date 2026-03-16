@@ -1,5 +1,7 @@
 ﻿using System;
+using System.Text.Json;
 using SqlTransactionalOutbox.CustomExtensions;
+using SystemTextJsonHelpers;
 
 namespace SqlTransactionalOutbox
 {
@@ -15,6 +17,11 @@ namespace SqlTransactionalOutbox
         public static ISqlTransactionalOutboxTableConfig OutboxTableConfig { get; internal set; }
         public static int DistributedMutexAcquisitionTimeoutSeconds { get; internal set; }
         public static string DistributeMutexLockPrefix { get; internal set; }
+
+        internal static JsonSerializerOptions InternalSqlTransactionalOutboxDefaultJsonSerializerOptions { get; set; }
+
+        public static JsonSerializerOptions DefaultJsonSerializerOptions 
+            => InternalSqlTransactionalOutboxDefaultJsonSerializerOptions ?? SystemTextJsonDefaults.DefaultSerializerOptions;
     }
 
     public class SqlTransactionalOutboxInitializer
@@ -85,6 +92,30 @@ namespace SqlTransactionalOutbox
                 if (lockNamePrefix != null)
                     SqlTransactionalOutboxDefaults.DistributeMutexLockPrefix = lockNamePrefix;
 
+                return this;
+            }
+
+            /// <summary>
+            /// Initialize the global default settings for the OutboxTableConfig which will be supported by all convenience methods (e.g. Sql Custom Extensions)!
+            /// NOTE: This should generally ONLY be called once at application startup and any thread concerns must be manually controlled by the calling code!
+            /// </summary>
+            /// <param name="customConfig"></param>
+            public ConfigBuilder WithDefaultJsonSerializerOptions(JsonSerializerOptions jsonSerializerOptions)
+            {
+                SqlTransactionalOutboxDefaults.InternalSqlTransactionalOutboxDefaultJsonSerializerOptions = jsonSerializerOptions;
+                return this;
+            }
+
+            /// <summary>
+            /// Initialize SystemTextJsonHelpers.SystemTextJsonDefaults.DefaultSerializerOptions as the global default System.Text.Json serializer options for JSON Serialization
+            /// that is automaticaly handled by the SqlTransactionalOutbox library  which will be used by all convenience methods (e.g. Sql Custom Extensions)!
+            /// NOTE: THis is the default behavior if no other options are specified but this method allows for re-setting/enforcing the use of the SystemTextJsonHelpers defaults.
+            /// NOTE: This should generally ONLY be called once at application startup and any thread concerns must be manually controlled by the calling code!
+            /// </summary>
+            /// <param name="customConfig"></param>
+            public ConfigBuilder UseSystemTextJsonDefaultsFromSystemTextJsonHelpers()
+            {
+                SqlTransactionalOutboxDefaults.InternalSqlTransactionalOutboxDefaultJsonSerializerOptions = null;
                 return this;
             }
 

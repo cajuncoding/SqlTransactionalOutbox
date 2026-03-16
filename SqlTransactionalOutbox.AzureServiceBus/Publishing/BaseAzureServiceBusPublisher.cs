@@ -1,15 +1,16 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
+using System.Text.Json.Nodes;
 using System.Threading;
 using System.Threading.Tasks;
 using Azure.Messaging.ServiceBus;
-using Newtonsoft.Json.Linq;
 using SqlTransactionalOutbox.AzureServiceBus.Common;
 using SqlTransactionalOutbox.CustomExtensions;
 using SqlTransactionalOutbox.JsonExtensions;
 using SqlTransactionalOutbox.Publishing;
-
+using SystemTextJsonHelpers;
 
 namespace SqlTransactionalOutbox.AzureServiceBus.Publishing
 {
@@ -78,7 +79,7 @@ namespace SqlTransactionalOutbox.AzureServiceBus.Publishing
                 ? outboxItem.FifoGroupingIdentifier.Trim()
                 : null;
 
-            //Attempt to decode teh Message as JObject to see if it contains dynamically defined parameters
+            //Attempt to decode teh Message as Json to see if it contains dynamically defined parameters
             //that need to be mapped into the message; otherwise if it's just a string we populate only the minimum.
             var json = ParsePayloadAsJsonSafely(outboxItem);
             if (json != null) //Process the payload as Json with potential dynamic parameters for the message...
@@ -121,13 +122,14 @@ namespace SqlTransactionalOutbox.AzureServiceBus.Publishing
                 message.Body = new BinaryData(ConvertPublishingPayloadToBytes(messageBody));
 
                 //Populate HeadersLookup/User Properties if defined dynamically...
-                var headers = GetJsonValueSafely<JObject>(json, JsonMessageFields.Headers)
-                    ?? GetJsonValueSafely<JObject>(json, JsonMessageFields.AppProperties)
-                    ?? GetJsonValueSafely<JObject>(json, JsonMessageFields.UserProperties);
+                var headers = json[JsonMessageFields.Headers]
+                    ?? json[JsonMessageFields.AppProperties]
+                    ?? json[JsonMessageFields.UserProperties];
 
-                if (headers != null)
-                    foreach (JProperty prop in headers.Properties())
-                        message.ApplicationProperties.Add(MessageHeaders.ToHeader(prop.Name.ToLower()), prop.Value.ToString());
+                if (headers is JsonObject jsonHeaders)
+                    foreach (var propName in jsonHeaders.GetPropertyNames())
+                        if(jsonHeaders.PropertyValueSafely<string>(propName) is string stringValue)
+                            message.ApplicationProperties.Add(MessageHeaders.ToHeader(propName.ToLower()), stringValue);
 
             }
             else //Process the payload as a raw string with no additional dynamic fields...
@@ -172,14 +174,14 @@ namespace SqlTransactionalOutbox.AzureServiceBus.Publishing
         protected virtual byte[] ConvertPublishingPayloadToBytes(string publishingPayload)
             => Encoding.UTF8.GetBytes(publishingPayload);
 
-        protected virtual TValue GetJsonValueSafely<TValue>(JObject json, string fieldName, TValue defaultValue = default)
-            => json.ValueSafely(fieldName, defaultValue);
+        protected virtual TValue GetJsonValueSafely<TValue>(JsonObject json, string fieldName, TValue defaultValue = default)
+            => json.PropertyValueSafely(fieldName, defaultValue);
 
-        protected virtual JObject ParsePayloadAsJsonSafely(ISqlTransactionalOutboxItem<TUniqueIdentifier> outboxItem)
+        protected virtual JsonObject ParsePayloadAsJsonSafely(ISqlTransactionalOutboxItem<TUniqueIdentifier> outboxItem)
         {
             try
             {
-                var json = JObject.Parse(outboxItem.Payload);
+                var json = outboxItem.Payload.FromJsonTo<JsonObject>();
                 return json;
             }
             catch (Exception exc)

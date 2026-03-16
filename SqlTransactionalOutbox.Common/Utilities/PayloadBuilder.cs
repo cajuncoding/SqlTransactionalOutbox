@@ -1,32 +1,27 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
-using Newtonsoft.Json.Serialization;
+using System.Text.Json;
+using System.Text.Json.Nodes;
+using System.Text.Json.Serialization;
 using SqlTransactionalOutbox.CustomExtensions;
 using SqlTransactionalOutbox.JsonExtensions;
 using SqlTransactionalOutbox.Publishing;
+using SystemTextJsonHelpers;
 
 namespace SqlTransactionalOutbox.Utilities
 {
     public class PayloadBuilder
     {
-        public static JsonSerializerSettings OutboxJsonSerializerSettings { get; set; } = new JsonSerializerSettings()
+        public PayloadBuilder(JsonSerializerOptions jsonSerializerOptions = null)
         {
-            ContractResolver = new DefaultContractResolver
-            {
-                NamingStrategy = new CamelCaseNamingStrategy()
-            },
-            NullValueHandling = NullValueHandling.Ignore,
-            DateFormatHandling = DateFormatHandling.IsoDateFormat,
-            // Ensure DateTimeOffset is used when reading
-            DateParseHandling = DateParseHandling.DateTimeOffset,
-            // Preserve whatever offset is in the JSON (Z, +00:00, -06:00, etc.)
-            DateTimeZoneHandling = DateTimeZoneHandling.RoundtripKind
-        };
+            JsonSerializerOptions = jsonSerializerOptions ?? InternalPayloadBuilderDefaultJsonSerializerOptions;
+        }
 
-        public static JsonSerializer OutboxJsonSerializer { get; set; } = JsonSerializer.Create(OutboxJsonSerializerSettings);
+        [JsonIgnore]
+        private static JsonSerializerOptions InternalPayloadBuilderDefaultJsonSerializerOptions => SqlTransactionalOutboxDefaults.DefaultJsonSerializerOptions;
+        [JsonIgnore]
+        public JsonSerializerOptions JsonSerializerOptions { get; set; }
 
         public string PublishTarget { get; set; }
         public string To { get; set; }
@@ -39,108 +34,48 @@ namespace SqlTransactionalOutbox.Utilities
         public string CorrelationId { get; set; }
         public string ReplyTo { get; set; }
         public string ReplyToSessionId { get; set; }
-        public Dictionary<string, string> Headers { get; set; }
+        public Dictionary<string, string> Headers { get; set; } = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
-        public static PayloadBuilder FromObject<TObject>(TObject obj)
+        public static PayloadBuilder FromObject<TObject>(TObject obj, JsonSerializerOptions jsonSerializerOptions = null)
         {
-            var payload = new PayloadBuilder();
-
-            var json = JObject.FromObject(obj, OutboxJsonSerializer);
-            payload.ApplyValues(json);
-
-            return payload;
+            var json = obj?.ToJsonNode(jsonSerializerOptions ?? InternalPayloadBuilderDefaultJsonSerializerOptions);
+            return new PayloadBuilder(jsonSerializerOptions).ApplyValues(json as JsonObject);
         }
 
-        public static PayloadBuilder FromJsonSafely(string jsonText)
+        public static PayloadBuilder FromJson(string jsonText, JsonSerializerOptions jsonSerializerOptions = null)
         {
-            var payload = new PayloadBuilder();
-             
-            var json = JsonHelpers.ParseSafely(jsonText, OutboxJsonSerializerSettings);
-            if (json != null)
-                payload.ApplyValues(json);
-
-            return payload;
+            var json = JsonHelpers.ParseSafely(jsonText, jsonSerializerOptions ?? InternalPayloadBuilderDefaultJsonSerializerOptions);
+            return new PayloadBuilder(jsonSerializerOptions).ApplyValues(json as JsonObject);
         }
 
         public PayloadBuilder ApplyValues<TModel>(TModel model, bool overwriteExisting = true)
         {
-            model.AssertNotNull(nameof(model));
-            
-            var json = JObject.FromObject(model, OutboxJsonSerializer);
-            ApplyValues(json, overwriteExisting);
-
-            return this;
+            var json = model?.ToJsonNode(JsonSerializerOptions);
+            return ApplyValues(json as JsonObject, overwriteExisting);
         }
 
-        public PayloadBuilder ApplyValues(JObject json, bool overwriteExisting = true)
+        public PayloadBuilder ApplyValues(JsonObject json, bool overwriteExisting = true)
         {
-            json.AssertNotNull(nameof(json));
+            if(json is null)
+                return this;
 
-            var jsonValuesCaseInsensitiveLookup = json.Properties().ToLookup(
-                p => p.Name,
-                p => p.Value.Type switch
-                {
-                    JTokenType.Null => null,
-                    //Use ISO 8601 format for DateTime values to ensure consistency and proper parsing on the receiving end regardless of culture/locale settings.
-                    JTokenType.Date => json.ValueSafely<DateTimeOffset?>(p.Name)?.ToIso8601RoundTripFormat()
-                                        ?? json.ValueSafely<DateTime?>(p.Name)?.ToIso8601RoundTripFormat(),
-                    JTokenType.Boolean => p.Value.Value<bool>().ToString(),
-                    _ => p.Value.ToString()
-                },
-                StringComparer.OrdinalIgnoreCase
-            );
-
-            //Dynamically detect if the Json has a Body property (case-insensitive) and if not, then we will use the entire Json as the default Body content.
-            //  This allows for maximum flexibility in how the JSON Payload can be structured allowing dynamic Message Property initialization (e.g. PublishTarget, To, Subject, etc.) 
-            //  without forcing a specific structure on the JSON Payload...
-            //NOTE: This is necessary for the downstream ApplyValues() to correctly initialize the Body value from the JSON.
-            var jsonBodyProperty = json.Property(JsonMessageFields.Body, StringComparison.OrdinalIgnoreCase);
-            if (jsonBodyProperty == null)
-                json[JsonMessageFields.Body] = json.ToString(Formatting.None);
-
-            //Apply all discrete values...
-            ApplyValues(jsonValuesCaseInsensitiveLookup, overwriteExisting);
-
-            //Headers are available via Json Payload as a nested Json object (Key/Value)...
-            var jsonHeaders = json.ValueSafely<JObject>(JsonMessageFields.Headers)
-                ?? json.ValueSafely<JObject>(JsonMessageFields.UserProperties);
-            
-            if (jsonHeaders != null)
-            {
-                this.Headers = new Dictionary<string, string>();
-                //NOTE: We DO NOT convert headers to encoded names here for simplicity and to
-                //      prevent duplicate header name construction/encoding.
-                foreach (var prop in jsonHeaders.Properties())
-                {
-                    this.Headers[prop.Name] = prop.Value.ToString();
-                }
-            }
-
-            //Make Chainable...
-            return this;
-        }
-
-        public PayloadBuilder ApplyValues(ILookup<string, string> caseInsensitiveValuesLookup, bool overwriteExisting = true)
-        {
-            caseInsensitiveValuesLookup.AssertNotNull(nameof(caseInsensitiveValuesLookup));
-
-            PublishTarget = InitStringValue(PublishTarget, caseInsensitiveValuesLookup, overwriteExisting,
+            PublishTarget = InitStringValue(PublishTarget, json, overwriteExisting,
                 JsonMessageFields.PublishTarget,
                 JsonMessageFields.PublishTopic,
                 JsonMessageFields.QueueTarget,
                 JsonMessageFields.Topic
             );
             
-            To = InitStringValue(To, caseInsensitiveValuesLookup, overwriteExisting, JsonMessageFields.To);
+            To = InitStringValue(To, json, overwriteExisting, JsonMessageFields.To);
             
-            FifoGroupingId = InitStringValue(FifoGroupingId, caseInsensitiveValuesLookup, overwriteExisting,
+            FifoGroupingId = InitStringValue(FifoGroupingId, json, overwriteExisting,
                 JsonMessageFields.FifoGroupingId,
                 JsonMessageFields.SessionId
             );
 
             //Process teh Scheduled Publish Time as strongly typed DateTimeOffset...
             if (DateTimeOffset.TryParse(
-                    InitStringValue(ScheduledPublishDateTimeUtc?.ToString(), caseInsensitiveValuesLookup, overwriteExisting, 
+                    InitStringValue(ScheduledPublishDateTimeUtc?.ToString(), json, overwriteExisting, 
                         JsonMessageFields.ScheduledPublishDateTimeUtc,
                         JsonMessageFields.ScheduledPublishTime
                     ),
@@ -157,7 +92,7 @@ namespace SqlTransactionalOutbox.Utilities
             //OPTIONALLY, for convenience, handle Schedule Delay if an absolute Schedule time is not present...
             if(ScheduledPublishDateTimeUtc == null)
             {
-                var scheduleDelayTimeTemplate = InitStringValue(ScheduledDelayTimeSpan?.ToString(), caseInsensitiveValuesLookup, overwriteExisting,
+                var scheduleDelayTimeTemplate = InitStringValue(ScheduledDelayTimeSpan?.ToString(), json, overwriteExisting,
                     JsonMessageFields.ScheduledPublishDelay,
                     JsonMessageFields.ScheduledPublishDelayTimeSpan,
                     JsonMessageFields.ScheduledPublishDelayTemplate
@@ -171,64 +106,76 @@ namespace SqlTransactionalOutbox.Utilities
                 }
             }
 
-            Subject = InitStringValue(Subject, caseInsensitiveValuesLookup, overwriteExisting, JsonMessageFields.Subject, JsonMessageFields.Label);
+            Subject = InitStringValue(Subject, json, overwriteExisting, JsonMessageFields.Subject, JsonMessageFields.Label);
             
-            CorrelationId = InitStringValue(CorrelationId, caseInsensitiveValuesLookup, overwriteExisting, JsonMessageFields.CorrelationId);
+            CorrelationId = InitStringValue(CorrelationId, json, overwriteExisting, JsonMessageFields.CorrelationId);
             
-            ReplyTo = InitStringValue(ReplyTo, caseInsensitiveValuesLookup, overwriteExisting, JsonMessageFields.ReplyTo);
+            ReplyTo = InitStringValue(ReplyTo, json, overwriteExisting, JsonMessageFields.ReplyTo);
             
-            ReplyToSessionId = InitStringValue(ReplyToSessionId, caseInsensitiveValuesLookup, overwriteExisting, JsonMessageFields.ReplyToSessionId);
+            ReplyToSessionId = InitStringValue(ReplyToSessionId, json, overwriteExisting, JsonMessageFields.ReplyToSessionId);
 
             //Init the Body and fallback to the original Json if not specified explicitly...
-            Body = InitStringValue(Body, caseInsensitiveValuesLookup, overwriteExisting, JsonMessageFields.Body);
+            //NOTE: We dynamically detect if the Payload Body can be successfully initialized (e.g. Json has a Body property (case-insensitive)) and if not,
+            //  then we will use the entire Json as the default Body content. This allows for maximum flexibility in how the JSON Payload can b
+            //  structured allowing dynamic Message Property initialization (e.g. PublishTarget, To, Subject, etc.) without forcing a specific
+            //  structure on the JSON Payload...
+            //NOTE: For the Body specifically we enable support for Complex values such as JsonObject, etc... and we co-erce it to string!
+            var bodyIsMissing = string.IsNullOrWhiteSpace(Body);
+            var shouldOverwriteBody =  bodyIsMissing || overwriteExisting;
+            Body = json[JsonMessageFields.Body] switch
+            {
+                JsonObject jsonObject when shouldOverwriteBody => jsonObject.ToJsonString(JsonSerializerOptions),
+                JsonNode jsonNode when shouldOverwriteBody && jsonNode.TryGetValueSafely<string>(out var value, JsonSerializerOptions) => value,
+                _ when bodyIsMissing => json.ToJsonString(JsonSerializerOptions),
+                //If no valid case for initializing the Body from the JSON then we fallback to the existing Body value which may be null/empty or already have a value
+                _ => Body
+            };
 
             //Look for ContentType but then fallback to detect it if not specified explicitly...
-            ContentType = InitStringValue(ContentType, caseInsensitiveValuesLookup, overwriteExisting, JsonMessageFields.ContentType)
+            ContentType = InitStringValue(ContentType, json, overwriteExisting, JsonMessageFields.ContentType)
                 ?? DetectContentType(Body);
 
-            ////Headers must be defined by JSON Payload for now...
-            //var headersList = new List<KeyValuePair<string, string>>();
+            //Headers are available via Json Payload as a nested Json object (Key/Value)...
+            var jsonHeaders = json[JsonMessageFields.Headers]?.AsObject()
+                ?? json[JsonMessageFields.UserProperties]?.AsObject();
 
-            //if (headersList?.Any() == true)
-            //    Headers = headersList;
+            if (jsonHeaders != null)
+            {
+                this.Headers ??= new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase); ;
+                //NOTE: We DO NOT convert headers to encoded names here for simplicity and to
+                //      prevent duplicate header name construction/encoding.
+                foreach (var prop in jsonHeaders.GetProperties(JsonDataTypeFilter.PrimitiveDataTypes))
+                    this.Headers[prop.Key] = prop.Value.ValueSafely<string>(options: JsonSerializerOptions);
+            }
 
             //Make Chainable...
             return this;
         }
 
         /// <summary>
-        /// Build a valid JObject from this Payload with standard default properties...
+        /// Build a valid JsonObject from this Payload with standard default properties...
         /// </summary>
         /// <returns></returns>
-        public JObject ToJObject()
-        {
-            var json = JObject.FromObject(this, OutboxJsonSerializer);
-            return json;
-        }
+        public JsonObject ToJsonObject() => this.ToJsonNode(JsonSerializerOptions) as JsonObject;
 
-        protected virtual string InitStringValue(string currentValue, ILookup<string, string> jsonValuesLookup, bool overwriteExisting, params string[] fieldNames)
+        protected virtual string InitStringValue(string currentValue, JsonObject json, bool overwriteExisting, params string[] fieldNames)
         {
-            string lookupValue = fieldNames?
-                //Map all specified names to lookup values (or null)
-                //NOTE: The Lookup should be Case Insenstivie already...
-                .Select(n => jsonValuesLookup[n].FirstOrDefault())
+            string value = fieldNames?
+                //Map all specified names to potentially existing values in our json (or null)
+                //NOTE: The JsonObject should be case-insensitive as set in the relaxed JsonSerializerOptions used to create the JsonObject.
+                .Select(n => json.PropertyValueSafely<string>(n, options: JsonSerializerOptions))
                 //Find the First non-null/empty/whitespace value...
                 .FirstOrDefault(v => !string.IsNullOrWhiteSpace(v));
 
-            if (lookupValue != null && (overwriteExisting || string.IsNullOrWhiteSpace(currentValue)))
-            {
-                //If current value is null/empty/whitespace or we can overwrite (not apply as fallback) then return the lookup value that we have!
-                return lookupValue;
-            }
-
-            return currentValue;
+            //Retur the first value we find if it is not null and we allowed to overwrite or the current value is null/empty/whitespace!
+            return value != null && (overwriteExisting || string.IsNullOrWhiteSpace(currentValue))
+                ? value
+                : currentValue;
         }
 
         protected virtual string DetectContentType(string payloadBody)
-        {
-            var isValidJson = JsonHelpers.IsValidJson(payloadBody);
-            var contentType = isValidJson ? MessageContentTypes.Json : MessageContentTypes.PlainText;
-            return contentType;
-        }
+            => JsonHelpers.IsValidJson(payloadBody)
+                ? MessageContentTypes.Json
+                : MessageContentTypes.PlainText;
     }
 }

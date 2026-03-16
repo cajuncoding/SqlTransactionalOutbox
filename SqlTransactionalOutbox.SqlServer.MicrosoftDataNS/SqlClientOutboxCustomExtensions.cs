@@ -35,7 +35,7 @@ namespace SqlTransactionalOutbox.SqlServer.MicrosoftDataNS
             CancellationToken cancellationToken = default
         )
         {
-            var payloadBuilder = PayloadBuilder.FromJsonSafely(jsonText);
+            var payloadBuilder = PayloadBuilder.FromJson(jsonText);
 
             //Publishing Target may be defined in the Payload OR as a discrete parameter that overrides the payload, 
             //  but it is REQUIRED!
@@ -51,7 +51,7 @@ namespace SqlTransactionalOutbox.SqlServer.MicrosoftDataNS
             var results = await sqlConnection
                 .AddTransactionalOutboxPendingItemAsync(
                     publishingTarget,
-                    payloadBuilder.ToJObject(),
+                    payloadBuilder.ToJsonObject(),
                     fifoGroupId,
                     scheduledPublishDateTimeUtc: validatedScheduledPublishDateTimeUtc,
                     cancellationToken: cancellationToken
@@ -192,7 +192,7 @@ namespace SqlTransactionalOutbox.SqlServer.MicrosoftDataNS
             CancellationToken cancellationToken = default
         )
         {
-            var payloadBuilder = PayloadBuilder.FromJsonSafely(jsonText);
+            var payloadBuilder = PayloadBuilder.FromJson(jsonText);
 
             //Publishing Target may be defined in the Payload OR as a discrete parameter that overrides the payload, 
             //  but it is REQUIRED!
@@ -206,7 +206,7 @@ namespace SqlTransactionalOutbox.SqlServer.MicrosoftDataNS
             var results = await sqlTransaction
                 .AddTransactionalOutboxPendingItemAsync(
                     publishingTarget,
-                    payloadBuilder.ToJObject(),
+                    payloadBuilder.ToJsonObject(),
                     fifoGroupId,
                     cancellationToken: cancellationToken
                 )

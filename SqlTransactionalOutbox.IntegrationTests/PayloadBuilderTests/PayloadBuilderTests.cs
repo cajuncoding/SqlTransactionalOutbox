@@ -1,11 +1,12 @@
 ﻿using System;
 using System.Linq;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
-using Newtonsoft.Json;
 using SqlTransactionalOutbox.JsonExtensions;
 using SqlTransactionalOutbox.Tests;
 using SqlTransactionalOutbox.Utilities;
 using SqlTransactionalOutbox.CustomExtensions;
+using SystemTextJsonHelpers;
+using System.Text.Json.Nodes;
 
 namespace SqlTransactionalOutbox.IntegrationTests
 {
@@ -29,7 +30,7 @@ namespace SqlTransactionalOutbox.IntegrationTests
                 }}            
             ";
 
-            var payloadBuilder = PayloadBuilder.FromJsonSafely(jsonText);
+            var payloadBuilder = PayloadBuilder.FromJson(jsonText);
 
             Assert.AreEqual(TestConfiguration.AzureServiceBusTopic, payloadBuilder.PublishTarget);
             Assert.AreEqual("HttpProxy-IntegrationTest", payloadBuilder.FifoGroupingId);
@@ -39,7 +40,7 @@ namespace SqlTransactionalOutbox.IntegrationTests
         }
 
         [TestMethod]
-        public void TestPayloadBuilderFromJsonToJObject()
+        public void TestPayloadBuilderFromJson()
         {
             var jsonText = $@"
                 {{
@@ -47,18 +48,52 @@ namespace SqlTransactionalOutbox.IntegrationTests
                     ""fifoGroupingId"": ""HttpProxy-IntegrationTest"",
                     ""to"": ""CajunCoding"",
                     ""body"": ""Testing Json Payload from HttpProxy"",
+                    ""scheduledPublishDateTimeUtc"": ""2026-02-27T04:25:00Z"",
+                    ""headers"": {{
+                        ""header1"": ""Value1"",
+                        ""header2"": ""Value2"",
+                        ""header3"": ""Value3""
+                    }}
+                }}            
+            ";
+
+            var payloadBuilder = PayloadBuilder.FromJson(jsonText);
+            var jsonPayload = payloadBuilder.ToJsonObject();
+
+            Assert.AreEqual(TestConfiguration.AzureServiceBusTopic, jsonPayload.PropertyValueSafely<string>(nameof(PayloadBuilder.PublishTarget)));
+            Assert.AreEqual("HttpProxy-IntegrationTest", jsonPayload.PropertyValueSafely<string>(nameof(PayloadBuilder.FifoGroupingId)));
+            Assert.AreEqual("CajunCoding", jsonPayload.PropertyValueSafely<string>(nameof(PayloadBuilder.To)));
+            Assert.AreEqual("Testing Json Payload from HttpProxy", jsonPayload.PropertyValueSafely<string>(nameof(PayloadBuilder.Body)));
+            Assert.AreEqual(DateTimeOffset.Parse("2026-02-27T04:25:00Z"), jsonPayload.PropertyValueSafely<DateTimeOffset>(nameof(PayloadBuilder.ScheduledPublishDateTimeUtc)));
+
+            Assert.AreEqual(3, payloadBuilder.Headers.Count);
+            Assert.AreEqual("Value1", payloadBuilder.Headers["header1"]);
+            Assert.AreEqual("Value2", payloadBuilder.Headers["header2"]);
+            Assert.AreEqual("Value3", payloadBuilder.Headers["header3"]);
+        }
+
+        [TestMethod]
+        public void TestPayloadBuilderFromJsonWithNoBodyDefined()
+        {
+            var jsonText = $@"
+                {{
+                    ""publishTopic"": ""{TestConfiguration.AzureServiceBusTopic}"",
+                    ""fifoGroupingId"": ""HttpProxy-IntegrationTest"",
+                    ""to"": ""CajunCoding"",
                     ""scheduledPublishDateTimeUtc"": ""2026-02-27T04:25:00Z""
                 }}            
             ";
 
-            var payloadBuilder = PayloadBuilder.FromJsonSafely(jsonText);
-            var jsonPayload = payloadBuilder.ToJObject();
+            var payloadBuilder = PayloadBuilder.FromJson(jsonText);
+            var jsonPayload = payloadBuilder.ToJsonObject();
 
-            Assert.AreEqual(TestConfiguration.AzureServiceBusTopic, jsonPayload.ValueSafely<string>(nameof(PayloadBuilder.PublishTarget)));
-            Assert.AreEqual("HttpProxy-IntegrationTest", jsonPayload.ValueSafely<string>(nameof(PayloadBuilder.FifoGroupingId)));
-            Assert.AreEqual("CajunCoding", jsonPayload.ValueSafely<string>(nameof(PayloadBuilder.To)));
-            Assert.AreEqual("Testing Json Payload from HttpProxy", jsonPayload.ValueSafely<string>(nameof(PayloadBuilder.Body)));
-            Assert.AreEqual(DateTimeOffset.Parse("2026-02-27T04:25:00Z"), jsonPayload.ValueSafely<DateTimeOffset>(nameof(PayloadBuilder.ScheduledPublishDateTimeUtc)));
+            var roundTripJsonText = jsonText.FromJsonTo<JsonNode>().ToJsonString();
+            Assert.AreEqual(roundTripJsonText, jsonPayload.PropertyValueSafely<string>(nameof(PayloadBuilder.Body)));
+
+            Assert.AreEqual(TestConfiguration.AzureServiceBusTopic, jsonPayload.PropertyValueSafely<string>(nameof(PayloadBuilder.PublishTarget)));
+            Assert.AreEqual("HttpProxy-IntegrationTest", jsonPayload.PropertyValueSafely<string>(nameof(PayloadBuilder.FifoGroupingId)));
+            Assert.AreEqual("CajunCoding", jsonPayload.PropertyValueSafely<string>(nameof(PayloadBuilder.To)));
+            Assert.AreEqual(DateTimeOffset.Parse("2026-02-27T04:25:00Z"), jsonPayload.PropertyValueSafely<DateTimeOffset>(nameof(PayloadBuilder.ScheduledPublishDateTimeUtc)));
         }
 
         [TestMethod]
@@ -111,7 +146,7 @@ namespace SqlTransactionalOutbox.IntegrationTests
 
             //Compare and Validate the Complex Body values...
             var originalBody = tempObject.Body;
-            var payloadBody = JsonConvert.DeserializeObject<ComplexBody>(payloadBuilder.Body, PayloadBuilder.OutboxJsonSerializerSettings);
+            var payloadBody = payloadBuilder.Body.FromJsonTo<ComplexBody>(payloadBuilder.JsonSerializerOptions);
             Assert.AreEqual(originalBody.Message, payloadBody.Message);
             Assert.IsTrue(originalBody.Ids.SequenceEqual(payloadBody.Ids));
             Assert.IsTrue(originalBody.Guids.SequenceEqual(payloadBody.Guids));
@@ -137,7 +172,7 @@ namespace SqlTransactionalOutbox.IntegrationTests
                 PublishTarget = TestConfiguration.AzureServiceBusTopic, // aka Topic for Azure Service Bus!
                 FifoGroupingId = "HttpProxy-IntegrationTest",
                 To = "CajunCoding",
-                Body = JsonConvert.SerializeObject(complexBodyModel, PayloadBuilder.OutboxJsonSerializerSettings)
+                Body = complexBodyModel.ToJson(SqlTransactionalOutboxDefaults.DefaultJsonSerializerOptions)
             }
             .ApplyValues(complexBodyModel);
 
@@ -148,7 +183,7 @@ namespace SqlTransactionalOutbox.IntegrationTests
 
             //Compare and Validate the Complex Body values...
             var originalBody = complexBodyModel;
-            var payloadBody = JsonConvert.DeserializeObject<ComplexBody>(payloadBuilder.Body, PayloadBuilder.OutboxJsonSerializerSettings);
+            var payloadBody = payloadBuilder.Body.FromJsonTo<ComplexBody>(payloadBuilder.JsonSerializerOptions);
             Assert.AreEqual(originalBody.Message, payloadBody.Message);
             Assert.IsTrue(originalBody.Ids.SequenceEqual(payloadBody.Ids));
             Assert.IsTrue(originalBody.Guids.SequenceEqual(payloadBody.Guids));

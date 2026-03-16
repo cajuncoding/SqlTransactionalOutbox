@@ -50,12 +50,6 @@ jobs:
           # Filepath of the project to be packaged, relative to root of repository
           PROJECT_FILE_PATH: SqlTransactionalOutbox.SqlServer.MicrosoftDataNS/SqlTransactionalOutbox.SqlServer.MicrosoftDataNS.csproj
           NUGET_KEY: ${{secrets.NUGET_API_KEY}}
-      - name: "Publish NuGet: SqlTransactionalOutbox.SqlServer.SystemDataNS"
-        uses: alirezanet/publish-nuget@v3.0.4
-        with:
-          # Filepath of the project to be packaged, relative to root of repository
-          PROJECT_FILE_PATH: SqlTransactionalOutbox.SqlServer.SystemDataNS/SqlTransactionalOutbox.SqlServer.SystemDataNS.csproj
-          NUGET_KEY: ${{secrets.NUGET_API_KEY}}
       - name: "Publish NuGet: SqlTransactionalOutbox.AzureServiceBus"
         uses: alirezanet/publish-nuget@v3.0.4
         with:

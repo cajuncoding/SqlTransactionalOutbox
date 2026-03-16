@@ -47,7 +47,7 @@ namespace SqlTransactionalOutbox.SampleApp.ConsoleApp
             //************************************************************
             var outboxItem = await sqlConnection.AddTransactionalOutboxPendingItemAsync(
                 publishTarget: payloadBuilder.PublishTarget,
-                payload: payloadBuilder.ToJObject()
+                payload: payloadBuilder.ToJsonObject()
             ).ConfigureAwait(false);
 
             return outboxItem;

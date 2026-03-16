@@ -36,7 +36,7 @@ namespace SqlTransactionalOutbox
             //  itself (e.g. Publish Target, Fifo Grouping Identifier, Scheduled Publish DateTime, etc.)
             var payloadBuilder = publishingPayload switch
             {
-                string s => PayloadBuilder.FromJsonSafely(s),
+                string s => PayloadBuilder.FromJson(s),
                 object obj => PayloadBuilder.FromObject(obj),
                 _ => null
             };

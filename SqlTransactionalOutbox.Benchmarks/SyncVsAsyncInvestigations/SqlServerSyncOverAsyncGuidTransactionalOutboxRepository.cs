@@ -2,12 +2,12 @@
 //using System.Linq;
 //using System.Collections.Generic;
 //using System.Data;
-//using System.Data.SqlClient;
+//using Microsoft.Data.SqlClient;
 //using System.Threading.Tasks;
-//using SqlAppLockHelper.SystemDataNS;
+//using SqlAppLockHelper.MicrosoftDataNS;
 //using SqlTransactionalOutbox.CustomExtensions;
 
-//namespace SqlTransactionalOutbox.SqlServer.SystemDataNS
+//namespace SqlTransactionalOutbox.SqlServer.MicrosoftDataNS
 //{
 //    public class SqlServerSyncOverAsyncGuidTransactionalOutboxRepository<TPayload> : SqlServerGuidTransactionalOutboxRepository<TPayload>
 //    {

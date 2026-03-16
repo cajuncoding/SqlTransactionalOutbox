@@ -96,7 +96,7 @@ namespace SqlTransactionalOutbox.Tests
 
             //Extract the Body from the original OutboxItem to compare (apples to apples) to the received item from
             //  being published where the Payload would be automatically populated from the Body property mapping.
-            var payloadBuilder = PayloadBuilder.FromJsonSafely(outboxItem.Payload);
+            var payloadBuilder = PayloadBuilder.FromJson(outboxItem.Payload);
             Assert.AreEqual(payloadBuilder.Body, publishedItem.Payload);
 
             //Dates need to be compared at the Millisecond level due to minute differences in Ticks when re-parsing(?)...

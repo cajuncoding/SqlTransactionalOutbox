@@ -1,6 +1,8 @@
 ﻿using System;
 using System.IO;
-using Newtonsoft.Json.Linq;
+using System.Linq;
+using System.Text.Json.Nodes;
+using SystemTextJsonHelpers;
 
 namespace SqlTransactionalOutbox.SampleApp.Common.Configuration
 {
@@ -19,12 +21,12 @@ namespace SqlTransactionalOutbox.SampleApp.Common.Configuration
             const string settingsFileName = "local.settings.json";
             var basePath = Directory.GetCurrentDirectory();
             var localSettingsJsonText = File.ReadAllText(Path.Combine(basePath, settingsFileName));
-            var localSettingsJson = JObject.Parse(localSettingsJsonText);
+            var localSettingsJson = localSettingsJsonText.FromJsonTo<JsonObject>();
 
-            var valuesJson = (JObject)(localSettingsJson["Values"] ?? throw new Exception($"'Values' node cannot be found in file [{settingsFileName}]."));
-            foreach (var setting in valuesJson.Properties())
+            var valuesJson = localSettingsJson?["Values"] as JsonObject ?? throw new Exception($"'Values' node cannot be found in file [{settingsFileName}].");
+            foreach (var setting in valuesJson.Where(kv => kv.Value is not null))
             {
-                Environment.SetEnvironmentVariable(setting.Name, setting.Value.ToString());
+                Environment.SetEnvironmentVariable(setting.Key, setting.Value!.GetValue<string>());
             }
         }
     }
