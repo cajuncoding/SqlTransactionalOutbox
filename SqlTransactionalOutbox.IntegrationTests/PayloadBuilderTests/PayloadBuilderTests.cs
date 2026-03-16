@@ -146,7 +146,7 @@ namespace SqlTransactionalOutbox.IntegrationTests
 
             //Compare and Validate the Complex Body values...
             var originalBody = tempObject.Body;
-            var payloadBody = payloadBuilder.Body.FromJsonTo<ComplexBody>(PayloadBuilder.OutboxJsonSerializerOptions);
+            var payloadBody = payloadBuilder.Body.FromJsonTo<ComplexBody>(payloadBuilder.JsonSerializerOptions);
             Assert.AreEqual(originalBody.Message, payloadBody.Message);
             Assert.IsTrue(originalBody.Ids.SequenceEqual(payloadBody.Ids));
             Assert.IsTrue(originalBody.Guids.SequenceEqual(payloadBody.Guids));
@@ -172,7 +172,7 @@ namespace SqlTransactionalOutbox.IntegrationTests
                 PublishTarget = TestConfiguration.AzureServiceBusTopic, // aka Topic for Azure Service Bus!
                 FifoGroupingId = "HttpProxy-IntegrationTest",
                 To = "CajunCoding",
-                Body = complexBodyModel.ToJson(PayloadBuilder.OutboxJsonSerializerOptions)
+                Body = complexBodyModel.ToJson(SqlTransactionalOutboxDefaults.DefaultJsonSerializerOptions)
             }
             .ApplyValues(complexBodyModel);
 
@@ -183,7 +183,7 @@ namespace SqlTransactionalOutbox.IntegrationTests
 
             //Compare and Validate the Complex Body values...
             var originalBody = complexBodyModel;
-            var payloadBody = payloadBuilder.Body.FromJsonTo<ComplexBody>(PayloadBuilder.OutboxJsonSerializerOptions);
+            var payloadBody = payloadBuilder.Body.FromJsonTo<ComplexBody>(payloadBuilder.JsonSerializerOptions);
             Assert.AreEqual(originalBody.Message, payloadBody.Message);
             Assert.IsTrue(originalBody.Ids.SequenceEqual(payloadBody.Ids));
             Assert.IsTrue(originalBody.Guids.SequenceEqual(payloadBody.Guids));

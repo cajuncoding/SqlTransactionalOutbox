@@ -173,6 +173,13 @@ CREATE NONCLUSTERED INDEX [IDX_TransactionalOutboxQueue_Status_ScheduledPublishD
 GO
 
 ```
+## Release Notes v2.0:
+V2.0 has been released with the following major updates, optimizations, and breaking changes:
+- Breaking Change: Completely removed support for `System.Data.SqlClient` in favor of only supporting `Microsoft.Data.SqlClient` going forward -- especially since Microsoft has fully decprecated `System.Data.SqlClient`.
+- Breaking Change: JSON serialization is now fully migrated to `System.Text.Json` as it is the recommended and modern JSON library for .Net; and also to eliminate the dependency on `Newtonsoft.Json`.
+- Breaking Change: Migrated to `.Net 8+` support only -- this along with the above also bring along with them additional performance improvements and better support as `.Net 6` is no longer supported by Microsoft.
+- Improved `System.Text.Json` support and flexibility with the help of [SystemTextJsonHelpers](https://github.com/cajuncoding/SystemTextJsonHelpers) that provides more relaxe JSON parsing, serialization, and global configuration options.
+- Improved `SqlTransactionalOutboxInitializer` and cconfiguration APIs -- now supports more flexible configuration of the Outbox as well as the Default `JsonSerializerOptions` used by convenience extension methods.
 
 ## Release Notes v1.1.0:
 - New support for scheduled publishing of Events from the Outbox via `ScheduledPublishDateTimeUtc` property.

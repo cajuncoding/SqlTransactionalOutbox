@@ -16,7 +16,7 @@
     <PackageReference Include="Microsoft.Azure.Functions.Worker.Extensions.ServiceBus" Version="5.24.0" />
     <PackageReference Include="Microsoft.Azure.Functions.Worker.Extensions.Timer" Version="4.3.1" />
     <PackageReference Include="Functions.Worker.HttpResponseDataCompression" Version="1.0.2" />
-    <PackageReference Include="Functions.Worker.HttpResponseDataJsonMiddleware" Version="1.0.2" />
+    <PackageReference Include="Functions.Worker.HttpResponseDataJsonMiddleware" Version="1.1.0" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\SqlTransactionalOutbox.AzureServiceBus\SqlTransactionalOutbox.AzureServiceBus.csproj" />
