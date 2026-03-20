@@ -129,7 +129,7 @@ namespace SqlTransactionalOutbox.AzureServiceBus.Publishing
                 if (headers is JsonObject jsonHeaders)
                     foreach (var propName in jsonHeaders.GetPropertyNames())
                         if(jsonHeaders.PropertyValueSafely<string>(propName) is string stringValue)
-                            message.ApplicationProperties.Add(MessageHeaders.ToHeader(propName.ToLower()), stringValue);
+                            message.ApplicationProperties.TryAdd(MessageHeaders.ToHeader(propName.ToLower()), stringValue);
 
             }
             else //Process the payload as a raw string with no additional dynamic fields...

@@ -114,7 +114,7 @@ NOTES:
                 //  are published to Azure Service Bus before their scheduled time and allow some tolerance for processing delays, etc.!
                 //  This may also be impacted by other configuration options such as overall outbox load/throughput, processing batch sizes, etc.
                 options.ScheduledPublishPrefetchTime = TimeSpan.FromMinutes(2);
-            })            .;
+            });
     });
 ```
 
@@ -173,6 +173,10 @@ CREATE NONCLUSTERED INDEX [IDX_TransactionalOutboxQueue_Status_ScheduledPublishD
 GO
 
 ```
+
+## Release Notes v2.0.1:
+- Fix Bug where missing outbox-item-scheduled-publish-date-utc in the Message would result in exceptions; it should be optional.
+
 ## Release Notes v2.0:
 V2.0 has been released with the following major updates, optimizations, and breaking changes:
 - Breaking Change: Completely removed support for `System.Data.SqlClient` in favor of only supporting `Microsoft.Data.SqlClient` going forward -- especially since Microsoft has fully decprecated `System.Data.SqlClient`.

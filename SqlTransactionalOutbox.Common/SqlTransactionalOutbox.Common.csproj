@@ -3,7 +3,7 @@
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
     <RootNamespace>SqlTransactionalOutbox</RootNamespace>
-    <Version>2.0</Version>
+    <Version>2.0.1</Version>
     <Authors>BBernard / CajunCoding</Authors>
     <Copyright>Copyright © 2021</Copyright>
     <Description>
@@ -16,6 +16,7 @@
     <PackageTags>sql server sqlserver sql-server transactional outbox transactional-outbox outbox-pattern microservice eventservices event-services event-notifications azure service bus azurefunctions azure-functions</PackageTags>
     <PackageReleaseNotes>
       V2.0 Release Notes:
+      - Fix Bug where missing outbox-item-scheduled-publish-date-utc in the Message would result in exceptions; it should be optional.
       - Breaking Change: Completely removed support for System.Data.SqlClient in favor of only supporting Microsoft.Data.SqlClient going forward -- especially since Microsoft has fully decprecated System.Data.SqlClient.
       - Breaking Change: JSON serialization is now fully migrated to System.Text.Json as it is the recommended and modern JSON library for .Net; and also to eliminate the dependency on Newtonsoft.Json.
       - Breaking Change: Migrated to .Net 8+ support only -- this along with the above also bring along with them additional performance improvements and better support as .Net 6 is no longer supported by Microsoft.

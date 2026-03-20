@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading;
@@ -100,12 +101,12 @@ namespace SqlTransactionalOutbox.AzureServiceBus.Receiving
 
             var outboxItem = this.OutboxItemFactory.CreateExistingOutboxItem(
                 uniqueIdentifier: azureServiceBusMessage.MessageId,
-                createdDateTimeUtc: (DateTimeOffset)azureServiceBusMessage.ApplicationProperties[MessageHeaders.OutboxCreatedDateUtc],
-                scheduledPublishDateTimeUtc: (DateTimeOffset?)azureServiceBusMessage.ApplicationProperties[MessageHeaders.OutboxScheduledPublishDateUtc],
+                createdDateTimeUtc: azureServiceBusMessage.ApplicationProperties.GetValueSafely<DateTimeOffset>(MessageHeaders.OutboxCreatedDateUtc),
+                scheduledPublishDateTimeUtc: azureServiceBusMessage.ApplicationProperties.GetValueSafely<DateTimeOffset?>(MessageHeaders.OutboxScheduledPublishDateUtc),
                 status: OutboxItemStatus.Successful.ToString(),
                 fifoGroupingIdentifier: azureServiceBusMessage.SessionId,
-                publishAttempts: (int)azureServiceBusMessage.ApplicationProperties[MessageHeaders.OutboxPublishingAttempts],
-                publishTarget: (string)azureServiceBusMessage.ApplicationProperties[MessageHeaders.OutboxPublishingTarget],
+                publishAttempts: azureServiceBusMessage.ApplicationProperties.GetValueSafely<int>(MessageHeaders.OutboxPublishingAttempts),
+                publishTarget: azureServiceBusMessage.ApplicationProperties.GetValueSafely<string>(MessageHeaders.OutboxPublishingTarget),
                 serializedPayload: Encoding.UTF8.GetString(azureServiceBusMessage.Body)
             );
 
